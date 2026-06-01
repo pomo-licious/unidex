@@ -1,93 +1,258 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// src/pages/AppTracker.jsx — Application status kanban board
+// src/pages/AppTracker.jsx — Application status kanban board (Supabase-backed)
 //
-// Shows all tracked applications as cards arranged in 5 columns by status:
-//   Researching → Applied → Interview → Offer → Rejected
+// All four CRUD operations now talk directly to Supabase:
 //
-// The student can:
-//   • See a summary count bar at the top (how many in each stage)
-//   • Click "Move to…" on any card to change its status column
-//   • Click "Add College" to track a new college (shows a modal)
+//   LOAD   — SELECT applications.*, colleges(name,location,type,deadlines)
+//            RLS automatically filters to the logged-in student's rows only.
 //
-// Currently uses MOCK_APPLICATIONS as its starting data (in local state).
-// All moves and adds only affect local state — nothing is saved to Supabase yet.
+//   ADD    — INSERT into applications (student_id, college_id, status, notes)
+//            Requires fetching the student's UUID first (auth.uid() → students.id)
 //
-// When wired up:
-//   • Load apps with: SELECT * FROM applications WHERE student_id = ...
-//   • moveApp should call: UPDATE applications SET status = ? WHERE id = ?
-//   • addApp should call:  INSERT INTO applications (student_id, college_id, ...) VALUES (...)
+//   MOVE   — UPDATE applications SET status = ? WHERE id = ?
+//            Optimistic update: UI changes instantly, rolled back if Supabase rejects.
 //
+//   DELETE — DELETE FROM applications WHERE id = ?
+//            Optimistic removal with snapshot rollback on error.
+//
+// Note: The `colleges` table must be seeded before the Add modal dropdown works.
 // Route: /tracker
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
-import { MOCK_APPLICATIONS, COLLEGES, STATUSES, STATUS_META, daysUntil } from '../lib/mockData'
+import { supabase } from '../lib/supabase'
+import { STATUSES, STATUS_META } from '../lib/mockData'
 
+// ─── Helper: days from today until a date string ──────────────────────────────
+// Uses the real current date (unlike the hardcoded version in mockData.js)
+function daysFromNow(dateStr) {
+  if (!dateStr) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)   // Strip time so comparison is date-only
+  return Math.round((new Date(dateStr) - today) / (1000 * 60 * 60 * 24))
+}
+
+// ─── Helper: pick the nearest deadline from colleges.deadlines JSONB ─────────
+// colleges.deadlines is an array of { round, date, type } objects
+// Returns the earliest upcoming date, or the latest past date if all are closed
+function nearestDeadline(deadlines) {
+  if (!Array.isArray(deadlines) || deadlines.length === 0) return null
+  const today = new Date().toISOString().split('T')[0]   // "YYYY-MM-DD"
+  const dates = deadlines.map(d => d.date).filter(Boolean).sort()
+  const future = dates.filter(d => d >= today)
+  return future[0] ?? dates.at(-1) ?? null   // Prefer upcoming; fall back to most recent past
+}
+
+// ─── Helper: normalise a raw Supabase application row into a flat UI object ──
+// Supabase returns nested colleges: { name, location, type, deadlines }
+// We flatten this so every component just reads app.college, app.deadline, etc.
+function normaliseApp(row) {
+  return {
+    id:         row.id,
+    status:     row.status,
+    notes:      row.notes,
+    college_id: row.college_id,
+    college:    row.colleges?.name     ?? 'Unknown college',
+    location:   row.colleges?.location ?? '',
+    type:       row.colleges?.type     ?? '',
+    deadline:   nearestDeadline(row.colleges?.deadlines),
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AppTracker — main page component
+// ─────────────────────────────────────────────────────────────────────────────
 export default function AppTracker() {
   const navigate = useNavigate()
 
-  // ── apps — the live list of applications (starts from mock data) ───────────
-  const [apps, setApps] = useState(MOCK_APPLICATIONS)
+  // ── Data state ─────────────────────────────────────────────────────────────
+  const [apps, setApps]           = useState([])        // flattened application rows
+  const [allColleges, setAllColleges] = useState([])    // all colleges (for add modal)
+  const [studentId, setStudentId] = useState(null)      // students.id for the logged-in user
 
-  // ── showAdd — controls whether the "Add College" modal is visible ──────────
-  const [showAdd, setShowAdd] = useState(false)
+  // ── UI state ───────────────────────────────────────────────────────────────
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState(null)
+  const [showAdd, setShowAdd]     = useState(false)
+  const [newApp, setNewApp]       = useState({ college_id: '', notes: '' })
+  const [saving, setSaving]       = useState(false)
+  const [saveError, setSaveError] = useState(null)
 
-  // ── newApp — form state for the add-college modal ─────────────────────────
-  const [newApp, setNewApp] = useState({ college_id: '', notes: '' })
+  // ── loadData — fetches everything needed to render the board ──────────────
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
 
-  // ── moveApp — updates the status of a single application by ID ────────────
-  function moveApp(id, status) {
-    // Map over all apps; only change the one matching the given ID
-    setApps(prev => prev.map(a => a.id === id ? { ...a, status } : a))
-  }
-
-  // ── addApp — creates a new application entry from the modal form ──────────
-  function addApp() {
-    const college = COLLEGES.find(c => c.id === newApp.college_id)
-    if (!college) return   // Safety check: don't proceed if no college was selected
-
-    // Build the new application object with a timestamp-based ID
-    const entry = {
-      id:         `a${Date.now()}`,  // Temporary ID — real Supabase inserts generate a UUID
-      college_id: college.id,
-      college:    college.name,
-      status:     'Researching',     // All new applications start in the Researching column
-      deadline:   college.deadline,
-      notes:      newApp.notes,
+    // Step 1: confirm the user is logged in
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) {
+      setError('You need to be logged in to view your applications.')
+      setLoading(false)
+      return
     }
 
-    // Prepend to the list (newest first) and close the modal
-    setApps(prev => [entry, ...prev])
+    // Step 2: get the student row ID — needed for INSERT later
+    // RLS on students means this only returns their own row
+    const { data: studentRow, error: studentError } = await supabase
+      .from('students')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (studentError || !studentRow) {
+      setError('No student profile found. Please complete your signup first.')
+      setLoading(false)
+      return
+    }
+    setStudentId(studentRow.id)
+
+    // Step 3: fetch all applications for this student, joined with college details
+    // RLS handles the filtering — only rows where student_id belongs to this user are returned
+    const { data: appRows, error: appError } = await supabase
+      .from('applications')
+      .select(`
+        id,
+        status,
+        notes,
+        last_updated,
+        college_id,
+        colleges (
+          name,
+          location,
+          type,
+          deadlines
+        )
+      `)
+      .order('last_updated', { ascending: false })
+
+    if (appError) {
+      setError(`Failed to load applications: ${appError.message}`)
+      setLoading(false)
+      return
+    }
+    setApps(appRows.map(normaliseApp))
+
+    // Step 4: fetch all colleges for the add-application modal dropdown
+    // Public read — no auth needed, but will be empty until the table is seeded
+    const { data: collegeRows } = await supabase
+      .from('colleges')
+      .select('id, name, type, location')
+      .order('name')
+
+    if (collegeRows) setAllColleges(collegeRows)
+
+    setLoading(false)
+  }, [])
+
+  // Run loadData once when the component first mounts
+  useEffect(() => { loadData() }, [loadData])
+
+  // ── addApp — INSERT a new application row into Supabase ───────────────────
+  async function addApp() {
+    if (!newApp.college_id || !studentId) return
+    setSaving(true)
+    setSaveError(null)
+
+    // Insert the row and immediately select it back with the college join
+    // so we can add it to local state without a full re-fetch
+    const { data, error: insertError } = await supabase
+      .from('applications')
+      .insert({
+        student_id: studentId,
+        college_id: newApp.college_id,
+        status:     'Researching',
+        notes:      newApp.notes || null,
+      })
+      .select(`
+        id, status, notes, last_updated, college_id,
+        colleges ( name, location, type, deadlines )
+      `)
+      .single()
+
+    if (insertError) {
+      setSaveError(insertError.message)
+      setSaving(false)
+      return
+    }
+
+    // Prepend the new app to local state (newest first, no full re-fetch needed)
+    setApps(prev => [normaliseApp(data), ...prev])
     setNewApp({ college_id: '', notes: '' })
+    setSaving(false)
     setShowAdd(false)
   }
 
-  // ── byStatus — groups applications by their status for easy column rendering ──
-  // Produces: { Researching: [...], Applied: [...], Interview: [...], ... }
+  // ── moveApp — UPDATE status with optimistic UI ────────────────────────────
+  async function moveApp(id, newStatus) {
+    // Capture old status so we can roll back if Supabase rejects the update
+    const oldStatus = apps.find(a => a.id === id)?.status
+
+    // Optimistic update — move the card instantly in the UI
+    setApps(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a))
+
+    const { error: updateError } = await supabase
+      .from('applications')
+      .update({ status: newStatus })
+      .eq('id', id)
+
+    // Roll back to original status if the update failed
+    if (updateError) {
+      setApps(prev => prev.map(a => a.id === id ? { ...a, status: oldStatus } : a))
+      setError(`Failed to move card: ${updateError.message}`)
+    }
+  }
+
+  // ── deleteApp — DELETE with optimistic removal ────────────────────────────
+  async function deleteApp(id) {
+    // Snapshot the full list so we can restore it if the delete fails
+    const snapshot = apps
+    setApps(prev => prev.filter(a => a.id !== id))
+
+    const { error: deleteError } = await supabase
+      .from('applications')
+      .delete()
+      .eq('id', id)
+
+    // Restore snapshot if delete failed
+    if (deleteError) {
+      setApps(snapshot)
+      setError(`Failed to delete: ${deleteError.message}`)
+    }
+  }
+
+  // ── Derived state ──────────────────────────────────────────────────────────
+
+  // Group apps by status for column rendering: { Researching: [...], Applied: [...] }
   const byStatus = STATUSES.reduce((acc, s) => {
     acc[s] = apps.filter(a => a.status === s)
     return acc
   }, {})
 
-  // ── addableColleges — only show colleges not already tracked in the modal ──
-  const alreadyTracked  = new Set(apps.map(a => a.college_id))
-  const addableColleges = COLLEGES.filter(c => !alreadyTracked.has(c.id))
+  // Colleges the user isn't already tracking — shown in the add modal dropdown
+  const trackedIds      = new Set(apps.map(a => a.college_id))
+  const addableColleges = allColleges.filter(c => !trackedIds.has(c.id))
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <Layout>
       <div className="px-6 py-8">
 
-        {/* ── Page header + Add College button ── */}
+        {/* ── Page header + Add button ── */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">My Applications</h1>
-            <p className="text-sm text-gray-500 mt-1">{apps.length} college{apps.length !== 1 ? 's' : ''} tracked</p>
+            <p className="text-sm text-gray-500 mt-1">
+              {loading
+                ? 'Loading…'
+                : `${apps.length} college${apps.length !== 1 ? 's' : ''} tracked`}
+            </p>
           </div>
           <button
             onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors">
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
@@ -95,43 +260,125 @@ export default function AppTracker() {
           </button>
         </div>
 
-        {/* ── Summary strip — pill for each status with count ── */}
-        <div className="flex gap-3 mb-6 overflow-x-auto pb-1">
-          {STATUSES.map(s => (
-            <div key={s} className={`shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border ${STATUS_META[s].border} bg-white`}>
-              {/* Coloured dot */}
-              <div className={`w-2 h-2 rounded-full ${STATUS_META[s].dot}`} />
-              <span className="text-xs font-medium text-gray-700">{s}</span>
-              {/* Count in the status's own colour */}
-              <span className={`text-sm font-bold ${STATUS_META[s].color.split(' ')[1]}`}>{byStatus[s].length}</span>
+        {/* ── Error banner — dismissible ── */}
+        {error && (
+          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="ml-4 text-red-400 hover:text-red-600 font-bold">✕</button>
+          </div>
+        )}
+
+        {/* ── Loading spinner ── */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-3">
+            <div className="w-8 h-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
+            <p className="text-sm text-gray-400">Loading your applications…</p>
+          </div>
+
+        ) : (
+          <>
+            {/* ── Status summary pills ── */}
+            <div className="flex gap-3 mb-6 overflow-x-auto pb-1">
+              {STATUSES.map(s => (
+                <div key={s}
+                  className={`shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border ${STATUS_META[s].border} bg-white`}>
+                  <div className={`w-2 h-2 rounded-full ${STATUS_META[s].dot}`} />
+                  <span className="text-xs font-medium text-gray-700">{s}</span>
+                  <span className={`text-sm font-bold ${STATUS_META[s].color.split(' ')[1]}`}>
+                    {byStatus[s].length}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+
+            {/* ── Empty state ── */}
+            {apps.length === 0 ? (
+              <div className="text-center py-20">
+                <p className="text-4xl mb-4">📋</p>
+                <p className="text-sm font-semibold text-gray-700">No applications yet</p>
+                <p className="text-xs text-gray-400 mt-1">Add a college above to start tracking your MBA journey.</p>
+                <button
+                  onClick={() => navigate('/colleges')}
+                  className="mt-4 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors">
+                  Browse colleges →
+                </button>
+              </div>
+
+            ) : (
+              /* ── Kanban board — horizontally scrollable ── */
+              <div className="flex gap-4 overflow-x-auto pb-4">
+                {STATUSES.map(status => (
+                  <div key={status} className="w-56 shrink-0 flex flex-col gap-3">
+
+                    {/* Column header: dot + name + count */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${STATUS_META[status].dot}`} />
+                        <span className="text-xs font-semibold text-gray-700">{status}</span>
+                      </div>
+                      <span className="text-xs font-bold text-gray-400">{byStatus[status].length}</span>
+                    </div>
+
+                    {/* Dashed drop zone */}
+                    <div className={`min-h-[120px] rounded-xl border-2 border-dashed ${STATUS_META[status].border} p-2 space-y-2`}>
+                      {byStatus[status].map(app => (
+                        <AppCard key={app.id} app={app} onMove={moveApp} onDelete={deleteApp} />
+                      ))}
+                      {byStatus[status].length === 0 && (
+                        <div className="h-16 flex items-center justify-center">
+                          <p className="text-xs text-gray-300">Empty</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
         {/* ── Add College modal ── */}
-        {/* Only renders when showAdd is true */}
         {showAdd && (
-          // Semi-transparent full-screen overlay — clicking outside doesn't close (intentional for MVP)
           <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl border border-gray-200 p-6 w-full max-w-sm shadow-xl">
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Add College to Tracker</h3>
 
+              {/* Save error */}
+              {saveError && (
+                <p className="mb-3 text-xs text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
+                  {saveError}
+                </p>
+              )}
+
               <div className="space-y-3">
-                {/* College selector — only shows colleges not already tracked */}
+                {/* College selector */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">College *</label>
-                  <select
-                    value={newApp.college_id}
-                    onChange={e => setNewApp(n => ({ ...n, college_id: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                    <option value="">Select a college…</option>
-                    {addableColleges.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                  {addableColleges.length === 0 ? (
+                    // Colleges table not yet seeded — show friendly message
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                      <p className="text-xs text-amber-700 font-medium">No colleges available yet</p>
+                      <p className="text-xs text-amber-600 mt-0.5">
+                        The college database needs to be seeded first.
+                        <button onClick={() => navigate('/colleges')} className="ml-1 underline">
+                          Browse the directory →
+                        </button>
+                      </p>
+                    </div>
+                  ) : (
+                    <select
+                      value={newApp.college_id}
+                      onChange={e => setNewApp(n => ({ ...n, college_id: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                      <option value="">Select a college…</option>
+                      {addableColleges.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
-                {/* Optional notes field */}
+                {/* Notes */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
                   <textarea
@@ -144,59 +391,19 @@ export default function AppTracker() {
               </div>
 
               <div className="flex gap-2 mt-5">
-                <button onClick={() => setShowAdd(false)}
+                <button
+                  onClick={() => { setShowAdd(false); setSaveError(null) }}
                   className="flex-1 py-2 rounded-lg border border-gray-300 text-xs font-medium text-gray-600 hover:bg-gray-50">
                   Cancel
                 </button>
-                {/* Disabled until a college is chosen */}
-                <button onClick={addApp} disabled={!newApp.college_id}
+                <button
+                  onClick={addApp}
+                  disabled={!newApp.college_id || saving}
                   className="flex-1 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed">
-                  Add to Tracker
+                  {saving ? 'Adding…' : 'Add to Tracker'}
                 </button>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* ── Kanban board — or empty state if no apps ── */}
-        {apps.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-gray-400 text-sm">No applications tracked yet.</p>
-            <button onClick={() => navigate('/colleges')} className="mt-2 text-sm text-indigo-600 hover:underline">
-              Browse colleges →
-            </button>
-          </div>
-        ) : (
-          // Horizontal flex container — scrolls sideways if columns don't fit
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            {STATUSES.map(status => (
-              // Each column is a fixed width so all 5 fit without squishing
-              <div key={status} className="w-56 shrink-0 flex flex-col gap-3">
-
-                {/* Column header: coloured dot + status name + count */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${STATUS_META[status].dot}`} />
-                    <span className="text-xs font-semibold text-gray-700">{status}</span>
-                  </div>
-                  <span className="text-xs font-bold text-gray-400">{byStatus[status].length}</span>
-                </div>
-
-                {/* Dashed border drop zone — contains all cards for this status */}
-                <div className={`min-h-[120px] rounded-xl border-2 border-dashed ${STATUS_META[status].border} p-2 space-y-2`}>
-                  {byStatus[status].map(app => (
-                    <AppCard key={app.id} app={app} onMove={moveApp} />
-                  ))}
-
-                  {/* Placeholder shown in empty columns */}
-                  {byStatus[status].length === 0 && (
-                    <div className="h-16 flex items-center justify-center">
-                      <p className="text-xs text-gray-300">Empty</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
           </div>
         )}
       </div>
@@ -205,33 +412,61 @@ export default function AppTracker() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AppCard — a single application card inside a kanban column
-//
-// Shows: college name, deadline urgency chip, notes preview, and a
-// "Move to…" dropdown that lets the student change the application's status.
+// AppCard — single kanban card
 //
 // Props:
-//   app    — the application object { id, college, status, deadline, notes }
-//   onMove — callback: onMove(appId, newStatus) — called when the user picks a new status
+//   app      — flat application object: { id, college, status, notes, deadline, type }
+//   onMove   — (id, newStatus) called when user picks a status from the dropdown
+//   onDelete — (id) called when user confirms deletion
 // ─────────────────────────────────────────────────────────────────────────────
-function AppCard({ app, onMove }) {
-  // open — controls whether the "Move to…" dropdown is visible
-  const [open, setOpen] = useState(false)
+function AppCard({ app, onMove, onDelete }) {
+  // menuOpen — whether the "Move to…" status dropdown is visible
+  const [menuOpen, setMenuOpen]           = useState(false)
 
-  const days = daysUntil(app.deadline)
+  // confirmDelete — shows an inline "Remove this? Yes / No" prompt before deleting
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
-  // All statuses except the current one — these become the dropdown options
+  const days         = daysFromNow(app.deadline)
   const nextStatuses = STATUSES.filter(s => s !== app.status)
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-2.5 shadow-sm hover:shadow-md transition-shadow relative">
 
-      {/* College name */}
-      <p className="text-xs font-semibold text-gray-900 leading-snug">{app.college}</p>
+      {/* College name + delete icon */}
+      <div className="flex items-start justify-between gap-1">
+        <p className="text-xs font-semibold text-gray-900 leading-snug">{app.college}</p>
+        <button
+          onClick={() => setConfirmDelete(true)}
+          title="Remove application"
+          className="shrink-0 p-0.5 text-gray-300 hover:text-rose-400 transition-colors">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
 
-      {/* Deadline chip — colour changes based on urgency */}
-      {/* Hidden for Offer and Rejected (deadline no longer relevant) */}
-      {app.status !== 'Offer' && app.status !== 'Rejected' && (
+      {/* Inline delete confirmation — avoids a separate modal for a small action */}
+      {confirmDelete && (
+        <div className="rounded-lg bg-rose-50 border border-rose-200 p-2 flex items-center justify-between gap-2">
+          <p className="text-xs text-rose-700">Remove this?</p>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="text-xs px-2 py-0.5 rounded bg-white border border-rose-200 text-rose-600 hover:bg-rose-50">
+              No
+            </button>
+            <button
+              onClick={() => onDelete(app.id)}
+              className="text-xs px-2 py-0.5 rounded bg-rose-500 text-white hover:bg-rose-600">
+              Yes
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Deadline urgency chip — hidden for Offer and Rejected cards */}
+      {app.status !== 'Offer' && app.status !== 'Rejected' && days !== null && (
         <span className={`inline-block text-xs px-2 py-0.5 rounded-lg font-medium
           ${days < 0  ? 'bg-gray-100 text-gray-500'   :
             days < 30 ? 'bg-rose-100 text-rose-700'   :
@@ -241,7 +476,7 @@ function AppCard({ app, onMove }) {
         </span>
       )}
 
-      {/* Special status chips for Offer and Rejected */}
+      {/* Terminal status chips */}
       {app.status === 'Offer' && (
         <span className="inline-block text-xs px-2 py-0.5 rounded-lg font-medium bg-emerald-100 text-emerald-700">
           Offer received
@@ -253,16 +488,15 @@ function AppCard({ app, onMove }) {
         </span>
       )}
 
-      {/* Notes — truncated to 2 lines */}
+      {/* Notes — clamped to 2 lines */}
       {app.notes && (
         <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">{app.notes}</p>
       )}
 
-      {/* ── Move to… dropdown ── */}
+      {/* Move to… dropdown */}
       <div className="relative">
-        {/* Toggle button — clicking opens/closes the dropdown */}
         <button
-          onClick={() => setOpen(o => !o)}
+          onClick={() => setMenuOpen(o => !o)}
           className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-xs text-gray-500 font-medium transition-colors">
           Move to…
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -270,13 +504,13 @@ function AppCard({ app, onMove }) {
           </svg>
         </button>
 
-        {/* Dropdown menu — appears above the button (bottom-full) */}
-        {open && (
+        {/* Dropdown — floats above the button */}
+        {menuOpen && (
           <div className="absolute bottom-full mb-1 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
             {nextStatuses.map(s => (
               <button
                 key={s}
-                onClick={() => { onMove(app.id, s); setOpen(false) }}
+                onClick={() => { onMove(app.id, s); setMenuOpen(false) }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors">
                 <div className={`w-1.5 h-1.5 rounded-full ${STATUS_META[s].dot}`} />
                 {s}
