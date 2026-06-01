@@ -136,7 +136,7 @@ Break any next task into ≤2-hour chunks if it's large. Never show the full roa
 |---|---|
 | **Product** | Unidex — MBA college discovery, application tracking, deadline management for Indian students |
 | **Stage** | Pre-MVP · Week 1 of 10 |
-| **Builder** | Solo · intermediate React dev · using Cursor + AI assistance |
+| **Builder** | Solo · intermediate React dev · using VS Code + Claude Code extension |
 | **Stack** | React + Tailwind · Supabase · Anthropic API · Vercel + Railway |
 | **Business model** | Free → ₹500–1,000 premium → college analytics fee |
 | **Saved docs** | `unidex_iteration_log.md` (session audit), `AGENTS.md` (this file) |

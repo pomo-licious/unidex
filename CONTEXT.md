@@ -9,7 +9,7 @@ for Indian students. Solo build, pre-MVP, Week 1 of 10.
 - Backend: Supabase (auth + database + RLS)
 - AI: Anthropic API (claude-sonnet-4-20250514)
 - Deploy: Vercel (frontend) + Railway (backend later)
-- Editor: Cursor / VS Code + Claude Code
+- Editor: VS Code + Claude Code extension
 
 ## Data models
 
