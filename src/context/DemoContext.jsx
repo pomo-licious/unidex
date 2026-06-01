@@ -12,7 +12,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-const DEMO_EMAIL = 'demo@unidex.in'
+const DEMO_EMAIL = 'demo@unidex.co.in'
 
 const DemoContext = createContext(false)
 
