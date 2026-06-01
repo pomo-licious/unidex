@@ -20,9 +20,40 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
-import { COLLEGES, MOCK_APPLICATIONS, MOCK_STUDENT, TYPE_META, fitLabel, daysUntil, formatFees } from '../lib/mockData'
+import { COLLEGES, MOCK_APPLICATIONS, MOCK_STUDENT, TYPE_META, fitLabel, formatFees } from '../lib/mockData'
 
 const TYPES = ['All', 'IIM', 'IIT', 'Private', 'Government']
+
+// ─── nearestUpcoming ─────────────────────────────────────────────────────────
+// Finds the nearest future deadline from a college's deadlines array.
+// Also handles the legacy mock-data format where colleges have a single
+// `deadline` string instead of a `deadlines` array, so this works whether
+// CollegeDirectory is reading from Supabase or from mockData.js.
+//
+// Returns: { round: "R1", date: "2026-11-15", days: 167 }  or  null
+function nearestUpcoming(college) {
+  // Build a normalised array from whichever format the college object uses
+  let deadlines = []
+  if (Array.isArray(college.deadlines) && college.deadlines.length > 0) {
+    deadlines = college.deadlines                              // real Supabase format
+  } else if (college.deadline) {
+    deadlines = [{ round: 'R1', date: college.deadline, type: 'CAT' }]  // mock fallback
+  }
+
+  // Strip time so comparison is purely date-based
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const upcoming = deadlines
+    .filter(d => d.date && new Date(d.date) > today)
+    .sort((a, b) => new Date(a.date) - new Date(b.date))  // ascending — nearest first
+
+  if (upcoming.length === 0) return null
+
+  const nearest = upcoming[0]
+  const days = Math.round((new Date(nearest.date) - today) / (1000 * 60 * 60 * 24))
+  return { round: nearest.round, days }
+}
 
 export default function CollegeDirectory() {
   const navigate = useNavigate()
@@ -128,7 +159,7 @@ export default function CollegeDirectory() {
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map(college => {
               const fit       = fitLabel(catPct, college.cutoff)   // "Strong match", "Good fit", or "Reach"
-              const days      = daysUntil(college.deadline)         // Days until application deadline
+              const nearest   = nearestUpcoming(college)            // { round, days } or null
               const isTracked = tracked.has(college.id)             // Is this college already in the tracker?
 
               return (
@@ -157,23 +188,20 @@ export default function CollegeDirectory() {
                     <Stat label="Seats"      value={`${college.seats}`} />
                   </div>
 
-                  {/* Deadline section with urgency chip */}
+                  {/* Nearest upcoming deadline badge */}
                   <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <div>
-                      <p className="text-xs text-gray-400">Application deadline</p>
-                      <p className="text-xs font-semibold text-gray-700 mt-0.5">
-                        {/* Format date as "15 Nov 2026" style */}
-                        {new Date(college.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </p>
-                    </div>
-                    {/* Deadline chip: green if >90 days, amber if 30–90, red if <30, gray if closed */}
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-lg
-                      ${days < 0  ? 'bg-gray-100 text-gray-500'   :
-                        days < 30 ? 'bg-rose-100 text-rose-700'   :
-                        days < 90 ? 'bg-amber-100 text-amber-700' :
-                                    'bg-emerald-100 text-emerald-700'}`}>
-                      {days < 0 ? 'Closed' : `${days}d left`}
-                    </span>
+                    <p className="text-xs text-gray-400">Next deadline</p>
+                    {nearest ? (
+                      // Badge colour: red ≤14d, amber 15–30d, green 31+d
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg
+                        ${nearest.days <= 14 ? 'bg-rose-100 text-rose-700'   :
+                          nearest.days <= 30 ? 'bg-amber-100 text-amber-700' :
+                                               'bg-emerald-100 text-emerald-700'}`}>
+                        {nearest.round} — {nearest.days}d
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">No deadlines set</span>
+                    )}
                   </div>
 
                   {/* Add/Remove tracker button — toggles between filled/outline style */}
