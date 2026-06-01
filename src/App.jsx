@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { DemoProvider } from './context/DemoContext'
 
 // ── Import every page component ──
 import Signup          from './pages/Signup'
@@ -18,6 +19,8 @@ import AppTracker      from './pages/AppTracker'
 
 export default function App() {
   return (
+    // DemoProvider checks auth and exposes isDemo flag to all components
+    <DemoProvider>
     // BrowserRouter enables URL-based navigation throughout the whole app
     <BrowserRouter>
       <Routes>
@@ -40,5 +43,6 @@ export default function App() {
         <Route path="/tracker"    element={<AppTracker />} />
       </Routes>
     </BrowserRouter>
+    </DemoProvider>
   )
 }

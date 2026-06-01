@@ -11,6 +11,8 @@
 
 import { NavLink, useNavigate } from 'react-router-dom'
 import { MOCK_STUDENT } from '../lib/mockData'
+import { useIsDemo } from '../context/DemoContext'
+import { LeaderboardAd } from './AdBanner'
 
 // ─── Sidebar navigation items ────────────────────────────────────────────────
 // Each item has a URL path, a display label, and an inline SVG icon.
@@ -52,6 +54,7 @@ const NAV = [
 // Accepts `children` — whatever the page puts inside <Layout>...</Layout>
 export default function Layout({ children }) {
   const navigate = useNavigate()
+  const isDemo   = useIsDemo()
 
   // Generate initials from the student's name (e.g. "Arjun Sharma" → "AS")
   const initials = MOCK_STUDENT.name.split(' ').map(n => n[0]).join('')
@@ -120,8 +123,12 @@ export default function Layout({ children }) {
 
       {/* ── Main content area — everything to the right of the sidebar ── */}
       {/* ml-60 = left margin equal to sidebar width so content doesn't overlap */}
-      <main className="ml-60 flex-1 min-h-screen">
-        {children}
+      <main className="ml-60 flex-1 min-h-screen flex flex-col">
+        {/* Leaderboard ad — only visible for demo@unidex.in (investor mode) */}
+        {isDemo && <LeaderboardAd />}
+        <div className="flex-1">
+          {children}
+        </div>
       </main>
     </div>
   )

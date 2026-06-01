@@ -24,6 +24,8 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { STATUSES, STATUS_META } from '../lib/mockData'
+import { useIsDemo } from '../context/DemoContext'
+import { SidebarAds } from '../components/AdBanner'
 
 // ─── Helper: days from today until a date string ──────────────────────────────
 // Uses the real current date (unlike the hardcoded version in mockData.js)
@@ -66,6 +68,7 @@ function normaliseApp(row) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AppTracker() {
   const navigate = useNavigate()
+  const isDemo   = useIsDemo()
 
   // ── Data state ─────────────────────────────────────────────────────────────
   const [apps, setApps]           = useState([])        // flattened application rows
@@ -237,7 +240,9 @@ export default function AppTracker() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <Layout>
-      <div className="px-6 py-8">
+      {/* Two-column layout: kanban + right ad sidebar (demo mode only) */}
+      <div className="flex items-start">
+      <div className="flex-1 min-w-0 px-6 py-8">
 
         {/* ── Page header + Add button ── */}
         <div className="flex items-center justify-between mb-6">
@@ -404,6 +409,14 @@ export default function AppTracker() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+      </div>
+
+        {/* Right ad sidebar — only visible for demo@unidex.in, hidden on mobile */}
+        {isDemo && (
+          <div className="w-72 shrink-0 px-4 py-8 hidden lg:block">
+            <SidebarAds />
           </div>
         )}
       </div>

@@ -20,6 +20,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
+import { useIsDemo } from '../context/DemoContext'
+import { SidebarAds } from '../components/AdBanner'
 import { COLLEGES, MOCK_APPLICATIONS, MOCK_STUDENT, TYPE_META, fitLabel, formatFees } from '../lib/mockData'
 
 const TYPES = ['All', 'IIM', 'IIT', 'Private', 'Government']
@@ -57,6 +59,7 @@ function nearestUpcoming(college) {
 
 export default function CollegeDirectory() {
   const navigate = useNavigate()
+  const isDemo   = useIsDemo()
 
   // Pull the student's CAT percentile for fit calculations
   const catPct = MOCK_STUDENT.academic_background.cat_percentile
@@ -93,7 +96,9 @@ export default function CollegeDirectory() {
 
   return (
     <Layout>
-      <div className="px-6 py-8">
+      {/* Two-column layout: main content + right ad sidebar (demo mode only) */}
+      <div className="flex items-start">
+      <div className="flex-1 min-w-0 px-6 py-8">
 
         {/* ── Page header ── */}
         <div className="mb-6">
@@ -216,6 +221,14 @@ export default function CollegeDirectory() {
                 </div>
               )
             })}
+          </div>
+        )}
+      </div>
+
+        {/* Right ad sidebar — only visible for demo@unidex.in, hidden on mobile */}
+        {isDemo && (
+          <div className="w-72 shrink-0 px-4 py-8 hidden lg:block">
+            <SidebarAds />
           </div>
         )}
       </div>
