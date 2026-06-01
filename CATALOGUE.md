@@ -106,6 +106,26 @@ Also sets up:
 
 ---
 
+### `supabase/seed_colleges.sql`
+**What it is:** One-time data seed — populates the `colleges` table with 60 real Indian MBA programmes.
+
+Safe to re-run: every INSERT uses `ON CONFLICT (name) DO UPDATE`, so running it
+twice won't create duplicates. Also contains the `ALTER TABLE` that adds the `tier`
+column to `colleges` — so run this file before any code that filters by tier.
+
+**What's seeded:**
+
+| Tier | Count | Colleges | Fees range |
+|---|---|---|---|
+| 1 | 20 | Old IIMs, IITs, ISB, XLRI, FMS, MDI, SPJIMR, new IIMs | ₹1.92L – ₹45L |
+| 2 | 20 | NITIE, XIMB, IMT, TAPMI, GIM, SIBM, SCMHRD, baby IIMs, etc. | ₹2.5L – ₹19L |
+| 3 | 20 | Alliance, Christ, Amity, IILM, Woxsen, SOIL, IISWBM, etc. | ₹3.5L – ₹17L |
+
+Each college includes: name, type, location, avg_fees, tier, website_url, and
+a `deadlines` JSONB array with realistic 2026–2027 application cycle dates.
+
+---
+
 ## Library / Shared utilities
 
 ### `src/lib/supabase.js`
