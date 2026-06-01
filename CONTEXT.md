@@ -80,20 +80,27 @@ unidex/
 ├── .env                       ← VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
 └── .gitignore                 ← must include .env
 
+## Repo & deploy
+- GitHub: https://github.com/pomo-licious/unidex (public, main protected)
+- Vercel: https://biz-sable.vercel.app (auto-deploys on push to main)
+
 ## What's done
 - [x] Schema designed and written (supabase/schema.sql)
 - [x] Implementation plan laid out (10 steps)
 - [x] AGENTS.md written with agent routing + coding rules
-- [ ] React project created (npm create vite)
-- [ ] Tailwind installed and configured
-- [ ] Supabase project created
-- [ ] schema.sql run in Supabase SQL Editor
-- [ ] src/lib/supabase.js created
-- [ ] Signup.jsx built
-- [ ] CollegeDirectory.jsx built
-- [ ] AppTracker.jsx built
-- [ ] Routing wired in App.jsx
-- [ ] Pushed to GitHub
+- [x] React project created (Vite + React)
+- [x] Tailwind v4 installed and configured
+- [x] Supabase project created (project: Biz, eu-west-1)
+- [x] schema.sql run in Supabase — all 4 tables + RLS live
+- [x] src/lib/supabase.js created
+- [x] Signup.jsx built (real Supabase auth)
+- [x] Onboarding.jsx built (3-step wizard)
+- [x] Profile.jsx built (concept screen)
+- [x] CollegeDirectory.jsx built
+- [x] AppTracker.jsx built (kanban)
+- [x] Routing wired in App.jsx
+- [x] Pushed to GitHub + Vercel auto-deploy connected
+- [x] CATALOGUE.md + inline comments on all files
 
 ## What to build next (in order)
 1. Run supabase/schema.sql in Supabase SQL Editor
