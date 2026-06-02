@@ -18,3 +18,6 @@ createRoot(document.getElementById('root')).render(
     <App />
   </StrictMode>,
 )
+
+// Remove the initial HTML loader once React has rendered
+document.getElementById('initial-loader')?.remove()

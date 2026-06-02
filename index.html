@@ -7,6 +7,15 @@
     <title>tmp</title>
   </head>
   <body>
+    <div id="initial-loader" style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #f0f4ff 0%, #f0f9ff 100%); z-index: 9999;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+        <div style="width: 2rem; height: 2rem; border: 2px solid #e0e7ff; border-top-color: #4f46e5; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <p style="font-size: 0.875rem; color: #666; font-family: system-ui, -apple-system, sans-serif;">Loading Unidex…</p>
+      </div>
+      <style>
+        @keyframes spin { to { transform: rotate(360deg); } }
+      </style>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

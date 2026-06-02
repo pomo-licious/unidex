@@ -15,4 +15,18 @@ export default defineConfig({
     react(),        // Enables React + JSX support
     tailwindcss(),  // Scans all files for Tailwind classes and generates the CSS
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react')) return 'vendor-react'
+            if (id.includes('supabase')) return 'vendor-supabase'
+            return 'vendor-other'
+          }
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
+  }
 })
