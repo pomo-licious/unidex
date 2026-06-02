@@ -39,8 +39,11 @@ export default function App() {
 
   useEffect(() => {
     // Check if user is currently logged in
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user)
+    supabase.auth.getUser().then(({ data: { user }, error }) => {
+      setUser(user || null)
+      setLoading(false)
+    }).catch(() => {
+      setUser(null)
       setLoading(false)
     })
 

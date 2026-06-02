@@ -24,6 +24,8 @@ export function DemoProvider({ children }) {
     // Check the current session on mount
     supabase.auth.getUser().then(({ data: { user } }) => {
       setIsDemo(user?.email === DEMO_EMAIL)
+    }).catch(() => {
+      setIsDemo(false)
     })
 
     // Update whenever the user logs in or out
