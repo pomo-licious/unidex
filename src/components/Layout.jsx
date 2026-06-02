@@ -13,6 +13,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { MOCK_STUDENT } from '../lib/mockData'
 import { useIsDemo } from '../context/DemoContext'
 import { LeaderboardAd } from './AdBanner'
+import { supabase } from '../lib/supabase'
 
 // ─── Sidebar navigation items ────────────────────────────────────────────────
 // Each item has a URL path, a display label, and an inline SVG icon.
@@ -69,6 +70,12 @@ export default function Layout({ children }) {
   // Generate initials from the student's name (e.g. "Arjun Sharma" → "AS")
   const initials = MOCK_STUDENT.name.split(' ').map(n => n[0]).join('')
 
+  // ── handleLogout — sign out and redirect to login ──
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    navigate('/login')
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
 
@@ -116,8 +123,8 @@ export default function Layout({ children }) {
           </div>
         </nav>
 
-        {/* User chip at the bottom of the sidebar — shows name and role */}
-        <div className="px-4 py-4 border-t border-gray-100">
+        {/* User chip at the bottom of the sidebar — shows name, role, and logout button */}
+        <div className="px-4 py-4 border-t border-gray-100 space-y-3">
           <div className="flex items-center gap-3">
             {/* Avatar circle with initials */}
             <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
@@ -128,6 +135,15 @@ export default function Layout({ children }) {
               <p className="text-xs text-gray-400 truncate">{MOCK_STUDENT.role}</p>
             </div>
           </div>
+          {/* Logout button */}
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-700 transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Sign out
+          </button>
         </div>
       </aside>
 
