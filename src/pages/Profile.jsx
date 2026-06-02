@@ -12,23 +12,85 @@
 // Route: /profile
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
-import { MOCK_STUDENT, MOCK_APPLICATIONS, STATUS_META, STATUSES, COLLEGES, TYPE_META, fitLabel } from '../lib/mockData'
+import { supabase } from '../lib/supabase'
+import { MOCK_APPLICATIONS, STATUS_META, STATUSES, COLLEGES, TYPE_META, fitLabel } from '../lib/mockData'
 
 export default function Profile() {
   const navigate = useNavigate()
 
-  // editing state reserved for future "inline edit" functionality (not yet active)
+  const [student, setStudent] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [editing, setEditing] = useState(false)
 
-  // Shorthand aliases to keep the JSX readable
-  const s  = MOCK_STUDENT
-  const ab = s.academic_background
+  // Fetch real student data on mount
+  useEffect(() => {
+    async function loadStudent() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          setError('Not logged in')
+          setLoading(false)
+          return
+        }
 
-  // Generate avatar initials from full name ("Arjun Sharma" → "AS")
-  const initials = s.name.split(' ').map(n => n[0]).join('')
+        const { data, error: fetchErr } = await supabase
+          .from('students')
+          .select('*')
+          .eq('user_id', user.id)
+          .single()
+
+        if (fetchErr || !data) {
+          setError(fetchErr?.message || 'Student profile not found')
+          setLoading(false)
+          return
+        }
+
+        setStudent(data)
+        setLoading(false)
+      } catch (err) {
+        setError(err.message)
+        setLoading(false)
+      }
+    }
+
+    loadStudent()
+  }, [])
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <div className="w-8 h-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin mx-auto" />
+            <p className="text-sm text-gray-400 mt-3">Loading profile…</p>
+          </div>
+        </div>
+      </Layout>
+    )
+  }
+
+  if (error || !student) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <p className="text-red-600 font-medium">{error || 'Profile not found'}</p>
+          </div>
+        </div>
+      </Layout>
+    )
+  }
+
+  // Shorthand aliases to keep the JSX readable
+  const s  = student
+  const ab = s.academic_background || {}
+
+  // Generate avatar initials from full name
+  const initials = s.name?.split(' ').map(n => n[0]).join('') || 'U'
 
   // ── statusCounts — count how many applications are in each status ──────────
   // Produces { Researching: 1, Applied: 2, Interview: 1, Offer: 1, Rejected: 1 }
@@ -57,14 +119,13 @@ export default function Profile() {
 
               <div>
                 <h1 className="text-xl font-bold text-gray-900">{s.name}</h1>
-                <p className="text-sm text-gray-600 mt-0.5">{s.role} · {s.company}</p>
+                <p className="text-sm text-gray-600 mt-0.5">{s.email}</p>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <span className="text-xs text-gray-400">{s.email}</span>
-                  <span className="text-gray-300">·</span>
-                  <span className="text-xs text-gray-400">{s.city}</span>
-                  <span className="text-gray-300">·</span>
-                  {/* CAT year badge */}
-                  <span className="text-xs bg-indigo-50 text-indigo-600 font-medium px-2 py-0.5 rounded-full">CAT {s.cat_year}</span>
+                  {ab.grad_year && (
+                    <>
+                      <span className="text-xs bg-indigo-50 text-indigo-600 font-medium px-2 py-0.5 rounded-full">Batch {ab.grad_year}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

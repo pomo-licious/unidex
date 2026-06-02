@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NavLink, useNavigate } from 'react-router-dom'
-import { MOCK_STUDENT } from '../lib/mockData'
+import { useEffect, useState } from 'react'
 import { useIsDemo } from '../context/DemoContext'
 import { NewsTicker } from './NewsTicker'
 import { supabase } from '../lib/supabase'
@@ -66,9 +66,33 @@ const NAV = [
 export default function Layout({ children }) {
   const navigate = useNavigate()
   const isDemo   = useIsDemo()
+  const [student, setStudent] = useState(null)
 
-  // Generate initials from the student's name (e.g. "Arjun Sharma" → "AS")
-  const initials = MOCK_STUDENT.name.split(' ').map(n => n[0]).join('')
+  // Fetch real student data on mount
+  useEffect(() => {
+    async function loadStudent() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data } = await supabase
+          .from('students')
+          .select('name')
+          .eq('user_id', user.id)
+          .single()
+
+        if (data) setStudent(data)
+      } catch (err) {
+        console.error('Failed to load student:', err)
+      }
+    }
+
+    loadStudent()
+  }, [])
+
+  // Generate initials from the student's name
+  const name = student?.name || 'U'
+  const initials = name.split(' ').map(n => n[0]).join('')
 
   // ── handleLogout — sign out and redirect to login ──
   async function handleLogout() {
@@ -123,7 +147,7 @@ export default function Layout({ children }) {
           </div>
         </nav>
 
-        {/* User chip at the bottom of the sidebar — shows name, role, and logout button */}
+        {/* User chip at the bottom of the sidebar — shows name and logout button */}
         <div className="px-4 py-4 border-t border-gray-100 space-y-3">
           <div className="flex items-center gap-3">
             {/* Avatar circle with initials */}
@@ -131,8 +155,7 @@ export default function Layout({ children }) {
               {initials}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium text-gray-800 truncate">{MOCK_STUDENT.name}</p>
-              <p className="text-xs text-gray-400 truncate">{MOCK_STUDENT.role}</p>
+              <p className="text-sm font-medium text-gray-800 truncate">{student?.name || 'Loading…'}</p>
             </div>
           </div>
           {/* Logout button */}
