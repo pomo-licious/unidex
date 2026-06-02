@@ -8,15 +8,28 @@ import { supabase } from '../lib/supabase'
 const TIERS = ['All', 'Tier 1', 'Tier 2', 'Tier 3']
 
 const MATCH_SCORE_THRESHOLDS = {
-  'Tier 1': { strong: 98, moderate: 95 },
-  'Tier 2': { strong: 90, moderate: 85 },
-  'Tier 3': { strong: 80, moderate: 70 },
+  1: { strong: 98, moderate: 95 },
+  2: { strong: 90, moderate: 85 },
+  3: { strong: 80, moderate: 70 },
 }
 
 const TIER_STYLES = {
-  'Tier 1': 'bg-blue-50 text-blue-700 border border-blue-200',
-  'Tier 2': 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-  'Tier 3': 'bg-slate-100 text-slate-600 border border-slate-200',
+  1: 'bg-blue-50 text-blue-700 border border-blue-200',
+  2: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  3: 'bg-slate-100 text-slate-600 border border-slate-200',
+}
+
+const getTierDisplay = (tier) => {
+  const tierNum = tier || 3
+  return `Tier ${tierNum}`
+}
+
+const getTierNumber = (tierString) => {
+  if (tierString === 'All') return undefined
+  if (tierString === 'Tier 1') return 1
+  if (tierString === 'Tier 2') return 2
+  if (tierString === 'Tier 3') return 3
+  return undefined
 }
 
 export default function CollegeDirectory() {
@@ -29,14 +42,17 @@ export default function CollegeDirectory() {
   const [adding, setAdding]       = useState(new Set())
 
   const { colleges, loading } = useColleges({
-    tier:   tier === 'All' ? undefined : tier,
+    tier:   getTierNumber(tier),
     search: search || undefined,
   })
 
   // Auth listener — with cleanup and empty dependency array
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => setUser(session?.user ?? null)
+      (event, session) => {
+        setUser(session?.user ?? null)
+        console.log('CollegeDir: auth user', session?.user?.id)
+      }
     )
     return () => subscription?.unsubscribe()
   }, [])
@@ -47,6 +63,7 @@ export default function CollegeDirectory() {
 
     async function fetchStudent() {
       try {
+        console.log('CollegeDir: fetching student data for user', user?.id)
         const { data } = await supabase
           .from('students')
           .select('academic_background')
@@ -54,6 +71,8 @@ export default function CollegeDirectory() {
           .single()
 
         setStudent(data)
+        console.log('CollegeDir: student data', data)
+        console.log('CollegeDir: cat_percentile', data?.academic_background?.cat_percentile)
 
         // Fetch tracked college IDs
         const { data: appData } = await supabase
@@ -189,10 +208,12 @@ function CollegeCard({ college: c, onClick, student, isTracked, isAdding, onAdd 
     }
 
     const cat = student.academic_background.cat_percentile
-    const tier = c.tier || 'Tier 3'
+    const tier = c.tier || 3
+    console.log('CollegeDir: computing score for tier', tier, 'with percentile', cat)
     const thresholds = MATCH_SCORE_THRESHOLDS[tier]
 
     if (!thresholds) {
+      console.warn('CollegeDir: no thresholds found for tier', tier, 'MATCH_SCORE_THRESHOLDS:', MATCH_SCORE_THRESHOLDS)
       return { label: 'Score unavailable', color: 'bg-slate-50 text-slate-400' }
     }
 
@@ -248,8 +269,8 @@ function CollegeCard({ college: c, onClick, student, isTracked, isAdding, onAdd 
 
       {/* Footer */}
       <div className="flex items-center justify-between mt-2">
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TIER_STYLES[c.tier] || TIER_STYLES['Tier 3']}`}>
-          {c.tier || 'Tier 2'}
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TIER_STYLES[c.tier] || TIER_STYLES[3]}`}>
+          {getTierDisplay(c.tier)}
         </span>
         {nextDeadline ? (
           <span className="text-xs text-slate-400">
