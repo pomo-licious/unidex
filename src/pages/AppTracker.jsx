@@ -439,8 +439,54 @@ function AppCard({ app, onMove, onDelete }) {
   // confirmDelete — shows an inline "Remove this? Yes / No" prompt before deleting
   const [confirmDelete, setConfirmDelete] = useState(false)
 
+  // sopOpen — whether the SOP checklist is expanded
+  const [sopOpen, setSopOpen] = useState(false)
+
+  // sopState — the 5-item checklist for SOP steps
+  const [sopState, setSopState] = useState(() => {
+    // Parse notes to extract SOP checklist if it exists
+    try {
+      const data = JSON.parse(app.notes || '{}')
+      return data.sop || [false, false, false, false, false]
+    } catch {
+      return [false, false, false, false, false]
+    }
+  })
+
   const days         = daysFromNow(app.deadline)
   const nextStatuses = STATUSES.filter(s => s !== app.status)
+  const sopDone      = sopState.filter(Boolean).length
+
+  // ── saveSop — updates the SOP state in Supabase ──────────────────────────────
+  async function saveSop(newSop) {
+    setSopState(newSop)
+
+    // Merge with existing notes: parse, update sop, serialize
+    let data = {}
+    try {
+      data = JSON.parse(app.notes || '{}')
+    } catch {
+      data = {}
+    }
+    data.sop = newSop
+    const merged = JSON.stringify(data)
+
+    const { error } = await supabase
+      .from('applications')
+      .update({ notes: merged })
+      .eq('id', app.id)
+
+    if (error) {
+      console.error('Failed to save SOP:', error)
+    }
+  }
+
+  // ── toggleSopStep — flip a single checklist item ────────────────────────────
+  function toggleSopStep(index) {
+    const newSop = [...sopState]
+    newSop[index] = !newSop[index]
+    saveSop(newSop)
+  }
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-2.5 shadow-sm hover:shadow-md transition-shadow relative">
@@ -501,10 +547,59 @@ function AppCard({ app, onMove, onDelete }) {
         </span>
       )}
 
-      {/* Notes — clamped to 2 lines */}
-      {app.notes && (
-        <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">{app.notes}</p>
-      )}
+      {/* Notes — extract text from stored JSON */}
+      {(() => {
+        try {
+          const data = JSON.parse(app.notes || '{}')
+          const textNotes = data.text || app.notes
+          return textNotes && <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">{textNotes}</p>
+        } catch {
+          return app.notes && <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">{app.notes}</p>
+        }
+      })()}
+
+      {/* SOP Checklist */}
+      <div className="border-t border-gray-100 pt-2">
+        {/* Collapsed view: show toggle + progress */}
+        {!sopOpen ? (
+          <button
+            onClick={() => setSopOpen(true)}
+            className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-xs text-gray-500 font-medium transition-colors">
+            SOP Checklist {sopDone > 0 && <span className="text-gray-400">· {sopDone}/5 done</span>}
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        ) : (
+          /* Expanded view: checklist items */
+          <div className="space-y-1.5">
+            {[
+              'Research college thoroughly',
+              'First SOP draft written',
+              'Peer review done',
+              'Mentor review done',
+              'Final SOP submitted',
+            ].map((step, i) => (
+              <label key={i} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={sopState[i] || false}
+                  onChange={() => toggleSopStep(i)}
+                  className="w-3.5 h-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className={`text-xs ${sopState[i] ? 'text-gray-500 line-through' : 'text-gray-600'}`}>
+                  {step}
+                </span>
+              </label>
+            ))}
+            <button
+              onClick={() => setSopOpen(false)}
+              className="w-full mt-2 text-xs text-gray-400 hover:text-gray-600 transition-colors">
+              ✕ close
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Move to… dropdown */}
       <div className="relative">
