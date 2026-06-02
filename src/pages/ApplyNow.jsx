@@ -236,17 +236,21 @@ function StepAIFill({ student, formFields, setFormFields, animatedFields, setAni
     }
   }, [student?.id])
 
-  // Animate fields in sequentially — only triggered when formFields length changes
+  // Animate fields in sequentially using interval with cleanup
   useEffect(() => {
-    if (formFields.length > 0 && animatedFields.length < formFields.length) {
-      const timer = setTimeout(() => {
-        setAnimatedFields(prev => [
-          ...prev,
-          prev.length,
-        ])
-      }, 600)
-      return () => clearTimeout(timer)
-    }
+    if (formFields.length === 0) return
+
+    let index = 0
+    const interval = setInterval(() => {
+      if (index < formFields.length) {
+        setAnimatedFields(prev => [...prev, index])
+        index++
+      } else {
+        clearInterval(interval)
+      }
+    }, 600)
+
+    return () => clearInterval(interval)
   }, [formFields.length])
 
   const isComplete = animatedFields.length === formFields.length
