@@ -27,6 +27,7 @@ import { STATUSES, STATUS_META } from '../lib/mockData'
 import { useIsDemo } from '../context/DemoContext'
 import { SidebarAds } from '../components/AdBanner'
 import { createDeadlineNotifications } from '../lib/notificationHelpers.mjs'
+import RejectionRecoveryModal from '../components/RejectionRecoveryModal'
 
 // ─── Helper: days from today until a date string ──────────────────────────────
 // Uses the real current date (unlike the hardcoded version in mockData.js)
@@ -83,6 +84,20 @@ export default function AppTracker() {
   const [newApp, setNewApp]       = useState({ college_id: '', notes: '' })
   const [saving, setSaving]       = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const [rejectionCollege, setRejectionCollege] = useState(null)
+  const [dismissedRejections, setDismissedRejections] = useState(new Set())
+
+  // Load dismissed rejections from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('dismissedRejections')
+    if (stored) {
+      try {
+        setDismissedRejections(new Set(JSON.parse(stored)))
+      } catch (err) {
+        console.error('Failed to load dismissed rejections:', err)
+      }
+    }
+  }, [])
 
   // ── loadData — fetches everything needed to render the board ──────────────
   const loadData = useCallback(async () => {
@@ -215,6 +230,49 @@ export default function AppTracker() {
     if ((newStatus === 'Applied' || newStatus === 'Interview') && studentId) {
       await createDeadlineNotifications(supabase, studentId, app.college_id)
     }
+
+    // Show rejection recovery modal if status changes to Rejected
+    if (newStatus === 'Rejected' && !dismissedRejections.has(app.college_id)) {
+      setRejectionCollege(app.college_id)
+    }
+  }
+
+  // ── handleAddFromRecovery — add college and close modal ──────────────────
+  async function handleAddFromRecovery(collegeId) {
+    if (!studentId) return
+
+    try {
+      const { error } = await supabase.from('applications').insert({
+        student_id: studentId,
+        college_id: collegeId,
+        status: 'Researching',
+        notes: '',
+      })
+
+      if (error) {
+        setError(`Failed to add college: ${error.message}`)
+        return
+      }
+
+      // Reload applications
+      loadData()
+
+      // Close modal and mark as dismissed
+      handleCloseRejectionModal()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  // ── handleCloseRejectionModal — dismiss rejection and save to localStorage ──
+  function handleCloseRejectionModal() {
+    if (rejectionCollege) {
+      const updated = new Set(dismissedRejections)
+      updated.add(rejectionCollege)
+      setDismissedRejections(updated)
+      localStorage.setItem('dismissedRejections', JSON.stringify(Array.from(updated)))
+    }
+    setRejectionCollege(null)
   }
 
   // ── deleteApp — DELETE with optimistic removal ────────────────────────────
@@ -350,6 +408,16 @@ export default function AppTracker() {
               </div>
             )}
           </>
+        )}
+
+        {/* ── Rejection Recovery modal ── */}
+        {rejectionCollege && (
+          <RejectionRecoveryModal
+            studentId={studentId}
+            collegeId={rejectionCollege}
+            onClose={handleCloseRejectionModal}
+            onAddCollege={handleAddFromRecovery}
+          />
         )}
 
         {/* ── Add College modal ── */}
