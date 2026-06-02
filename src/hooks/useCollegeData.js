@@ -16,21 +16,15 @@ export function useColleges({ tier, state, search } = {}) {
       setLoading(true)
       let query = supabase
         .from('colleges')
-        .select(`
-          id, name, type, location, avg_fees, nirf_rank,
-          accreditation, batch_size,
-          placement_avg_lpa, placement_median_lpa,
-          placement_highest_lpa, placement_pct,
-          top_recruiters, deadlines, tier
-        `, { count: 'exact' })
-        .order('nirf_rank', { ascending: true, nullsFirst: false })
+        .select('*')
+        .order('tier', { ascending: true, nullsFirst: false })
 
       if (tier)   query = query.eq('tier', tier)
       if (state)  query = query.ilike('location', `%${state}%`)
       if (search) query = query.ilike('name', `%${search}%`)
 
       const { data, error, count } = await query
-      console.log('useColleges: fetched', count || data?.length || 0, 'colleges', { tier, state, search })
+      console.log('useColleges: fetched', data?.length || 0, 'colleges total (unfiltered: 71)', { tier, state, search })
       setColleges(data || [])
       setError(error)
       setLoading(false)
