@@ -23,6 +23,7 @@ export default function CollegeDirectory() {
   const [search, setSearch]       = useState('')
   const [tier, setTier]           = useState('All')
   const [selected, setSelected]   = useState(null)
+  const [user, setUser]           = useState(null)
   const [student, setStudent]     = useState(null)
   const [trackedColleges, setTrackedColleges] = useState(new Set())
   const [adding, setAdding]       = useState(new Set())
@@ -32,26 +33,33 @@ export default function CollegeDirectory() {
     search: search || undefined,
   })
 
-  // Fetch student profile and tracked applications
+  // Auth listener — with cleanup and empty dependency array
   useEffect(() => {
-    async function loadStudentData() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => setUser(session?.user ?? null)
+    )
+    return () => subscription?.unsubscribe()
+  }, [])
 
-        const { data: studentData } = await supabase
+  // Fetch student data — only when user.id changes
+  useEffect(() => {
+    if (!user?.id) return
+
+    async function fetchStudent() {
+      try {
+        const { data } = await supabase
           .from('students')
-          .select('*')
+          .select('academic_background')
           .eq('user_id', user.id)
           .single()
 
-        if (studentData) setStudent(studentData)
+        setStudent(data)
 
         // Fetch tracked college IDs
         const { data: appData } = await supabase
           .from('applications')
           .select('college_id')
-          .eq('student_id', studentData?.id)
+          .eq('student_id', data?.id)
 
         if (appData) {
           setTrackedColleges(new Set(appData.map(a => a.college_id)))
@@ -60,8 +68,9 @@ export default function CollegeDirectory() {
         console.error('Error loading student data:', err)
       }
     }
-    loadStudentData()
-  }, [])
+
+    fetchStudent()
+  }, [user?.id])
 
   async function handleAddToTracker(collegeId) {
     if (!student) return
