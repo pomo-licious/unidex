@@ -14,6 +14,7 @@ export default function ApplyNow() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [user, setUser] = useState(null)
 
   // Data
   const [application, setApplication] = useState(null)
@@ -24,14 +25,21 @@ export default function ApplyNow() {
   const [formFields, setFormFields] = useState([])
   const [animatedFields, setAnimatedFields] = useState([])
 
+  // Auth listener — with cleanup and empty dependency array
   useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => setUser(session?.user ?? null)
+    )
+    return () => subscription?.unsubscribe()
+  }, [])
+
+  // Fetch student data — only when user.id changes
+  useEffect(() => {
+    if (!user?.id || !applicationId) return
+
     async function loadData() {
       setLoading(true)
       try {
-        // Get current user
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
-        if (userError || !user) throw new Error('Not logged in')
-
         // Get student
         const { data: studentData, error: studentError } = await supabase
           .from('students')
@@ -68,7 +76,7 @@ export default function ApplyNow() {
       }
     }
     loadData()
-  }, [applicationId])
+  }, [user?.id, applicationId])
 
   if (loading) {
     return (
@@ -213,8 +221,9 @@ function StepDocuments({ student, onNext }) {
 
 // ── Step 2: AI Form Fill ────────────────────────────────────
 function StepAIFill({ student, formFields, setFormFields, animatedFields, setAnimatedFields, onNext }) {
+  // Populate form fields once when student data loads
   useEffect(() => {
-    if (formFields.length === 0 && student) {
+    if (formFields.length === 0 && student?.id) {
       setFormFields([
         { label: 'Full Name', value: student.name },
         { label: 'Email', value: student.email },
@@ -225,9 +234,9 @@ function StepAIFill({ student, formFields, setFormFields, animatedFields, setAni
         { label: 'Target Programme', value: 'MBA (2 year full-time)' },
       ])
     }
-  }, [student, formFields, setFormFields])
+  }, [student?.id])
 
-  // Animate fields in sequentially
+  // Animate fields in sequentially — only triggered when formFields length changes
   useEffect(() => {
     if (formFields.length > 0 && animatedFields.length < formFields.length) {
       const timer = setTimeout(() => {
@@ -238,7 +247,7 @@ function StepAIFill({ student, formFields, setFormFields, animatedFields, setAni
       }, 600)
       return () => clearTimeout(timer)
     }
-  }, [animatedFields, formFields, setAnimatedFields])
+  }, [formFields.length])
 
   const isComplete = animatedFields.length === formFields.length
 
