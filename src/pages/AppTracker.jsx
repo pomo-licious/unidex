@@ -210,7 +210,7 @@ export default function AppTracker() {
   // ── deleteApp — DELETE with optimistic removal ────────────────────────────
   async function deleteApp(id) {
     // Snapshot the full list so we can restore it if the delete fails
-    const snapshot = apps
+    const snapshot = [...apps]
     setApps(prev => prev.filter(a => a.id !== id))
 
     const { error: deleteError } = await supabase
