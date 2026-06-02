@@ -21,22 +21,30 @@ import { MOCK_APPLICATIONS, STATUS_META, STATUSES, COLLEGES, TYPE_META, fitLabel
 export default function Profile() {
   const navigate = useNavigate()
 
+  const [user, setUser] = useState(null)
   const [student, setStudent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(false)
 
-  // Fetch real student data on mount
+  // Listen to auth state changes with proper cleanup
   useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => setUser(session?.user ?? null)
+    )
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Fetch student data when user ID changes
+  useEffect(() => {
+    if (!user) {
+      setStudent(null)
+      setLoading(false)
+      return
+    }
+
     async function loadStudent() {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-          setError('Not logged in')
-          setLoading(false)
-          return
-        }
-
         const { data, error: fetchErr } = await supabase
           .from('students')
           .select('*')
@@ -50,6 +58,7 @@ export default function Profile() {
         }
 
         setStudent(data)
+        setError(null)
         setLoading(false)
       } catch (err) {
         setError(err.message)
@@ -58,7 +67,7 @@ export default function Profile() {
     }
 
     loadStudent()
-  }, [])
+  }, [user?.id])
 
   if (loading) {
     return (

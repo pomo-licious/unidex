@@ -66,15 +66,26 @@ const NAV = [
 export default function Layout({ children }) {
   const navigate = useNavigate()
   const isDemo   = useIsDemo()
+  const [user, setUser] = useState(null)
   const [student, setStudent] = useState(null)
 
-  // Fetch real student data on mount
+  // Listen to auth state changes with proper cleanup
   useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => setUser(session?.user ?? null)
+    )
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Fetch student data when user ID changes
+  useEffect(() => {
+    if (!user) {
+      setStudent(null)
+      return
+    }
+
     async function loadStudent() {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-
         const { data } = await supabase
           .from('students')
           .select('name')
@@ -88,7 +99,7 @@ export default function Layout({ children }) {
     }
 
     loadStudent()
-  }, [])
+  }, [user?.id])
 
   // Generate initials from the student's name
   const name = student?.name || 'U'
