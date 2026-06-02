@@ -21,15 +21,16 @@ export function useColleges({ tier, state, search } = {}) {
           accreditation, batch_size,
           placement_avg_lpa, placement_median_lpa,
           placement_highest_lpa, placement_pct,
-          top_recruiters, deadlines
-        `)
+          top_recruiters, deadlines, tier
+        `, { count: 'exact' })
         .order('nirf_rank', { ascending: true, nullsFirst: false })
 
       if (tier)   query = query.eq('tier', tier)
       if (state)  query = query.ilike('location', `%${state}%`)
       if (search) query = query.ilike('name', `%${search}%`)
 
-      const { data, error } = await query
+      const { data, error, count } = await query
+      console.log('useColleges: fetched', count || data?.length || 0, 'colleges', { tier, state, search })
       setColleges(data || [])
       setError(error)
       setLoading(false)
