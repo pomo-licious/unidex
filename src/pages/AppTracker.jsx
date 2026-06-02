@@ -26,6 +26,7 @@ import { supabase } from '../lib/supabase'
 import { STATUSES, STATUS_META } from '../lib/mockData'
 import { useIsDemo } from '../context/DemoContext'
 import { SidebarAds } from '../components/AdBanner'
+import { createDeadlineNotifications } from '../lib/notificationHelpers.mjs'
 
 // ─── Helper: days from today until a date string ──────────────────────────────
 // Uses the real current date (unlike the hardcoded version in mockData.js)
@@ -192,7 +193,8 @@ export default function AppTracker() {
   // ── moveApp — UPDATE status with optimistic UI ────────────────────────────
   async function moveApp(id, newStatus) {
     // Capture old status so we can roll back if Supabase rejects the update
-    const oldStatus = apps.find(a => a.id === id)?.status
+    const app = apps.find(a => a.id === id)
+    const oldStatus = app?.status
 
     // Optimistic update — move the card instantly in the UI
     setApps(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a))
@@ -206,6 +208,12 @@ export default function AppTracker() {
     if (updateError) {
       setApps(prev => prev.map(a => a.id === id ? { ...a, status: oldStatus } : a))
       setError(`Failed to move card: ${updateError.message}`)
+      return
+    }
+
+    // Create notifications if status changes to Applied or Interview
+    if ((newStatus === 'Applied' || newStatus === 'Interview') && studentId) {
+      await createDeadlineNotifications(supabase, studentId, app.college_id)
     }
   }
 
