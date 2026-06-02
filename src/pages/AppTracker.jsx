@@ -112,7 +112,7 @@ export default function AppTracker() {
     setStudentId(studentRow.id)
 
     // Step 3: fetch all applications for this student, joined with college details
-    // RLS handles the filtering — only rows where student_id belongs to this user are returned
+    // Explicitly filter by student_id + RLS for double protection
     const { data: appRows, error: appError } = await supabase
       .from('applications')
       .select(`
@@ -128,6 +128,7 @@ export default function AppTracker() {
           deadlines
         )
       `)
+      .eq('student_id', studentRow.id)
       .order('last_updated', { ascending: false })
 
     if (appError) {

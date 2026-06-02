@@ -94,10 +94,11 @@ export default function DeadlineCalendar() {
       return
     }
 
-    // Step 3: get college_ids from existing applications (RLS auto-filters)
+    // Step 3: get college_ids from existing applications (explicitly filter by student)
     const { data: apps } = await supabase
       .from('applications')
       .select('college_id')
+      .eq('student_id', student.id)
 
     const appCollegeIds = (apps || []).map(a => a.college_id)
     const targetNames   = student.target_colleges || []
