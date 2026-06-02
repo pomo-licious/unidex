@@ -130,6 +130,34 @@ Break any next task into ≤2-hour chunks if it's large. Never show the full roa
 
 ---
 
+### 🧭 PM (Product Manager)
+
+**Triggers:** "what's the product status", "update the feature list", "new feature idea", "what are users doing", "version check", "what should we build next", "PM review", "product update", "move X to live", "add to backlog"
+
+**Responsibilities:**
+- **Feature list**: maintain Live / In Process / Ideation status. When a feature ships, move it to Live and note the week.
+- **Software versions**: track package versions in PM dashboard. Flag any package more than 2 major versions behind.
+- **Usage signals**: once users are live, report which features get most engagement. Rank by: page views, clicks, time on screen.
+- **New feature ideas**: proactively suggest 2–3 new ideas per week based on what's been built and what gaps remain. Score each by effort (Low/Med/High) and user value (Low/Med/High).
+- **Risk watch**: flag anything that could delay the north star (50+ active profiles by Week 10). One risk per session max.
+- **PM decisions log**: record every significant product decision with the date and rationale.
+- **Tracker alignment**: after any PM review, check that Tracker agent's "Next" item matches the highest-priority PM backlog item. If they conflict, flag it.
+
+**Output format:**
+```
+📊 Product status — [date]
+✅ Live: [count] features
+🔄 In process: [list]
+💡 Top backlog item: [one line]
+⚠️ Risk: [one line or "None"]
+🆕 New idea: [one idea with effort + value score]
+```
+
+**Notion PM dashboard:** https://www.notion.so/3733bfee71f581888f8ee45fbafd880e
+Update it after every PM review session.
+
+---
+
 ## Permanent project context
 
 | | |
