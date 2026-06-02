@@ -1,10 +1,17 @@
 // pages/CollegeDirectory.jsx
 // Full college discovery page with search, tier filter, and detail drawer
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useColleges, useCollegeCutoffs } from '../hooks/useCollegeData'
+import { supabase } from '../lib/supabase'
 
 const TIERS = ['All', 'Tier 1', 'Tier 2', 'Tier 3']
+
+const MATCH_SCORE_THRESHOLDS = {
+  'Tier 1': { strong: 98, moderate: 95 },
+  'Tier 2': { strong: 90, moderate: 85 },
+  'Tier 3': { strong: 80, moderate: 70 },
+}
 
 const TIER_STYLES = {
   'Tier 1': 'bg-blue-50 text-blue-700 border border-blue-200',
@@ -16,11 +23,74 @@ export default function CollegeDirectory() {
   const [search, setSearch]       = useState('')
   const [tier, setTier]           = useState('All')
   const [selected, setSelected]   = useState(null)
+  const [student, setStudent]     = useState(null)
+  const [trackedColleges, setTrackedColleges] = useState(new Set())
+  const [adding, setAdding]       = useState(new Set())
 
   const { colleges, loading } = useColleges({
     tier:   tier === 'All' ? undefined : tier,
     search: search || undefined,
   })
+
+  // Fetch student profile and tracked applications
+  useEffect(() => {
+    async function loadStudentData() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data: studentData } = await supabase
+          .from('students')
+          .select('*')
+          .eq('user_id', user.id)
+          .single()
+
+        if (studentData) setStudent(studentData)
+
+        // Fetch tracked college IDs
+        const { data: appData } = await supabase
+          .from('applications')
+          .select('college_id')
+          .eq('student_id', studentData?.id)
+
+        if (appData) {
+          setTrackedColleges(new Set(appData.map(a => a.college_id)))
+        }
+      } catch (err) {
+        console.error('Error loading student data:', err)
+      }
+    }
+    loadStudentData()
+  }, [])
+
+  async function handleAddToTracker(collegeId) {
+    if (!student) return
+    if (trackedColleges.has(collegeId)) return
+
+    setAdding(prev => new Set([...prev, collegeId]))
+
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .insert({
+          student_id: student.id,
+          college_id: collegeId,
+          status: 'Researching',
+        })
+
+      if (error) throw error
+
+      setTrackedColleges(prev => new Set([...prev, collegeId]))
+    } catch (err) {
+      console.error('Error adding to tracker:', err)
+    } finally {
+      setAdding(prev => {
+        const next = new Set(prev)
+        next.delete(collegeId)
+        return next
+      })
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -70,7 +140,15 @@ export default function CollegeDirectory() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {colleges.map(c => (
-              <CollegeCard key={c.id} college={c} onClick={() => setSelected(c)} />
+              <CollegeCard
+                key={c.id}
+                college={c}
+                onClick={() => setSelected(c)}
+                student={student}
+                isTracked={trackedColleges.has(c.id)}
+                isAdding={adding.has(c.id)}
+                onAdd={() => handleAddToTracker(c.id)}
+              />
             ))}
           </div>
         )}
@@ -92,8 +170,38 @@ export default function CollegeDirectory() {
 }
 
 // ── College card ───────────────────────────────────────────
-function CollegeCard({ college: c, onClick }) {
+function CollegeCard({ college: c, onClick, student, isTracked, isAdding, onAdd }) {
   const nextDeadline = getNextDeadline(c.deadlines)
+
+  // Calculate match score
+  function getMatchScore() {
+    if (!student?.academic_background?.cat_percentile) {
+      return { label: 'Add CAT score', color: 'bg-slate-50 text-slate-400' }
+    }
+
+    const cat = student.academic_background.cat_percentile
+    const tier = c.tier || 'Tier 3'
+    const thresholds = MATCH_SCORE_THRESHOLDS[tier]
+
+    if (!thresholds) {
+      return { label: 'Score unavailable', color: 'bg-slate-50 text-slate-400' }
+    }
+
+    let label = 'Reach'
+    let color = 'bg-amber-50 text-amber-700 border border-amber-200'
+
+    if (cat >= thresholds.strong) {
+      label = 'Strong Match'
+      color = 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+    } else if (cat >= thresholds.moderate) {
+      label = 'Moderate'
+      color = 'bg-blue-50 text-blue-700 border border-blue-200'
+    }
+
+    return { label, color }
+  }
+
+  const matchScore = getMatchScore()
 
   return (
     <button
@@ -117,6 +225,11 @@ function CollegeCard({ college: c, onClick }) {
         )}
       </div>
 
+      {/* Match score */}
+      <div className={`text-xs px-2 py-0.5 rounded-full font-medium text-center ${matchScore.color}`}>
+        {matchScore.label}
+      </div>
+
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-2 mb-3">
         <Stat label="Avg LPA" value={c.placement_avg_lpa ? `₹${c.placement_avg_lpa}L` : '–'} />
@@ -137,6 +250,21 @@ function CollegeCard({ college: c, onClick }) {
           <span className="text-xs text-slate-300">Deadline TBD</span>
         )}
       </div>
+
+      {/* Add to Tracker button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onAdd()
+        }}
+        disabled={isTracked || isAdding}
+        className={`w-full mt-3 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+          isTracked
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
+            : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+        }`}>
+        {isAdding ? 'Adding…' : isTracked ? '✓ In Tracker' : '+ Add to Tracker'}
+      </button>
     </button>
   )
 }
