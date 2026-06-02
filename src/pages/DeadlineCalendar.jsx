@@ -16,6 +16,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Layout from '../components/Layout'
+import ExamCalendar from '../components/ExamCalendar'
 import { supabase } from '../lib/supabase'
 
 // ─── Deadline type → colour mapping ──────────────────────────────────────────
@@ -337,6 +338,11 @@ export default function DeadlineCalendar() {
             </div>
           </div>
         )}
+
+        {/* Exam Calendar Section */}
+        <div className="mt-12 pt-8 border-t border-gray-200">
+          <ExamCalendar />
+        </div>
       </div>
     </Layout>
   )

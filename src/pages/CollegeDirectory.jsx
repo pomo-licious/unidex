@@ -1,250 +1,310 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// src/pages/CollegeDirectory.jsx — Browse and search MBA colleges
-//
-// Displays all 12 colleges as cards in a grid. The student can:
-//   • Search by college name or city (live filtering as they type)
-//   • Filter by college type (IIM / IIT / Private / Government)
-//   • See their fit score per college based on CAT percentile
-//   • Add or remove colleges from their application tracker
-//
-// Currently reads from COLLEGES + MOCK_STUDENT (fake data).
-// The "tracked" state starts pre-populated from MOCK_APPLICATIONS so that
-// colleges already in the tracker show as "✓ Added".
-//
-// When wired up: replace MOCK_STUDENT with the real auth user's student row,
-// and replace the toggle function with a Supabase insert/delete on `applications`.
-//
-// Route: /colleges
-// ─────────────────────────────────────────────────────────────────────────────
+// pages/CollegeDirectory.jsx
+// Full college discovery page with search, tier filter, and detail drawer
 
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import Layout from '../components/Layout'
-import { useIsDemo } from '../context/DemoContext'
-import { SidebarAds } from '../components/AdBanner'
-import { COLLEGES, MOCK_APPLICATIONS, MOCK_STUDENT, TYPE_META, fitLabel, formatFees } from '../lib/mockData'
+import { useColleges, useCollegeCutoffs } from '../hooks/useCollegeData'
 
-const TYPES = ['All', 'IIM', 'IIT', 'Private', 'Government']
+const TIERS = ['All', 'Tier 1', 'Tier 2', 'Tier 3']
 
-// ─── nearestUpcoming ─────────────────────────────────────────────────────────
-// Finds the nearest future deadline from a college's deadlines array.
-// Also handles the legacy mock-data format where colleges have a single
-// `deadline` string instead of a `deadlines` array, so this works whether
-// CollegeDirectory is reading from Supabase or from mockData.js.
-//
-// Returns: { round: "R1", date: "2026-11-15", days: 167 }  or  null
-function nearestUpcoming(college) {
-  // Build a normalised array from whichever format the college object uses
-  let deadlines = []
-  if (Array.isArray(college.deadlines) && college.deadlines.length > 0) {
-    deadlines = college.deadlines                              // real Supabase format
-  } else if (college.deadline) {
-    deadlines = [{ round: 'R1', date: college.deadline, type: 'CAT' }]  // mock fallback
-  }
-
-  // Strip time so comparison is purely date-based
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const upcoming = deadlines
-    .filter(d => d.date && new Date(d.date) > today)
-    .sort((a, b) => new Date(a.date) - new Date(b.date))  // ascending — nearest first
-
-  if (upcoming.length === 0) return null
-
-  const nearest = upcoming[0]
-  const days = Math.round((new Date(nearest.date) - today) / (1000 * 60 * 60 * 24))
-  return { round: nearest.round, days }
+const TIER_STYLES = {
+  'Tier 1': 'bg-blue-50 text-blue-700 border border-blue-200',
+  'Tier 2': 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  'Tier 3': 'bg-slate-100 text-slate-600 border border-slate-200',
 }
 
 export default function CollegeDirectory() {
-  const navigate = useNavigate()
-  const isDemo   = useIsDemo()
+  const [search, setSearch]       = useState('')
+  const [tier, setTier]           = useState('All')
+  const [selected, setSelected]   = useState(null)
 
-  // Pull the student's CAT percentile for fit calculations
-  const catPct = MOCK_STUDENT.academic_background.cat_percentile
-
-  // ── search — what the user has typed in the search box ────────────────────
-  const [search, setSearch] = useState('')
-
-  // ── typeFilter — currently active category filter button ──────────────────
-  const [typeFilter, setType] = useState('All')
-
-  // ── tracked — Set of college IDs the student is already tracking ──────────
-  // A Set is like an array but faster to check membership (has/add/delete)
-  // Pre-populated from MOCK_APPLICATIONS so existing tracked colleges start as "✓ Added"
-  const [tracked, setTracked] = useState(
-    new Set(MOCK_APPLICATIONS.map(a => a.college_id))
-  )
-
-  // ── toggleTrack — adds or removes a college from the tracked Set ──────────
-  function toggleTrack(id) {
-    setTracked(prev => {
-      const next = new Set(prev)          // Copy the existing Set (don't mutate state directly)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
-
-  // ── filtered — colleges that pass both the type filter and search query ────
-  const filtered = COLLEGES.filter(c => {
-    const matchType   = typeFilter === 'All' || c.type === typeFilter
-    const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
-                        c.location.toLowerCase().includes(search.toLowerCase())
-    return matchType && matchSearch
+  const { colleges, loading } = useColleges({
+    tier:   tier === 'All' ? undefined : tier,
+    search: search || undefined,
   })
 
   return (
-    <Layout>
-      {/* Two-column layout: main content + right ad sidebar (demo mode only) */}
-      <div className="flex items-start">
-      <div className="flex-1 min-w-0 px-6 py-8">
+    <div className="min-h-screen bg-slate-50 font-sans">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200 px-6 py-5">
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">College Directory</h1>
+        <p className="text-sm text-slate-500 mt-0.5">
+          {loading ? '...' : `${colleges.length} colleges`} · real placement + cutoff data
+        </p>
 
-        {/* ── Page header ── */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">MBA Colleges</h1>
-          <p className="text-sm text-gray-500 mt-1">Browse top programs · add to your tracker in one click</p>
-        </div>
-
-        {/* ── Search bar + type filter pills ── */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          {/* Search input — updates `search` state on every keystroke */}
-          <div className="relative flex-1">
-            {/* Magnifying glass icon positioned inside the input */}
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search colleges or cities…"
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-            />
-          </div>
-
-          {/* Type filter buttons — clicking one sets typeFilter state */}
-          <div className="flex gap-2 flex-wrap">
-            {TYPES.map(t => (
-              <button key={t} onClick={() => setType(t)}
-                className={`px-3 py-2 rounded-xl text-xs font-medium transition-colors
-                  ${typeFilter === t ? 'bg-indigo-600 text-white' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+        {/* Search + filter */}
+        <div className="mt-4 flex gap-3 flex-wrap">
+          <input
+            type="text"
+            placeholder="Search colleges…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="flex-1 min-w-48 px-3 py-2 text-sm border border-slate-200 rounded-lg
+                       focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          />
+          <div className="flex gap-2">
+            {TIERS.map(t => (
+              <button
+                key={t}
+                onClick={() => setTier(t)}
+                className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
+                  tier === t
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
+                }`}
+              >
                 {t}
               </button>
             ))}
           </div>
         </div>
+      </div>
 
-        {/* ── Result count + shortcut to tracker ── */}
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-xs text-gray-500">
-            {filtered.length} college{filtered.length !== 1 ? 's' : ''} found
-          </p>
-          {/* Only shows if at least one college is tracked */}
-          {tracked.size > 0 && (
-            <button onClick={() => navigate('/tracker')}
-              className="text-xs text-indigo-600 font-medium hover:underline">
-              {tracked.size} tracked → View tracker
-            </button>
-          )}
-        </div>
-
-        {/* ── College grid — or empty state if no results ── */}
-        {filtered.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-gray-400 text-sm">No colleges match your search.</p>
-            {/* Clear filters button resets both search text and type filter */}
-            <button onClick={() => { setSearch(''); setType('All') }}
-              className="mt-2 text-sm text-indigo-600 hover:underline">
-              Clear filters
-            </button>
+      {/* Grid */}
+      <div className="p-6">
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="h-52 bg-white rounded-xl border border-slate-200 animate-pulse" />
+            ))}
           </div>
         ) : (
-          // Responsive grid: 1 column on mobile, 2 on tablet, 3 on desktop
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map(college => {
-              const fit       = fitLabel(catPct, college.cutoff)   // "Strong match", "Good fit", or "Reach"
-              const nearest   = nearestUpcoming(college)            // { round, days } or null
-              const isTracked = tracked.has(college.id)             // Is this college already in the tracker?
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {colleges.map(c => (
+              <CollegeCard key={c.id} college={c} onClick={() => setSelected(c)} />
+            ))}
+          </div>
+        )}
 
-              return (
-                <div key={college.id}
-                  className="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col gap-4 hover:border-indigo-200 hover:shadow-sm transition-all">
-
-                  {/* Card header: type badge, college name, location, fit score */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_META[college.type].color}`}>
-                        {college.type}
-                      </span>
-                      <h3 className="text-sm font-bold text-gray-900 mt-2 leading-snug">{college.name}</h3>
-                      <p className="text-xs text-gray-400 mt-0.5">{college.location}</p>
-                    </div>
-                    {/* Fit label — only shown if the student has a CAT percentile on file */}
-                    {catPct > 0 && (
-                      <span className={`text-xs font-semibold shrink-0 ${fit.color}`}>{fit.label}</span>
-                    )}
-                  </div>
-
-                  {/* Stats row: fees, cutoff, seats */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <Stat label="Total fees" value={formatFees(college.avg_fees)} />
-                    <Stat label="Cutoff"     value={college.cutoff_label} suffix="%ile" />
-                    <Stat label="Seats"      value={`${college.seats}`} />
-                  </div>
-
-                  {/* Nearest upcoming deadline badge */}
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <p className="text-xs text-gray-400">Next deadline</p>
-                    {nearest ? (
-                      // Badge colour: red ≤14d, amber 15–30d, green 31+d
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg
-                        ${nearest.days <= 14 ? 'bg-rose-100 text-rose-700'   :
-                          nearest.days <= 30 ? 'bg-amber-100 text-amber-700' :
-                                               'bg-emerald-100 text-emerald-700'}`}>
-                        {nearest.round} — {nearest.days}d
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400">No deadlines set</span>
-                    )}
-                  </div>
-
-                  {/* Add/Remove tracker button — toggles between filled/outline style */}
-                  <button
-                    onClick={() => toggleTrack(college.id)}
-                    className={`w-full py-2 rounded-xl text-xs font-semibold transition-colors
-                      ${isTracked
-                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
-                        : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
-                    {isTracked ? '✓ Added to Tracker' : '+ Add to Tracker'}
-                  </button>
-                </div>
-              )
-            })}
+        {!loading && colleges.length === 0 && (
+          <div className="text-center py-16 text-slate-400">
+            <p className="text-lg font-medium">No colleges found</p>
+            <p className="text-sm mt-1">Try a different search or filter</p>
           </div>
         )}
       </div>
 
-        {/* Right ad sidebar — only visible for demo@unidex.in, hidden on mobile */}
-        {isDemo && (
-          <div className="w-72 shrink-0 px-4 py-8 hidden lg:block">
-            <SidebarAds />
-          </div>
-        )}
-      </div>
-    </Layout>
+      {/* Detail drawer */}
+      {selected && (
+        <CollegeDrawer college={selected} onClose={() => setSelected(null)} />
+      )}
+    </div>
   )
 }
 
-// ─── Stat — small labelled number tile used inside each college card ──────────
-function Stat({ label, value, suffix = '' }) {
+// ── College card ───────────────────────────────────────────
+function CollegeCard({ college: c, onClick }) {
+  const nextDeadline = getNextDeadline(c.deadlines)
+
   return (
-    <div className="bg-gray-50 rounded-lg px-2 py-2 text-center">
-      <p className="text-xs font-bold text-gray-800">
-        {value}
-        {suffix && <span className="font-normal text-gray-400 text-xs ml-0.5">{suffix}</span>}
-      </p>
-      <p className="text-xs text-gray-400 mt-0.5 leading-tight">{label}</p>
+    <button
+      onClick={onClick}
+      className="text-left bg-white rounded-xl border border-slate-200 p-5
+                 hover:border-blue-300 hover:shadow-md transition-all duration-150 group"
+    >
+      {/* Top row */}
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div>
+          <h2 className="font-semibold text-slate-900 text-sm leading-tight group-hover:text-blue-700 transition-colors">
+            {c.name}
+          </h2>
+          <p className="text-xs text-slate-400 mt-0.5">{c.location}</p>
+        </div>
+        {c.nirf_rank && (
+          <span className="shrink-0 text-xs bg-amber-50 text-amber-700 border border-amber-200
+                           px-2 py-0.5 rounded-full font-medium">
+            #{c.nirf_rank} NIRF
+          </span>
+        )}
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <Stat label="Avg LPA" value={c.placement_avg_lpa ? `₹${c.placement_avg_lpa}L` : '–'} />
+        <Stat label="Fees" value={c.avg_fees ? `₹${(c.avg_fees/100000).toFixed(0)}L` : '–'} />
+        <Stat label="Batch" value={c.batch_size || '–'} />
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between mt-2">
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TIER_STYLES[c.tier] || TIER_STYLES['Tier 3']}`}>
+          {c.tier || 'Tier 2'}
+        </span>
+        {nextDeadline ? (
+          <span className="text-xs text-slate-400">
+            Next deadline: <span className="text-slate-600 font-medium">{nextDeadline}</span>
+          </span>
+        ) : (
+          <span className="text-xs text-slate-300">Deadline TBD</span>
+        )}
+      </div>
+    </button>
+  )
+}
+
+function Stat({ label, value }) {
+  return (
+    <div className="bg-slate-50 rounded-lg px-2 py-1.5 text-center">
+      <p className="text-xs font-semibold text-slate-800">{value}</p>
+      <p className="text-[10px] text-slate-400 mt-0.5">{label}</p>
     </div>
   )
+}
+
+// ── College detail drawer ──────────────────────────────────
+function CollegeDrawer({ college: c, onClose }) {
+  const { cutoffs, loading: cutoffsLoading } = useCollegeCutoffs(c.id)
+  const catCutoff = cutoffs.find(x => x.exam_type === 'CAT')
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="relative w-full max-w-lg bg-white h-full shadow-2xl overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-start gap-3">
+          <div className="flex-1">
+            <h2 className="font-bold text-slate-900 text-lg leading-tight">{c.name}</h2>
+            <p className="text-sm text-slate-400">{c.location} · {c.type}</p>
+          </div>
+          <button onClick={onClose}
+            className="text-slate-400 hover:text-slate-700 text-xl font-light mt-0.5">×</button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Quick stats */}
+          <div className="grid grid-cols-2 gap-3">
+            <StatBlock label="Avg Package" value={c.placement_avg_lpa ? `₹${c.placement_avg_lpa} LPA` : '–'} />
+            <StatBlock label="Median Package" value={c.placement_median_lpa ? `₹${c.placement_median_lpa} LPA` : '–'} />
+            <StatBlock label="Highest Package" value={c.placement_highest_lpa ? `₹${c.placement_highest_lpa} LPA` : '–'} />
+            <StatBlock label="Total Fees" value={c.avg_fees ? `₹${(c.avg_fees/100000).toFixed(1)}L` : '–'} />
+          </div>
+
+          {/* Accreditations */}
+          {c.accreditation?.length > 0 && (
+            <div>
+              <SectionTitle>Accreditations</SectionTitle>
+              <div className="flex gap-2 flex-wrap mt-2">
+                {c.accreditation.map(a => (
+                  <span key={a} className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded-full">
+                    {a}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Top recruiters */}
+          {c.top_recruiters?.length > 0 && (
+            <div>
+              <SectionTitle>Top Recruiters</SectionTitle>
+              <div className="flex gap-2 flex-wrap mt-2">
+                {c.top_recruiters.map(r => (
+                  <span key={r} className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full">
+                    {r}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* CAT cutoffs */}
+          <div>
+            <SectionTitle>CAT Cutoffs (2025-27)</SectionTitle>
+            {cutoffsLoading ? (
+              <div className="h-20 bg-slate-100 rounded-lg animate-pulse mt-2" />
+            ) : catCutoff ? (
+              <div className="mt-2 rounded-lg border border-slate-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+                    <tr>
+                      {['Category','Overall','VARC','DILR','QA'].map(h => (
+                        <th key={h} className="px-3 py-2 text-left font-medium">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {[
+                      { cat: 'General', overall: catCutoff.overall_gen, varc: catCutoff.varc_gen, dilr: catCutoff.dilr_gen, qa: catCutoff.qa_gen },
+                      { cat: 'OBC',     overall: catCutoff.overall_obc },
+                      { cat: 'SC',      overall: catCutoff.overall_sc },
+                      { cat: 'ST',      overall: catCutoff.overall_st },
+                    ].map(row => (
+                      <tr key={row.cat} className="hover:bg-slate-50">
+                        <td className="px-3 py-2 font-medium text-slate-700">{row.cat}</td>
+                        <td className="px-3 py-2 text-slate-800">{row.overall ? `${row.overall}%ile` : '–'}</td>
+                        <td className="px-3 py-2 text-slate-500">{row.varc ? `${row.varc}` : '–'}</td>
+                        <td className="px-3 py-2 text-slate-500">{row.dilr ? `${row.dilr}` : '–'}</td>
+                        <td className="px-3 py-2 text-slate-500">{row.qa ? `${row.qa}` : '–'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {catCutoff.notes && (
+                  <p className="text-xs text-slate-400 px-3 py-2 border-t border-slate-100">
+                    {catCutoff.notes}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 mt-2">No cutoff data available</p>
+            )}
+          </div>
+
+          {/* Deadlines */}
+          {c.deadlines?.length > 0 && (
+            <div>
+              <SectionTitle>Application Deadlines</SectionTitle>
+              <div className="mt-2 space-y-2">
+                {c.deadlines.map((d, i) => (
+                  <div key={i} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                    <div>
+                      <span className="text-sm font-medium text-slate-700">{d.round}</span>
+                      <span className="text-xs text-slate-400 ml-2">{d.type}</span>
+                    </div>
+                    <span className={`text-sm font-medium ${isUpcoming(d.date) ? 'text-blue-600' : 'text-slate-400'}`}>
+                      {formatDate(d.date)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Helper components ──────────────────────────────────────
+function SectionTitle({ children }) {
+  return <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{children}</h3>
+}
+
+function StatBlock({ label, value }) {
+  return (
+    <div className="bg-slate-50 rounded-xl p-3">
+      <p className="text-sm text-slate-400">{label}</p>
+      <p className="text-lg font-bold text-slate-900 mt-0.5">{value}</p>
+    </div>
+  )
+}
+
+// ── Helpers ────────────────────────────────────────────────
+function getNextDeadline(deadlines) {
+  if (!deadlines?.length) return null
+  const today = new Date()
+  const future = deadlines
+    .filter(d => new Date(d.date) >= today)
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+  return future[0] ? formatDate(future[0].date) : null
+}
+
+function formatDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function isUpcoming(dateStr) {
+  return new Date(dateStr) >= new Date()
 }

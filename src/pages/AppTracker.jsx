@@ -235,6 +235,11 @@ export default function AppTracker() {
     if (newStatus === 'Rejected' && !dismissedRejections.has(app.college_id)) {
       setRejectionCollege(app.college_id)
     }
+
+    // Navigate to offer celebration if status changes to Offer
+    if (newStatus === 'Offer') {
+      setTimeout(() => navigate(`/offer/${app.college_id}`), 500)
+    }
   }
 
   // ── handleAddFromRecovery — add college and close modal ──────────────────
