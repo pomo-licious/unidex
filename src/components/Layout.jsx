@@ -12,7 +12,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { MOCK_STUDENT } from '../lib/mockData'
 import { useIsDemo } from '../context/DemoContext'
-import { LeaderboardAd } from './AdBanner'
+import { NewsTicker } from './NewsTicker'
 import { supabase } from '../lib/supabase'
 
 // ─── Sidebar navigation items ────────────────────────────────────────────────
@@ -150,8 +150,8 @@ export default function Layout({ children }) {
       {/* ── Main content area — everything to the right of the sidebar ── */}
       {/* ml-60 = left margin equal to sidebar width so content doesn't overlap */}
       <main className="ml-60 flex-1 min-h-screen flex flex-col">
-        {/* Leaderboard ad — only visible for demo@unidex.in (investor mode) */}
-        {isDemo && <LeaderboardAd />}
+        {/* Live news ticker — visible on all authenticated pages */}
+        <NewsTicker />
         <div className="flex-1">
           {children}
         </div>

@@ -125,58 +125,37 @@ const SIDEBAR_ADS = [
 
 export function SidebarAds() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {SIDEBAR_ADS.map(ad => (
         <div key={ad.id}
-          className="bg-white rounded-2xl border border-gray-200 p-4 space-y-3 shadow-sm">
+          className="bg-white rounded-lg border border-gray-100 p-3 space-y-2 hover:shadow-sm transition-shadow">
 
-          {/* Header: "Advertisement" label + tier tag */}
+          {/* Header: "Ad" label only */}
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider border border-gray-200 rounded px-1 py-0.5">
-              Advertisement
-            </span>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ad.tagStyle}`}>
-              {ad.tag}
-            </span>
+            <span className="text-[9px] font-bold text-gray-300 uppercase tracking-wider">Ad</span>
           </div>
 
-          {/* Brand row: logo + name + stars */}
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl ${ad.logoStyle} flex items-center justify-center shrink-0 shadow-sm`}>
-              <span className="text-white font-black text-xs leading-none">{ad.logo}</span>
+          {/* Brand row: logo + name only */}
+          <div className="flex items-center gap-2">
+            <div className={`w-8 h-8 rounded-lg ${ad.logoStyle} flex items-center justify-center shrink-0`}>
+              <span className="text-white font-black text-[10px] leading-none">{ad.logo}</span>
             </div>
-            <div>
-              <p className="text-sm font-bold text-gray-900 leading-tight">{ad.brand}</p>
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className="text-yellow-400 text-xs leading-none">★</span>
-                <span className="text-xs font-semibold text-gray-700">{ad.stars}</span>
-                <span className="text-xs text-gray-400">· {ad.reviews}</span>
-              </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-gray-800 leading-tight truncate">{ad.brand}</p>
+              <p className="text-[11px] text-gray-500 mt-0.5 truncate">{ad.tagline}</p>
             </div>
           </div>
 
-          {/* Ad copy */}
-          <div>
-            <p className="text-xs font-semibold text-gray-800 leading-snug">{ad.tagline}</p>
-            <p className="text-xs text-gray-500 mt-1 leading-relaxed">{ad.detail}</p>
-          </div>
-
-          {/* Price + CTA */}
-          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wide">Starting at</p>
-              <p className="text-sm font-black text-gray-900">{ad.price}</p>
-            </div>
-            <button className={`px-3 py-1.5 ${ad.ctaStyle} text-white text-xs font-bold rounded-lg transition-colors active:scale-95`}>
-              {ad.cta}
-            </button>
-          </div>
+          {/* Minimal CTA */}
+          <button className={`w-full px-2 py-1.5 ${ad.ctaStyle} text-white text-[11px] font-semibold rounded transition-colors active:scale-95`}>
+            {ad.cta}
+          </button>
         </div>
       ))}
 
-      {/* Small ad network attribution */}
-      <p className="text-center text-[10px] text-gray-300">
-        Ads by Unidex Partner Network
+      {/* Minimal ad network attribution */}
+      <p className="text-center text-[8px] text-gray-250 mt-2">
+        Ads
       </p>
     </div>
   )
