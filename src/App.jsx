@@ -13,13 +13,14 @@ import { DemoProvider } from './context/DemoContext'
 import { supabase } from './lib/supabase'
 
 // ── Import every page component ──
-import Login            from './pages/Login'
-import Signup           from './pages/Signup'
-import Onboarding       from './pages/Onboarding'
-import Profile          from './pages/Profile'
+import Login             from './pages/Login'
+import Signup            from './pages/Signup'
+import Onboarding        from './pages/Onboarding'
+import Profile           from './pages/Profile'
 import CollegeDirectory  from './pages/CollegeDirectory'
-import AppTracker       from './pages/AppTracker'
-import DeadlineCalendar from './pages/DeadlineCalendar'
+import AppTracker        from './pages/AppTracker'
+import DeadlineCalendar  from './pages/DeadlineCalendar'
+import DocumentUpload    from './pages/DocumentUpload'
 
 // ── ProtectedRoute — redirects to /login if user is not authenticated ──
 function ProtectedRoute({ element, user, loading }) {
@@ -84,6 +85,7 @@ export default function App() {
           <Route path="/colleges"   element={<ProtectedRoute element={<CollegeDirectory />} user={user} loading={loading} />} />
           <Route path="/tracker"    element={<ProtectedRoute element={<AppTracker />} user={user} loading={loading} />} />
           <Route path="/calendar"   element={<ProtectedRoute element={<DeadlineCalendar />} user={user} loading={loading} />} />
+          <Route path="/documents"  element={<ProtectedRoute element={<DocumentUpload />} user={user} loading={loading} />} />
         </Routes>
       </BrowserRouter>
     </DemoProvider>
