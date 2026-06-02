@@ -128,7 +128,7 @@ export default function Profile() {
 
               <div>
                 <h1 className="text-xl font-bold text-gray-900">{s.name}</h1>
-                <p className="text-sm text-gray-600 mt-0.5">{s.email}</p>
+                <p className="text-sm text-gray-600 mt-0.5">{ab.role} · {ab.company}</p>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   {ab.grad_year && (
                     <>
