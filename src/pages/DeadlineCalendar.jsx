@@ -84,12 +84,13 @@ export default function DeadlineCalendar() {
     // Step 2: get the student row to read target_colleges
     const { data: student, error: studentErr } = await supabase
       .from('students')
-      .select('id, target_colleges')
+      .select('*')
       .eq('user_id', user.id)
       .single()
 
     if (studentErr || !student) {
-      setError('No student profile found. Please complete your profile first.')
+      console.error('Student lookup failed in DeadlineCalendar:', { studentErr, student, userId: user.id })
+      setError(`No student profile found. ${studentErr?.message || 'Please complete your profile first.'}`)
       setLoading(false)
       return
     }

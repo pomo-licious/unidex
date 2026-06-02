@@ -100,12 +100,13 @@ export default function AppTracker() {
     // RLS on students means this only returns their own row
     const { data: studentRow, error: studentError } = await supabase
       .from('students')
-      .select('id')
+      .select('*')
       .eq('user_id', user.id)
       .single()
 
     if (studentError || !studentRow) {
-      setError('No student profile found. Please complete your signup first.')
+      console.error('Student lookup failed:', { studentError, studentRow, userId: user.id })
+      setError(`No student profile found. ${studentError?.message || 'Please complete your signup first.'}`)
       setLoading(false)
       return
     }
