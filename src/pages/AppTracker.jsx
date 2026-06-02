@@ -516,6 +516,9 @@ export default function AppTracker() {
 //   onDelete — (id) called when user confirms deletion
 // ─────────────────────────────────────────────────────────────────────────────
 function AppCard({ app, onMove, onDelete }) {
+  const navigate = useNavigate()
+  const isDemo   = useIsDemo()
+
   // menuOpen — whether the "Move to…" status dropdown is visible
   const [menuOpen, setMenuOpen]           = useState(false)
 
@@ -683,6 +686,22 @@ function AppCard({ app, onMove, onDelete }) {
           </div>
         )}
       </div>
+
+      {/* Apply Now button — demo accounts only */}
+      {isDemo ? (
+        <button
+          onClick={() => navigate(`/apply/${app.id}`)}
+          className="w-full px-2 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-xs font-medium text-emerald-700 transition-colors border border-emerald-200">
+          Apply Now →
+        </button>
+      ) : (
+        <button
+          disabled
+          title="Coming soon"
+          className="w-full px-2 py-1.5 rounded-lg bg-gray-50 text-xs font-medium text-gray-400 cursor-not-allowed opacity-50">
+          Apply Now →
+        </button>
+      )}
 
       {/* Move to… dropdown */}
       <div className="relative">

@@ -22,6 +22,7 @@ import AppTracker        from './pages/AppTracker'
 import DeadlineCalendar  from './pages/DeadlineCalendar'
 import DocumentUpload    from './pages/DocumentUpload'
 import OfferCelebration  from './pages/OfferCelebration'
+import ApplyNow          from './pages/ApplyNow'
 
 // ── ProtectedRoute — redirects to /login if user is not authenticated ──
 function ProtectedRoute({ element, user, loading }) {
@@ -87,6 +88,7 @@ export default function App() {
           <Route path="/tracker"    element={<ProtectedRoute element={<AppTracker />} user={user} loading={loading} />} />
           <Route path="/calendar"   element={<ProtectedRoute element={<DeadlineCalendar />} user={user} loading={loading} />} />
           <Route path="/documents"  element={<ProtectedRoute element={<DocumentUpload />} user={user} loading={loading} />} />
+          <Route path="/apply/:applicationId" element={<ProtectedRoute element={<ApplyNow />} user={user} loading={loading} />} />
           <Route path="/offer/:college_id" element={<ProtectedRoute element={<OfferCelebration />} user={user} loading={loading} />} />
         </Routes>
       </BrowserRouter>
