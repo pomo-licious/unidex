@@ -31,7 +31,7 @@ export function DemoProvider({ children }) {
       setIsDemo(session?.user?.email === DEMO_EMAIL)
     })
 
-    return () => subscription.unsubscribe()
+    return () => subscription?.unsubscribe()
   }, [])
 
   return <DemoContext.Provider value={isDemo}>{children}</DemoContext.Provider>
