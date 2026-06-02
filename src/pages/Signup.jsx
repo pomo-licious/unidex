@@ -11,12 +11,14 @@
 // setup). Signup is the bare minimum to create an account.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState, useMemo } from 'react'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'   // The single shared Supabase connection
 
 export default function Signup() {
   const navigate = useNavigate()   // Used to redirect to another page after success
+  const [searchParams] = useSearchParams()
+  const referredBy = useMemo(() => searchParams.get('ref'), [searchParams])
 
   // ── Form state — all field values live here ────────────────────────────────
   const [form, setForm] = useState({
@@ -66,6 +68,7 @@ export default function Signup() {
       user_id: authData.user.id,    // ID from the auth account just created
       name:    form.name,
       email:   form.email,
+      referred_by: referredBy || null,  // Track who referred this user (if any)
       academic_background: {
         // Convert text inputs to proper numbers; use null if the field was left blank
         gpa:            form.gpa            ? parseFloat(form.gpa)            : null,
