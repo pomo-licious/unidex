@@ -11,11 +11,12 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { DemoProvider } from './context/DemoContext'
 
 // ── Import every page component ──
-import Signup          from './pages/Signup'
-import Onboarding      from './pages/Onboarding'
-import Profile         from './pages/Profile'
-import CollegeDirectory from './pages/CollegeDirectory'
-import AppTracker      from './pages/AppTracker'
+import Signup           from './pages/Signup'
+import Onboarding       from './pages/Onboarding'
+import Profile          from './pages/Profile'
+import CollegeDirectory  from './pages/CollegeDirectory'
+import AppTracker       from './pages/AppTracker'
+import DeadlineCalendar from './pages/DeadlineCalendar'
 
 export default function App() {
   return (
@@ -41,6 +42,9 @@ export default function App() {
 
         {/* Application tracker — kanban board to track all applications */}
         <Route path="/tracker"    element={<AppTracker />} />
+
+        {/* Deadline calendar — monthly view of all application deadlines */}
+        <Route path="/calendar"   element={<DeadlineCalendar />} />
       </Routes>
     </BrowserRouter>
     </DemoProvider>
