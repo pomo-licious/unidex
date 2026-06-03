@@ -2,6 +2,7 @@
 // Full college discovery page with search, tier filter, and detail drawer
 
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useColleges, useCollegeCutoffs } from '../hooks/useCollegeData'
 import { supabase } from '../lib/supabase'
 
@@ -33,9 +34,9 @@ const getTierNumber = (tierString) => {
 }
 
 export default function CollegeDirectory() {
+  const navigate = useNavigate()
   const [search, setSearch]       = useState('')
   const [tier, setTier]           = useState('All')
-  const [selected, setSelected]   = useState(null)
   const [user, setUser]           = useState(null)
   const [student, setStudent]     = useState(null)
   const [trackedColleges, setTrackedColleges] = useState(new Set())
@@ -171,7 +172,7 @@ export default function CollegeDirectory() {
               <CollegeCard
                 key={c.id}
                 college={c}
-                onClick={() => setSelected(c)}
+                onClick={() => navigate(`/college/${c.id}`)}
                 student={student}
                 isTracked={trackedColleges.has(c.id)}
                 isAdding={adding.has(c.id)}
@@ -189,10 +190,6 @@ export default function CollegeDirectory() {
         )}
       </div>
 
-      {/* Detail drawer */}
-      {selected && (
-        <CollegeDrawer college={selected} onClose={() => setSelected(null)} />
-      )}
     </div>
   )
 }

@@ -18,6 +18,7 @@ import Signup            from './pages/Signup'
 import Onboarding        from './pages/Onboarding'
 import Profile           from './pages/Profile'
 import CollegeDirectory  from './pages/CollegeDirectory'
+import CollegeProfile    from './pages/CollegeProfile'
 import AppTracker        from './pages/AppTracker'
 import DeadlineCalendar  from './pages/DeadlineCalendar'
 import DocumentUpload    from './pages/DocumentUpload'
@@ -85,6 +86,7 @@ export default function App() {
           {/* Protected routes — require authentication */}
           <Route path="/profile"    element={<ProtectedRoute element={<Profile />} user={user} loading={loading} />} />
           <Route path="/colleges"   element={<ProtectedRoute element={<CollegeDirectory />} user={user} loading={loading} />} />
+          <Route path="/college/:id" element={<ProtectedRoute element={<CollegeProfile />} user={user} loading={loading} />} />
           <Route path="/tracker"    element={<ProtectedRoute element={<AppTracker />} user={user} loading={loading} />} />
           <Route path="/calendar"   element={<ProtectedRoute element={<DeadlineCalendar />} user={user} loading={loading} />} />
           <Route path="/documents"  element={<ProtectedRoute element={<DocumentUpload />} user={user} loading={loading} />} />

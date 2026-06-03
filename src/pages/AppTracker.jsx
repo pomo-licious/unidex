@@ -579,7 +579,11 @@ function AppCard({ app, onMove, onDelete }) {
 
       {/* College name + delete icon */}
       <div className="flex items-start justify-between gap-1">
-        <p className="text-xs font-semibold text-gray-900 leading-snug">{app.college}</p>
+        <span
+          onClick={() => navigate(`/college/${app.college_id}`)}
+          className="text-xs font-semibold text-gray-900 leading-snug cursor-pointer hover:text-indigo-600 hover:underline transition-colors">
+          {app.college}
+        </span>
         <button
           onClick={() => setConfirmDelete(true)}
           title="Remove application"
