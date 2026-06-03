@@ -100,22 +100,27 @@ export default function CollegeDirectory() {
     loadData()
   }, [])
 
-  // Get match priority for sorting (lower = better)
-  const getMatchPriority = (college, catPercentile) => {
+  // Get match score label
+  const getMatchScore = (college, percentile) => {
     const tier = college.tier || 3
     const thresholds = MATCH_SCORE_THRESHOLDS[tier]
-    if (!thresholds) return 999
+    if (!thresholds) return 'Reach'
 
-    if (catPercentile >= thresholds.strong) {
-      // Strong Match: tier 1=1, tier 2=2, tier 3=3
-      return tier
-    } else if (catPercentile >= thresholds.moderate) {
-      // Moderate: tier 1=4, tier 2=5, tier 3=6
-      return 3 + tier
-    } else {
-      // Reach: tier 1=7, tier 2=8, tier 3=9
-      return 6 + tier
+    if (percentile >= thresholds.strong) {
+      return 'Strong Match'
+    } else if (percentile >= thresholds.moderate) {
+      return 'Moderate'
     }
+    return 'Reach'
+  }
+
+  // Get match priority for sorting (lower = better)
+  const getMatchPriority = (college, percentile) => {
+    const score = getMatchScore(college, percentile)
+    const tier = college.tier || 3
+    if (score === 'Strong Match') return tier        // 1, 2, or 3
+    if (score === 'Moderate') return tier + 3        // 4, 5, or 6
+    return 10
   }
 
   // Filter colleges based on active tab and sub-filter
@@ -138,20 +143,16 @@ export default function CollegeDirectory() {
       }
 
       const cat = student.academic_background.cat_percentile
-      filtered = filtered.filter(c => {
-        const tier = c.tier || 3
-        const thresholds = MATCH_SCORE_THRESHOLDS[tier]
-        if (!thresholds) return false
-        return cat >= thresholds.moderate
-      })
-
-      // Sort by match priority (Strong Match Tier 1, then Tier 2, then Tier 3, then Moderate, etc.)
-      filtered.sort((a, b) => {
-        const cat = student.academic_background.cat_percentile
-        const priorityA = getMatchPriority(a, cat)
-        const priorityB = getMatchPriority(b, cat)
-        return priorityA - priorityB
-      })
+      filtered = filtered
+        .filter(c => {
+          const score = getMatchScore(c, cat)
+          return score === 'Strong Match' || score === 'Moderate'
+        })
+        .sort((a, b) => {
+          const priorityA = getMatchPriority(a, cat)
+          const priorityB = getMatchPriority(b, cat)
+          return priorityA - priorityB  // ascending = best match first
+        })
     } else if (activeTab === 'popular') {
       // Sort by application count (descending)
       filtered.sort((a, b) => (applicationCounts[b.id] || 0) - (applicationCounts[a.id] || 0))
