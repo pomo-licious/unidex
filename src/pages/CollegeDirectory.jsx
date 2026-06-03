@@ -412,6 +412,15 @@ function CollegeCard({ college, student, isTracked, isAdding, onNavigate, onAdd 
 }
 
 function formatDate(dateStr) {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'short', month: 'short' })
+  if (!dateStr) return '—'
+  try {
+    const date = new Date(dateStr)
+    if (isNaN(date.getTime())) return '—'
+    return date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short'
+    })
+  } catch {
+    return '—'
+  }
 }
