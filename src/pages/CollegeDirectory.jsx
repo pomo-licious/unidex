@@ -118,9 +118,9 @@ export default function CollegeDirectory() {
   const getMatchPriority = (college, percentile) => {
     const score = getMatchScore(college, percentile)
     const tier = college.tier || 3
-    if (score === 'Strong Match') return tier        // 1, 2, or 3
-    if (score === 'Moderate') return tier + 3        // 4, 5, or 6
-    return 10
+    if (score === 'Strong Match') return tier        // 1, 2, 3
+    if (score === 'Moderate') return tier + 3        // 4, 5, 6
+    return tier + 6                                  // 7, 8, 9
   }
 
   // Filter colleges based on active tab and sub-filter
@@ -144,14 +144,10 @@ export default function CollegeDirectory() {
 
       const cat = student.academic_background.cat_percentile
       filtered = filtered
-        .filter(c => {
-          const score = getMatchScore(c, cat)
-          return score === 'Strong Match' || score === 'Moderate'
-        })
         .sort((a, b) => {
           const priorityA = getMatchPriority(a, cat)
           const priorityB = getMatchPriority(b, cat)
-          return priorityA - priorityB  // ascending = best match first
+          return priorityA - priorityB
         })
     } else if (activeTab === 'popular') {
       // Sort by application count (descending)
