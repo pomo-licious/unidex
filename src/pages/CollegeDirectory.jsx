@@ -67,7 +67,7 @@ export default function CollegeDirectory() {
         console.log('CollegeDir: fetching student data for user', user?.id)
         const { data } = await supabase
           .from('students')
-          .select('academic_background')
+          .select('*')
           .eq('user_id', user.id)
           .single()
 
