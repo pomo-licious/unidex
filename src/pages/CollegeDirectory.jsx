@@ -115,12 +115,20 @@ export default function CollegeDirectory() {
   }
 
   // Get match priority for sorting (lower = better)
+  // Primary sort: tier (1 always before 2, 2 before 3)
+  // Secondary sort: match score within same tier
   const getMatchPriority = (college, percentile) => {
     const score = getMatchScore(college, percentile)
     const tier = college.tier || 3
-    if (score === 'Strong Match') return tier        // 1, 2, 3
-    if (score === 'Moderate') return tier + 3        // 4, 5, 6
-    return tier + 6                                  // 7, 8, 9
+
+    const scoreWeight = score === 'Strong Match' ? 0
+                      : score === 'Moderate' ? 1
+                      : 2
+
+    return (tier * 10) + scoreWeight
+    // Tier 1 Strong Match = 10, Tier 1 Moderate = 11, Tier 1 Reach = 12
+    // Tier 2 Strong Match = 20, Tier 2 Moderate = 21, Tier 2 Reach = 22
+    // Tier 3 Strong Match = 30, Tier 3 Moderate = 31, Tier 3 Reach = 32
   }
 
   // Filter colleges based on active tab and sub-filter
