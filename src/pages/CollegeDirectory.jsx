@@ -100,6 +100,24 @@ export default function CollegeDirectory() {
     loadData()
   }, [])
 
+  // Get match priority for sorting (lower = better)
+  const getMatchPriority = (college, catPercentile) => {
+    const tier = college.tier || 3
+    const thresholds = MATCH_SCORE_THRESHOLDS[tier]
+    if (!thresholds) return 999
+
+    if (catPercentile >= thresholds.strong) {
+      // Strong Match: tier 1=1, tier 2=2, tier 3=3
+      return tier
+    } else if (catPercentile >= thresholds.moderate) {
+      // Moderate: tier 1=4, tier 2=5, tier 3=6
+      return 3 + tier
+    } else {
+      // Reach: tier 1=7, tier 2=8, tier 3=9
+      return 6 + tier
+    }
+  }
+
   // Filter colleges based on active tab and sub-filter
   const getFilteredColleges = () => {
     let filtered = colleges
@@ -127,18 +145,12 @@ export default function CollegeDirectory() {
         return cat >= thresholds.moderate
       })
 
-      // Sort by match quality
+      // Sort by match priority (Strong Match Tier 1, then Tier 2, then Tier 3, then Moderate, etc.)
       filtered.sort((a, b) => {
         const cat = student.academic_background.cat_percentile
-        const tierA = a.tier || 3
-        const tierB = b.tier || 3
-        const threshA = MATCH_SCORE_THRESHOLDS[tierA]
-        const threshB = MATCH_SCORE_THRESHOLDS[tierB]
-
-        const scoreA = cat >= threshA.strong ? 2 : cat >= threshA.moderate ? 1 : 0
-        const scoreB = cat >= threshB.strong ? 2 : cat >= threshB.moderate ? 1 : 0
-
-        return scoreB - scoreA
+        const priorityA = getMatchPriority(a, cat)
+        const priorityB = getMatchPriority(b, cat)
+        return priorityA - priorityB
       })
     } else if (activeTab === 'popular') {
       // Sort by application count (descending)
@@ -375,21 +387,12 @@ function CollegeCard({ college, student, isTracked, isAdding, onNavigate, onAdd 
         </div>
 
         {/* Stats line */}
-        <div className="text-xs text-slate-600 space-y-1">
-          <div className="flex flex-wrap gap-3">
-            {college.avg_fees && (
-              <span>₹{(college.avg_fees / 100000).toFixed(0)}L fees</span>
-            )}
-            {college.placement_avg_lpa && (
-              <span>₹{college.placement_avg_lpa}L avg</span>
-            )}
-            {college.deadlines?.[0]?.date && (
-              <span>{formatDate(college.deadlines[0].date)}</span>
-            )}
+        <div className="text-xs text-slate-600">
+          <div className="flex flex-wrap gap-2">
+            <span>{college.avg_fees ? `₹${(college.avg_fees / 100000).toFixed(0)}L fees` : '—'}</span>
+            <span>{college.placement_avg_lpa ? `₹${college.placement_avg_lpa}L avg LPA` : '—'}</span>
+            <span>{college.deadlines?.[0]?.date ? formatDate(college.deadlines[0].date) : '—'}</span>
           </div>
-          {!college.avg_fees && !college.placement_avg_lpa && (
-            <div>—</div>
-          )}
         </div>
 
         {/* Add to Tracker button */}
