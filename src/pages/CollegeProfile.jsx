@@ -150,6 +150,27 @@ export default function CollegeProfile() {
 
   return (
     <Layout>
+      {/* Hero image banner */}
+      {c.image_url && (
+        <div className="relative w-full h-80 overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600">
+          <img
+            src={c.image_url}
+            alt={c.name}
+            className="w-full h-full object-cover"
+            onError={e => {
+              e.target.style.display = 'none'
+            }}
+          />
+          {/* Dark gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+          {/* College name overlay */}
+          <div className="absolute bottom-0 left-0 right-0 px-6 py-8">
+            <h1 className="text-4xl font-bold text-white drop-shadow-lg">{c.name}</h1>
+            <p className="text-white/90 text-lg mt-2">📍 {c.location}</p>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
 
         {/* HERO SECTION */}
@@ -157,7 +178,9 @@ export default function CollegeProfile() {
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold text-slate-900">{c.name}</h1>
+                {!c.image_url && (
+                  <h1 className="text-3xl font-bold text-slate-900">{c.name}</h1>
+                )}
                 {c.tier && (
                   <span className={`text-xs px-2 py-1 rounded-full font-medium ${TIER_STYLES[c.tier] || TIER_STYLES[3]}`}>
                     Tier {c.tier}

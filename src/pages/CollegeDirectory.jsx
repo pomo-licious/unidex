@@ -1,12 +1,7 @@
-// pages/CollegeDirectory.jsx
-// Full college discovery page with search, tier filter, and detail drawer
-
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useColleges, useCollegeCutoffs } from '../hooks/useCollegeData'
 import { supabase } from '../lib/supabase'
-
-const TIERS = ['All', 'Tier 1', 'Tier 2', 'Tier 3']
+import Layout from '../components/Layout'
 
 const MATCH_SCORE_THRESHOLDS = {
   1: { strong: 98, moderate: 95 },
@@ -14,57 +9,37 @@ const MATCH_SCORE_THRESHOLDS = {
   3: { strong: 80, moderate: 70 },
 }
 
-const TIER_STYLES = {
-  1: 'bg-blue-50 text-blue-700 border border-blue-200',
-  2: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-  3: 'bg-slate-100 text-slate-600 border border-slate-200',
-}
-
-const getTierDisplay = (tier) => {
-  const tierNum = tier || 3
-  return `Tier ${tierNum}`
-}
-
-const getTierNumber = (tierString) => {
-  if (tierString === 'All') return undefined
-  if (tierString === 'Tier 1') return 1
-  if (tierString === 'Tier 2') return 2
-  if (tierString === 'Tier 3') return 3
-  return undefined
-}
+const GENERIC_UNIVERSITY_IMAGE = 'https://images.unsplash.com/photo-1562774053-701939374585?w=640&q=80'
 
 export default function CollegeDirectory() {
   const navigate = useNavigate()
-  const [search, setSearch]       = useState('')
-  const [tier, setTier]           = useState('All')
-  const [user, setUser]           = useState(null)
-  const [student, setStudent]     = useState(null)
+
+  const [user, setUser] = useState(null)
+  const [student, setStudent] = useState(null)
+  const [colleges, setColleges] = useState([])
+  const [applicationCounts, setApplicationCounts] = useState({})
   const [trackedColleges, setTrackedColleges] = useState(new Set())
-  const [adding, setAdding]       = useState(new Set())
+  const [adding, setAdding] = useState(new Set())
 
-  const { colleges, loading } = useColleges({
-    tier:   getTierNumber(tier),
-    search: search || undefined,
-  })
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [activeTab, setActiveTab] = useState('relevant')
+  const [subFilter, setSubFilter] = useState('All')
 
-  // Auth listener — with cleanup and empty dependency array
+  // Auth listener
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null)
-        console.log('CollegeDir: auth user', session?.user?.id)
-      }
+      (_, session) => setUser(session?.user ?? null)
     )
-    return () => subscription?.unsubscribe()
+    return () => subscription.unsubscribe()
   }, [])
 
-  // Fetch student data — only when user.id changes
+  // Fetch student data
   useEffect(() => {
     if (!user?.id) return
 
-    async function fetchStudent() {
+    async function loadStudent() {
       try {
-        console.log('CollegeDir: fetching student data for user', user?.id)
         const { data } = await supabase
           .from('students')
           .select('*')
@@ -72,28 +47,123 @@ export default function CollegeDirectory() {
           .single()
 
         setStudent(data)
-        console.log('CollegeDir: student data', data)
-        console.log('CollegeDir: cat_percentile', data?.academic_background?.cat_percentile)
 
-        // Fetch tracked college IDs
-        const { data: appData } = await supabase
-          .from('applications')
-          .select('college_id')
-          .eq('student_id', data?.id)
+        // Fetch tracked colleges
+        if (data?.id) {
+          const { data: appData } = await supabase
+            .from('applications')
+            .select('college_id')
+            .eq('student_id', data.id)
 
-        if (appData) {
-          setTrackedColleges(new Set(appData.map(a => a.college_id)))
+          if (appData) {
+            setTrackedColleges(new Set(appData.map(a => a.college_id)))
+          }
         }
       } catch (err) {
-        console.error('Error loading student data:', err)
+        console.error('Error loading student:', err)
       }
     }
 
-    fetchStudent()
+    loadStudent()
   }, [user?.id])
 
-  async function handleAddToTracker(collegeId) {
-    if (!student) return
+  // Fetch colleges and application counts
+  useEffect(() => {
+    async function loadData() {
+      try {
+        // Fetch all colleges
+        const { data: collegeData } = await supabase
+          .from('colleges')
+          .select('*')
+          .order('name', { ascending: true })
+
+        setColleges(collegeData || [])
+
+        // Fetch application counts
+        const { data: counts } = await supabase
+          .from('applications')
+          .select('college_id')
+
+        const countMap = {}
+        counts?.forEach(app => {
+          countMap[app.college_id] = (countMap[app.college_id] || 0) + 1
+        })
+        setApplicationCounts(countMap)
+
+        setLoading(false)
+      } catch (err) {
+        console.error('Error loading colleges:', err)
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [])
+
+  // Filter colleges based on active tab and sub-filter
+  const getFilteredColleges = () => {
+    let filtered = colleges
+
+    // Apply sub-filter for "All Colleges" tab
+    if (activeTab === 'all') {
+      if (subFilter === 'Private') {
+        filtered = filtered.filter(c => c.type === 'Private')
+      } else if (subFilter === 'Government') {
+        filtered = filtered.filter(c => ['IIM', 'IIT', 'Government'].includes(c.type))
+      }
+    }
+
+    // Filter by active tab
+    if (activeTab === 'relevant') {
+      if (!student?.academic_background?.cat_percentile) {
+        return []
+      }
+
+      const cat = student.academic_background.cat_percentile
+      filtered = filtered.filter(c => {
+        const tier = c.tier || 3
+        const thresholds = MATCH_SCORE_THRESHOLDS[tier]
+        if (!thresholds) return false
+        return cat >= thresholds.moderate
+      })
+
+      // Sort by match quality
+      filtered.sort((a, b) => {
+        const cat = student.academic_background.cat_percentile
+        const tierA = a.tier || 3
+        const tierB = b.tier || 3
+        const threshA = MATCH_SCORE_THRESHOLDS[tierA]
+        const threshB = MATCH_SCORE_THRESHOLDS[tierB]
+
+        const scoreA = cat >= threshA.strong ? 2 : cat >= threshA.moderate ? 1 : 0
+        const scoreB = cat >= threshB.strong ? 2 : cat >= threshB.moderate ? 1 : 0
+
+        return scoreB - scoreA
+      })
+    } else if (activeTab === 'popular') {
+      // Sort by application count (descending)
+      filtered.sort((a, b) => (applicationCounts[b.id] || 0) - (applicationCounts[a.id] || 0))
+      filtered = filtered.slice(0, 20)
+    }
+
+    // Apply search filter
+    if (search) {
+      filtered = filtered.filter(c =>
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.location.toLowerCase().includes(search.toLowerCase())
+      )
+    }
+
+    return filtered
+  }
+
+  const filteredColleges = getFilteredColleges()
+
+  const handleAddToTracker = async (collegeId) => {
+    if (!student) {
+      navigate('/login')
+      return
+    }
     if (trackedColleges.has(collegeId)) return
 
     setAdding(prev => new Set([...prev, collegeId]))
@@ -108,7 +178,6 @@ export default function CollegeDirectory() {
         })
 
       if (error) throw error
-
       setTrackedColleges(prev => new Set([...prev, collegeId]))
     } catch (err) {
       console.error('Error adding to tracker:', err)
@@ -121,345 +190,228 @@ export default function CollegeDirectory() {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-5">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">College Directory</h1>
-        <p className="text-sm text-slate-500 mt-0.5">
-          {loading ? '...' : `${colleges.length} colleges`} · real placement + cutoff data
-        </p>
+  const showMostRelevantEmpty = activeTab === 'relevant' && !student?.academic_background?.cat_percentile
 
-        {/* Search + filter */}
-        <div className="mt-4 flex gap-3 flex-wrap">
-          <input
-            type="text"
-            placeholder="Search colleges…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="flex-1 min-w-48 px-3 py-2 text-sm border border-slate-200 rounded-lg
-                       focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          />
-          <div className="flex gap-2">
-            {TIERS.map(t => (
+  return (
+    <Layout>
+      <div className="min-h-screen bg-slate-50">
+        {/* Sticky header */}
+        <div className="sticky top-0 z-30 bg-white border-b border-slate-200">
+          {/* Search bar */}
+          <div className="px-6 py-4">
+            <input
+              type="text"
+              placeholder="Search colleges by name or city…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          {/* Tabs */}
+          <div className="px-6 pb-4 flex gap-6 border-b border-slate-100">
+            {[
+              { id: 'relevant', label: 'Most Relevant', icon: '⭐' },
+              { id: 'popular', label: 'Most Popular', icon: '🔥' },
+              { id: 'all', label: 'All Colleges', icon: '📚' },
+            ].map(tab => (
               <button
-                key={t}
-                onClick={() => setTier(t)}
-                className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
-                  tier === t
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
-                }`}
-              >
-                {t}
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id)
+                  setSubFilter('All')
+                }}
+                className={`pb-4 text-sm font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? 'text-indigo-600 border-b-2 border-indigo-600'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}>
+                {tab.icon} {tab.label}
               </button>
             ))}
           </div>
+
+          {/* Sub-filters for "All Colleges" tab */}
+          {activeTab === 'all' && (
+            <div className="px-6 pb-3 flex gap-2">
+              {['All', 'Private', 'Government'].map(filter => (
+                <button
+                  key={filter}
+                  onClick={() => setSubFilter(filter)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                    subFilter === filter
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}>
+                  {filter}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="px-6 py-8">
+          {showMostRelevantEmpty ? (
+            <div className="text-center py-16">
+              <p className="text-lg font-semibold text-slate-900 mb-2">See Your Best Matches</p>
+              <p className="text-slate-600 mb-6">Add your CAT score to your profile to discover colleges that fit your profile</p>
+              <button
+                onClick={() => navigate('/profile')}
+                className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
+                Update Profile
+              </button>
+            </div>
+          ) : loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="h-64 bg-slate-200 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : filteredColleges.length === 0 ? (
+            <div className="text-center py-16">
+              <p className="text-slate-500">No colleges found</p>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-slate-600 mb-6">{filteredColleges.length} colleges</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {filteredColleges.map(college => (
+                  <CollegeCard
+                    key={college.id}
+                    college={college}
+                    student={student}
+                    isTracked={trackedColleges.has(college.id)}
+                    isAdding={adding.has(college.id)}
+                    onNavigate={() => navigate(`/college/${college.id}`)}
+                    onAdd={() => handleAddToTracker(college.id)}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
-
-      {/* Grid */}
-      <div className="p-6">
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-52 bg-white rounded-xl border border-slate-200 animate-pulse" />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {colleges.map(c => (
-              <CollegeCard
-                key={c.id}
-                college={c}
-                onClick={() => navigate(`/college/${c.id}`)}
-                student={student}
-                isTracked={trackedColleges.has(c.id)}
-                isAdding={adding.has(c.id)}
-                onAdd={() => handleAddToTracker(c.id)}
-              />
-            ))}
-          </div>
-        )}
-
-        {!loading && colleges.length === 0 && (
-          <div className="text-center py-16 text-slate-400">
-            <p className="text-lg font-medium">No colleges found</p>
-            <p className="text-sm mt-1">Try a different search or filter</p>
-          </div>
-        )}
-      </div>
-
-    </div>
+    </Layout>
   )
 }
 
-// ── College card ───────────────────────────────────────────
-function CollegeCard({ college: c, onClick, student, isTracked, isAdding, onAdd }) {
-  const nextDeadline = getNextDeadline(c.deadlines)
-
-  // Calculate match score
-  function getMatchScore() {
+// College card component
+function CollegeCard({ college, student, isTracked, isAdding, onNavigate, onAdd }) {
+  const getMatchScore = () => {
     if (!student?.academic_background?.cat_percentile) {
-      return { label: 'Add CAT score', color: 'bg-slate-50 text-slate-400' }
+      return null
     }
 
     const cat = student.academic_background.cat_percentile
-    const tier = c.tier || 3
-    console.log('CollegeDir: computing score for tier', tier, 'with percentile', cat)
+    const tier = college.tier || 3
     const thresholds = MATCH_SCORE_THRESHOLDS[tier]
 
     if (!thresholds) {
-      console.warn('CollegeDir: no thresholds found for tier', tier, 'MATCH_SCORE_THRESHOLDS:', MATCH_SCORE_THRESHOLDS)
-      return { label: 'Score unavailable', color: 'bg-slate-50 text-slate-400' }
+      return null
     }
 
     let label = 'Reach'
-    let color = 'bg-amber-50 text-amber-700 border border-amber-200'
+    let color = 'bg-orange-500'
 
     if (cat >= thresholds.strong) {
       label = 'Strong Match'
-      color = 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+      color = 'bg-green-500'
     } else if (cat >= thresholds.moderate) {
       label = 'Moderate'
-      color = 'bg-blue-50 text-blue-700 border border-blue-200'
+      color = 'bg-amber-500'
     }
 
     return { label, color }
   }
 
   const matchScore = getMatchScore()
+  const imageUrl = college.image_url || GENERIC_UNIVERSITY_IMAGE
+  const initials = college.name.split(' ').map(w => w[0]).join('')
 
   return (
     <button
-      onClick={onClick}
-      className="text-left bg-white rounded-xl border border-slate-200 p-5
-                 hover:border-blue-300 hover:shadow-md transition-all duration-150 group"
-    >
-      {/* Top row */}
-      <div className="flex items-start justify-between gap-2 mb-3">
+      onClick={onNavigate}
+      className="text-left bg-white rounded-xl overflow-hidden border border-slate-200 hover:shadow-lg hover:scale-105 transition-all duration-150 group">
+      {/* Image with match badge overlay */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 aspect-video">
+        <img
+          src={imageUrl}
+          alt={college.name}
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+          onError={e => {
+            e.target.src = GENERIC_UNIVERSITY_IMAGE
+          }}
+        />
+
+        {/* Gradient overlay at bottom */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+
+        {/* Match badge */}
+        {matchScore && (
+          <div className="absolute top-3 right-3">
+            <span className={`text-xs px-2 py-1 rounded-full font-semibold text-white ${matchScore.color}`}>
+              {matchScore.label}
+            </span>
+          </div>
+        )}
+
+        {/* Image placeholder initials */}
+        {!college.image_url && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-3xl font-bold text-white opacity-40">{initials}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Card content */}
+      <div className="p-4 space-y-3">
+        {/* Title */}
         <div>
-          <h2 className="font-semibold text-slate-900 text-sm leading-tight group-hover:text-blue-700 transition-colors">
-            {c.name}
-          </h2>
-          <p className="text-xs text-slate-400 mt-0.5">{c.location}</p>
+          <h3 className="font-semibold text-slate-900 text-sm leading-tight group-hover:text-indigo-600 transition-colors">
+            {college.name}
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5">{college.location}</p>
         </div>
-        {c.nirf_rank && (
-          <span className="shrink-0 text-xs bg-amber-50 text-amber-700 border border-amber-200
-                           px-2 py-0.5 rounded-full font-medium">
-            #{c.nirf_rank} NIRF
-          </span>
-        )}
-      </div>
 
-      {/* Match score */}
-      <div className={`text-xs px-2 py-0.5 rounded-full font-medium text-center ${matchScore.color}`}>
-        {matchScore.label}
-      </div>
+        {/* Stats line */}
+        <div className="text-xs text-slate-600 space-y-1">
+          <div className="flex flex-wrap gap-3">
+            {college.avg_fees && (
+              <span>₹{(college.avg_fees / 100000).toFixed(0)}L fees</span>
+            )}
+            {college.placement_avg_lpa && (
+              <span>₹{college.placement_avg_lpa}L avg</span>
+            )}
+            {college.deadlines?.[0]?.date && (
+              <span>{formatDate(college.deadlines[0].date)}</span>
+            )}
+          </div>
+          {!college.avg_fees && !college.placement_avg_lpa && (
+            <div>—</div>
+          )}
+        </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        <Stat label="Avg LPA" value={c.placement_avg_lpa ? `₹${c.placement_avg_lpa}L` : '–'} />
-        <Stat label="Fees" value={c.avg_fees ? `₹${(c.avg_fees/100000).toFixed(0)}L` : '–'} />
-        <Stat label="Batch" value={c.batch_size || '–'} />
+        {/* Add to Tracker button */}
+        <button
+          onClick={e => {
+            e.stopPropagation()
+            onAdd()
+          }}
+          disabled={isTracked || isAdding}
+          className={`w-full py-2 rounded-lg text-xs font-semibold transition-colors ${
+            isTracked
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
+              : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
+          }`}>
+          {isTracked ? '✓ In Tracker' : isAdding ? 'Adding…' : '+ Add to Tracker'}
+        </button>
       </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between mt-2">
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TIER_STYLES[c.tier] || TIER_STYLES[3]}`}>
-          {getTierDisplay(c.tier)}
-        </span>
-        {nextDeadline ? (
-          <span className="text-xs text-slate-400">
-            Next deadline: <span className="text-slate-600 font-medium">{nextDeadline}</span>
-          </span>
-        ) : (
-          <span className="text-xs text-slate-300">Deadline TBD</span>
-        )}
-      </div>
-
-      {/* Add to Tracker button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onAdd()
-        }}
-        disabled={isTracked || isAdding}
-        className={`w-full mt-3 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-          isTracked
-            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
-            : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
-        }`}>
-        {isAdding ? 'Adding…' : isTracked ? '✓ In Tracker' : '+ Add to Tracker'}
-      </button>
     </button>
   )
 }
 
-function Stat({ label, value }) {
-  return (
-    <div className="bg-slate-50 rounded-lg px-2 py-1.5 text-center">
-      <p className="text-xs font-semibold text-slate-800">{value}</p>
-      <p className="text-[10px] text-slate-400 mt-0.5">{label}</p>
-    </div>
-  )
-}
-
-// ── College detail drawer ──────────────────────────────────
-function CollegeDrawer({ college: c, onClose }) {
-  const { cutoffs, loading: cutoffsLoading } = useCollegeCutoffs(c.id)
-  const catCutoff = cutoffs.find(x => x.exam_type === 'CAT')
-
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Panel */}
-      <div className="relative w-full max-w-lg bg-white h-full shadow-2xl overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-start gap-3">
-          <div className="flex-1">
-            <h2 className="font-bold text-slate-900 text-lg leading-tight">{c.name}</h2>
-            <p className="text-sm text-slate-400">{c.location} · {c.type}</p>
-          </div>
-          <button onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 text-xl font-light mt-0.5">×</button>
-        </div>
-
-        <div className="p-6 space-y-6">
-          {/* Quick stats */}
-          <div className="grid grid-cols-2 gap-3">
-            <StatBlock label="Avg Package" value={c.placement_avg_lpa ? `₹${c.placement_avg_lpa} LPA` : '–'} />
-            <StatBlock label="Median Package" value={c.placement_median_lpa ? `₹${c.placement_median_lpa} LPA` : '–'} />
-            <StatBlock label="Highest Package" value={c.placement_highest_lpa ? `₹${c.placement_highest_lpa} LPA` : '–'} />
-            <StatBlock label="Total Fees" value={c.avg_fees ? `₹${(c.avg_fees/100000).toFixed(1)}L` : '–'} />
-          </div>
-
-          {/* Accreditations */}
-          {c.accreditation?.length > 0 && (
-            <div>
-              <SectionTitle>Accreditations</SectionTitle>
-              <div className="flex gap-2 flex-wrap mt-2">
-                {c.accreditation.map(a => (
-                  <span key={a} className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded-full">
-                    {a}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Top recruiters */}
-          {c.top_recruiters?.length > 0 && (
-            <div>
-              <SectionTitle>Top Recruiters</SectionTitle>
-              <div className="flex gap-2 flex-wrap mt-2">
-                {c.top_recruiters.map(r => (
-                  <span key={r} className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full">
-                    {r}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* CAT cutoffs */}
-          <div>
-            <SectionTitle>CAT Cutoffs (2025-27)</SectionTitle>
-            {cutoffsLoading ? (
-              <div className="h-20 bg-slate-100 rounded-lg animate-pulse mt-2" />
-            ) : catCutoff ? (
-              <div className="mt-2 rounded-lg border border-slate-200 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
-                    <tr>
-                      {['Category','Overall','VARC','DILR','QA'].map(h => (
-                        <th key={h} className="px-3 py-2 text-left font-medium">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {[
-                      { cat: 'General', overall: catCutoff.overall_gen, varc: catCutoff.varc_gen, dilr: catCutoff.dilr_gen, qa: catCutoff.qa_gen },
-                      { cat: 'OBC',     overall: catCutoff.overall_obc },
-                      { cat: 'SC',      overall: catCutoff.overall_sc },
-                      { cat: 'ST',      overall: catCutoff.overall_st },
-                    ].map(row => (
-                      <tr key={row.cat} className="hover:bg-slate-50">
-                        <td className="px-3 py-2 font-medium text-slate-700">{row.cat}</td>
-                        <td className="px-3 py-2 text-slate-800">{row.overall ? `${row.overall}%ile` : '–'}</td>
-                        <td className="px-3 py-2 text-slate-500">{row.varc ? `${row.varc}` : '–'}</td>
-                        <td className="px-3 py-2 text-slate-500">{row.dilr ? `${row.dilr}` : '–'}</td>
-                        <td className="px-3 py-2 text-slate-500">{row.qa ? `${row.qa}` : '–'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {catCutoff.notes && (
-                  <p className="text-xs text-slate-400 px-3 py-2 border-t border-slate-100">
-                    {catCutoff.notes}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-400 mt-2">No cutoff data available</p>
-            )}
-          </div>
-
-          {/* Deadlines */}
-          {c.deadlines?.length > 0 && (
-            <div>
-              <SectionTitle>Application Deadlines</SectionTitle>
-              <div className="mt-2 space-y-2">
-                {c.deadlines.map((d, i) => (
-                  <div key={i} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                    <div>
-                      <span className="text-sm font-medium text-slate-700">{d.round}</span>
-                      <span className="text-xs text-slate-400 ml-2">{d.type}</span>
-                    </div>
-                    <span className={`text-sm font-medium ${isUpcoming(d.date) ? 'text-blue-600' : 'text-slate-400'}`}>
-                      {formatDate(d.date)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Helper components ──────────────────────────────────────
-function SectionTitle({ children }) {
-  return <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{children}</h3>
-}
-
-function StatBlock({ label, value }) {
-  return (
-    <div className="bg-slate-50 rounded-xl p-3">
-      <p className="text-sm text-slate-400">{label}</p>
-      <p className="text-lg font-bold text-slate-900 mt-0.5">{value}</p>
-    </div>
-  )
-}
-
-// ── Helpers ────────────────────────────────────────────────
-function getNextDeadline(deadlines) {
-  if (!deadlines?.length) return null
-  const today = new Date()
-  const future = deadlines
-    .filter(d => new Date(d.date) >= today)
-    .sort((a, b) => new Date(a.date) - new Date(b.date))
-  return future[0] ? formatDate(future[0].date) : null
-}
-
 function formatDate(dateStr) {
-  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function isUpcoming(dateStr) {
-  return new Date(dateStr) >= new Date()
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'short', month: 'short' })
 }
