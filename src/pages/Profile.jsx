@@ -23,6 +23,7 @@ export default function Profile() {
 
   const [user, setUser] = useState(null)
   const [student, setStudent] = useState(null)
+  const [applications, setApplications] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(false)
@@ -69,6 +70,28 @@ export default function Profile() {
     loadStudent()
   }, [user?.id])
 
+  // Fetch applications for the logged-in student
+  useEffect(() => {
+    if (!student?.id) return
+
+    async function loadApplications() {
+      try {
+        const { data, error: fetchErr } = await supabase
+          .from('applications')
+          .select('status')
+          .eq('student_id', student.id)
+
+        if (fetchErr) throw fetchErr
+        setApplications(data || [])
+      } catch (err) {
+        console.error('Error fetching applications:', err)
+        setApplications([])
+      }
+    }
+
+    loadApplications()
+  }, [student?.id])
+
   if (loading) {
     return (
       <Layout>
@@ -104,7 +127,7 @@ export default function Profile() {
   // ── statusCounts — count how many applications are in each status ──────────
   // Produces { Researching: 1, Applied: 2, Interview: 1, Offer: 1, Rejected: 1 }
   const statusCounts = STATUSES.reduce((acc, st) => {
-    acc[st] = MOCK_APPLICATIONS.filter(a => a.status === st).length
+    acc[st] = applications.filter(a => a.status === st).length
     return acc
   }, {})
 
@@ -225,7 +248,7 @@ export default function Profile() {
           </div>
 
           {/* Empty state — shown if no applications exist yet */}
-          {MOCK_APPLICATIONS.length === 0 && (
+          {applications.length === 0 && (
             <div className="text-center py-6">
               <p className="text-sm text-gray-400">No applications tracked yet.</p>
               <button onClick={() => navigate('/colleges')} className="mt-2 text-sm text-indigo-600 font-medium hover:underline">
