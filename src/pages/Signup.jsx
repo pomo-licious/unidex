@@ -57,7 +57,13 @@ export default function Signup() {
 
     // If Supabase returns an error (e.g. email already used), show it and stop
     if (authError) {
-      setError(authError.message)
+      if (authError.message?.toLowerCase().includes('rate limit') ||
+          authError.message?.toLowerCase().includes('wait') ||
+          authError.message?.toLowerCase().includes('second')) {
+        setError('Too many attempts. Please wait a moment and try again.')
+      } else {
+        setError(authError.message)
+      }
       setLoading(false)
       return
     }
@@ -80,7 +86,13 @@ export default function Signup() {
 
     // If the database insert fails (e.g. duplicate email), show the error
     if (insertError) {
-      setError(insertError.message)
+      if (insertError.message?.toLowerCase().includes('rate limit') ||
+          insertError.message?.toLowerCase().includes('wait') ||
+          insertError.message?.toLowerCase().includes('second')) {
+        setError('Too many attempts. Please wait a moment and try again.')
+      } else {
+        setError(insertError.message)
+      }
       setLoading(false)
       return
     }

@@ -35,13 +35,19 @@ export default function Login() {
     })
 
     if (signInError) {
-      setError(signInError.message)
+      if (signInError.message?.toLowerCase().includes('rate limit') ||
+          signInError.message?.toLowerCase().includes('wait') ||
+          signInError.message?.toLowerCase().includes('second')) {
+        setError('Too many attempts. Please wait a moment and try again.')
+      } else {
+        setError(signInError.message)
+      }
       setLoading(false)
       return
     }
 
-    // Success — redirect to tracker
-    navigate('/tracker')
+    // Success — redirect to profile
+    navigate('/profile')
   }
 
   return (
