@@ -4,9 +4,19 @@ import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
 
 const MATCH_SCORE_THRESHOLDS = {
-  1: { strong: 98, moderate: 95 },
-  2: { strong: 90, moderate: 85 },
-  3: { strong: 80, moderate: 70 },
+  1: { strong: 97, moderate: 93 },
+  // Tier 1: IIM A/B/C/L/K/I, ISB, FMS, XLRI, SPJIMR, MDI
+  // Strong = realistic chance (Gen cutoff 97-99.5)
+  // Moderate = borderline (93-96)
+  // Reach = below 93
+
+  2: { strong: 88, moderate: 82 },
+  // Tier 2: IIM Rohtak/Trichy/Ranchi/Shillong, NITIE, XIMB, IMT
+  // Strong = above 88, Moderate = 82-87, Reach = below 82
+
+  3: { strong: 78, moderate: 70 },
+  // Tier 3: Alliance, Amity, Christ, etc.
+  // Strong = above 78, Moderate = 70-77, Reach = below 70
 }
 
 const GENERIC_UNIVERSITY_IMAGE = 'https://images.unsplash.com/photo-1562774053-701939374585?w=640&q=80'
@@ -370,16 +380,19 @@ function CollegeCard({ college, student, isTracked, isAdding, onNavigate, onAdd,
 
     let label = 'Reach'
     let color = 'bg-orange-500'
+    let tooltip = 'Your score is below typical cutoff — worth applying'
 
     if (cat >= thresholds.strong) {
       label = 'Strong Match'
       color = 'bg-green-500'
+      tooltip = 'Your CAT score is above this college\'s cutoff'
     } else if (cat >= thresholds.moderate) {
       label = 'Moderate'
       color = 'bg-amber-500'
+      tooltip = 'Your score is near this college\'s cutoff range'
     }
 
-    return { label, color }
+    return { label, color, tooltip }
   }
 
   const matchScore = getMatchScore()
@@ -407,7 +420,7 @@ function CollegeCard({ college, student, isTracked, isAdding, onNavigate, onAdd,
         {/* Match badge */}
         <div className="absolute top-3 right-3">
           {user && matchScore ? (
-            <span className={`text-xs px-2 py-1 rounded-full font-semibold text-white ${matchScore.color}`}>
+            <span className={`text-xs px-2 py-1 rounded-full font-semibold text-white ${matchScore.color} cursor-help`} title={matchScore.tooltip}>
               {matchScore.label}
             </span>
           ) : !user ? (
