@@ -11,10 +11,11 @@ const MATCH_SCORE_THRESHOLDS = {
 
 const GENERIC_UNIVERSITY_IMAGE = 'https://images.unsplash.com/photo-1562774053-701939374585?w=640&q=80'
 
-export default function CollegeDirectory() {
+export default function CollegeDirectory({ user: propUser, loading: propLoading }) {
   const navigate = useNavigate()
 
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState(propUser || null)
+  const [showSignInModal, setShowSignInModal] = useState(false)
   const [student, setStudent] = useState(null)
   const [colleges, setColleges] = useState([])
   const [applicationCounts, setApplicationCounts] = useState({})
@@ -26,13 +27,17 @@ export default function CollegeDirectory() {
   const [activeTab, setActiveTab] = useState('relevant')
   const [subFilter, setSubFilter] = useState('All')
 
-  // Auth listener
+  // Auth listener — only use if not passed via props
   useEffect(() => {
+    if (propUser !== undefined) {
+      setUser(propUser)
+      return
+    }
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_, session) => setUser(session?.user ?? null)
     )
     return () => subscription.unsubscribe()
-  }, [])
+  }, [propUser])
 
   // Fetch student data
   useEffect(() => {
@@ -302,19 +307,54 @@ export default function CollegeDirectory() {
                     isAdding={adding.has(college.id)}
                     onNavigate={() => navigate(`/college/${college.id}`)}
                     onAdd={() => handleAddToTracker(college.id)}
+                    user={user}
+                    onAddClick={() => setShowSignInModal(true)}
                   />
                 ))}
               </div>
             </>
           )}
         </div>
+
+        {/* Sign-in modal for guests */}
+        {showSignInModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-8 max-w-sm w-full mx-4 space-y-6">
+              <h2 className="text-2xl font-bold text-slate-900">Sign in to track this college</h2>
+              <p className="text-slate-600">Create an account or sign in to start tracking your MBA applications.</p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setShowSignInModal(false)
+                    navigate('/login')
+                  }}
+                  className="w-full px-4 py-3 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition">
+                  Sign in
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSignInModal(false)
+                    navigate('/signup')
+                  }}
+                  className="w-full px-4 py-3 rounded-lg border-2 border-indigo-600 text-indigo-600 font-semibold hover:bg-indigo-50 transition">
+                  Sign up
+                </button>
+              </div>
+              <button
+                onClick={() => setShowSignInModal(false)}
+                className="w-full text-center text-slate-500 hover:text-slate-700">
+                Continue browsing
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   )
 }
 
 // College card component
-function CollegeCard({ college, student, isTracked, isAdding, onNavigate, onAdd }) {
+function CollegeCard({ college, student, isTracked, isAdding, onNavigate, onAdd, user, onAddClick }) {
   const getMatchScore = () => {
     if (!student?.academic_background?.cat_percentile) {
       return null
@@ -365,13 +405,17 @@ function CollegeCard({ college, student, isTracked, isAdding, onNavigate, onAdd 
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
 
         {/* Match badge */}
-        {matchScore && (
-          <div className="absolute top-3 right-3">
+        <div className="absolute top-3 right-3">
+          {user && matchScore ? (
             <span className={`text-xs px-2 py-1 rounded-full font-semibold text-white ${matchScore.color}`}>
               {matchScore.label}
             </span>
-          </div>
-        )}
+          ) : !user ? (
+            <span className="text-xs px-2 py-1 rounded-full font-semibold text-white bg-slate-600">
+              Sign in to match
+            </span>
+          ) : null}
+        </div>
 
         {/* Image placeholder initials */}
         {!college.image_url && (
@@ -395,7 +439,9 @@ function CollegeCard({ college, student, isTracked, isAdding, onNavigate, onAdd 
         <div className="text-xs text-slate-600">
           <div className="flex flex-wrap gap-2">
             <span>{college.avg_fees ? `₹${(college.avg_fees / 100000).toFixed(0)}L fees` : '—'}</span>
-            <span>{college.placement_avg_lpa ? `₹${college.placement_avg_lpa}L avg LPA` : '—'}</span>
+            {user && (
+              <span>{college.placement_avg_lpa ? `₹${college.placement_avg_lpa}L avg LPA` : '—'}</span>
+            )}
             <span>{college.deadlines?.[0]?.date ? formatDate(college.deadlines[0].date) : '—'}</span>
           </div>
         </div>
@@ -404,15 +450,21 @@ function CollegeCard({ college, student, isTracked, isAdding, onNavigate, onAdd 
         <button
           onClick={e => {
             e.stopPropagation()
-            onAdd()
+            if (!user) {
+              onAddClick?.()
+            } else {
+              onAdd()
+            }
           }}
           disabled={isTracked || isAdding}
           className={`w-full py-2 rounded-lg text-xs font-semibold transition-colors ${
             isTracked
               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
-              : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
+              : user
+              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
+              : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'
           }`}>
-          {isTracked ? '✓ In Tracker' : isAdding ? 'Adding…' : '+ Add to Tracker'}
+          {isTracked ? '✓ In Tracker' : isAdding ? 'Adding…' : !user ? 'Sign in to track' : '+ Add to Tracker'}
         </button>
       </div>
     </button>

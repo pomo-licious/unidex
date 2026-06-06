@@ -13,6 +13,7 @@ import { DemoProvider } from './context/DemoContext'
 import { supabase } from './lib/supabase'
 
 // ── Import every page component ──
+import LandingPage       from './pages/LandingPage'
 import Login             from './pages/Login'
 import Signup            from './pages/Signup'
 import Onboarding        from './pages/Onboarding'
@@ -63,16 +64,14 @@ export default function App() {
     <DemoProvider>
       <BrowserRouter>
         <Routes>
-          {/* Root — show loading while checking auth, then redirect based on auth state */}
+          {/* Public landing page */}
           <Route path="/" element={
             loading ? (
-              <div className="min-h-screen flex items-center justify-center">
+              <div className="min-h-screen flex items-center justify-center bg-[#0A1628]">
                 <div className="w-8 h-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
               </div>
-            ) : user ? (
-              <Navigate to="/profile" replace />
             ) : (
-              <Navigate to="/login" replace />
+              <LandingPage />
             )
           } />
 
@@ -83,10 +82,12 @@ export default function App() {
           {/* Onboarding — can access before full profile setup */}
           <Route path="/onboarding" element={<Onboarding />} />
 
+          {/* Public college browsing (with guest mode) */}
+          <Route path="/colleges"   element={<CollegeDirectory user={user} loading={loading} />} />
+          <Route path="/college/:id" element={<CollegeProfile user={user} loading={loading} />} />
+
           {/* Protected routes — require authentication */}
           <Route path="/profile"    element={<ProtectedRoute element={<Profile />} user={user} loading={loading} />} />
-          <Route path="/colleges"   element={<ProtectedRoute element={<CollegeDirectory />} user={user} loading={loading} />} />
-          <Route path="/college/:id" element={<ProtectedRoute element={<CollegeProfile />} user={user} loading={loading} />} />
           <Route path="/tracker"    element={<ProtectedRoute element={<AppTracker />} user={user} loading={loading} />} />
           <Route path="/calendar"   element={<ProtectedRoute element={<DeadlineCalendar />} user={user} loading={loading} />} />
           <Route path="/documents"  element={<ProtectedRoute element={<DocumentUpload />} user={user} loading={loading} />} />

@@ -9,26 +9,31 @@ const TIER_STYLES = {
   3: 'bg-slate-100 text-slate-600 border border-slate-200',
 }
 
-export default function CollegeProfile() {
+export default function CollegeProfile({ user: propUser, loading: propLoading }) {
   const { id } = useParams()
   const navigate = useNavigate()
 
   const [college, setCollege] = useState(null)
   const [cutoffs, setCutoffs] = useState([])
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState(propUser || null)
   const [student, setStudent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isTracked, setIsTracked] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [showSignInModal, setShowSignInModal] = useState(false)
 
-  // Auth listener
+  // Auth listener — only use if not passed via props
   useEffect(() => {
+    if (propUser !== undefined) {
+      setUser(propUser)
+      return
+    }
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_, session) => setUser(session?.user ?? null)
     )
     return () => subscription.unsubscribe()
-  }, [])
+  }, [propUser])
 
   // Fetch student data and check if tracked
   useEffect(() => {
@@ -95,7 +100,11 @@ export default function CollegeProfile() {
   }, [id])
 
   const handleAddToTracker = async () => {
-    if (!user || !student) {
+    if (!user) {
+      setShowSignInModal(true)
+      return
+    }
+    if (!student) {
       navigate('/login')
       return
     }
@@ -242,49 +251,77 @@ export default function CollegeProfile() {
           ))}
         </div>
 
+        {/* Guest access banner */}
+        {!user && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-6">
+            <p className="text-sm text-amber-900">
+              <strong>Sign in</strong> to see full placement data, detailed cutoffs, and scholarship information.
+            </p>
+          </div>
+        )}
+
         {/* PLACEMENT STATS */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h2 className="text-lg font-bold text-slate-900 mb-4">Placement Statistics</h2>
-          {c.placement_avg_lpa ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { label: 'Average Package', value: `₹${c.placement_avg_lpa}L` },
-                  { label: 'Median Package', value: c.placement_median_lpa ? `₹${c.placement_median_lpa}L` : 'N/A' },
-                  { label: 'Highest Package', value: `₹${c.placement_highest_lpa}L` },
-                ].map(({ label, value }) => (
-                  <div key={label} className="bg-slate-50 rounded-lg p-4">
-                    <p className="text-xs text-slate-600 font-medium">{label}</p>
-                    <p className="text-2xl font-bold text-slate-900 mt-1">{value}</p>
+        {user && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 className="text-lg font-bold text-slate-900 mb-4">Placement Statistics</h2>
+            {c.placement_avg_lpa ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    { label: 'Average Package', value: `₹${c.placement_avg_lpa}L` },
+                    { label: 'Median Package', value: c.placement_median_lpa ? `₹${c.placement_median_lpa}L` : 'N/A' },
+                    { label: 'Highest Package', value: `₹${c.placement_highest_lpa}L` },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="bg-slate-50 rounded-lg p-4">
+                      <p className="text-xs text-slate-600 font-medium">{label}</p>
+                      <p className="text-2xl font-bold text-slate-900 mt-1">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {c.placement_pct && (
+                  <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
+                    <p className="text-sm font-medium text-emerald-900">
+                      Placement Rate: <span className="text-xl font-bold">{c.placement_pct}%</span>
+                    </p>
                   </div>
-                ))}
+                )}
+
+                {c.top_recruiters && c.top_recruiters.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900 mb-3">Top Recruiters</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {c.top_recruiters.map(recruiter => (
+                        <span key={recruiter} className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-full font-medium">
+                          {recruiter}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+            ) : (
+              <p className="text-slate-500 text-sm">Placement data coming soon</p>
+            )}
+          </div>
+        )}
 
-              {c.placement_pct && (
-                <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
-                  <p className="text-sm font-medium text-emerald-900">
-                    Placement Rate: <span className="text-xl font-bold">{c.placement_pct}%</span>
-                  </p>
-                </div>
-              )}
-
-              {c.top_recruiters && c.top_recruiters.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900 mb-3">Top Recruiters</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {c.top_recruiters.map(recruiter => (
-                      <span key={recruiter} className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-full font-medium">
-                        {recruiter}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+        {/* Guest: Show top 5 recruiters only */}
+        {!user && c.top_recruiters && c.top_recruiters.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 className="text-sm font-semibold text-slate-900 mb-3">Top Recruiters</h3>
+            <div className="flex flex-wrap gap-2">
+              {c.top_recruiters.slice(0, 5).map(recruiter => (
+                <span key={recruiter} className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-full font-medium">
+                  {recruiter}
+                </span>
+              ))}
+              {c.top_recruiters.length > 5 && (
+                <span className="text-xs text-slate-500 px-3 py-1.5">+ {c.top_recruiters.length - 5} more</span>
               )}
             </div>
-          ) : (
-            <p className="text-slate-500 text-sm">Placement data coming soon</p>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* COURSES */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
@@ -317,58 +354,62 @@ export default function CollegeProfile() {
           )}
         </div>
 
-        {/* CAT/XAT CUTOFFS */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h2 className="text-lg font-bold text-slate-900 mb-4">CAT/XAT Cutoffs</h2>
-          {cutoffs.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="text-left py-3 px-4 font-semibold text-slate-900">Exam</th>
-                    <th className="text-left py-3 px-4 font-semibold text-slate-900">Category</th>
-                    <th className="text-left py-3 px-4 font-semibold text-slate-900">Overall</th>
-                    <th className="text-left py-3 px-4 font-semibold text-slate-900">VARC</th>
-                    <th className="text-left py-3 px-4 font-semibold text-slate-900">DILR</th>
-                    <th className="text-left py-3 px-4 font-semibold text-slate-900">QA</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cutoffs.map((cutoff, i) => (
-                    <tr key={i} className="border-b border-slate-100 last:border-0">
-                      <td className="py-3 px-4 text-slate-900 font-medium">{cutoff.exam_type}</td>
-                      <td className="py-3 px-4 text-slate-600">{cutoff.category || 'General'}</td>
-                      <td className="py-3 px-4 text-slate-600">{cutoff.overall_percentile}%ile</td>
-                      <td className="py-3 px-4 text-slate-600">{cutoff.varc_percentile}%ile</td>
-                      <td className="py-3 px-4 text-slate-600">{cutoff.dilr_percentile}%ile</td>
-                      <td className="py-3 px-4 text-slate-600">{cutoff.qa_percentile}%ile</td>
+        {/* CAT/XAT CUTOFFS — Logged-in users only */}
+        {user && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 className="text-lg font-bold text-slate-900 mb-4">CAT/XAT Cutoffs</h2>
+            {cutoffs.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200">
+                      <th className="text-left py-3 px-4 font-semibold text-slate-900">Exam</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-900">Category</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-900">Overall</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-900">VARC</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-900">DILR</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-900">QA</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-slate-500 text-sm">Cutoff data coming soon</p>
-          )}
-        </div>
+                  </thead>
+                  <tbody>
+                    {cutoffs.map((cutoff, i) => (
+                      <tr key={i} className="border-b border-slate-100 last:border-0">
+                        <td className="py-3 px-4 text-slate-900 font-medium">{cutoff.exam_type}</td>
+                        <td className="py-3 px-4 text-slate-600">{cutoff.category || 'General'}</td>
+                        <td className="py-3 px-4 text-slate-600">{cutoff.overall_percentile}%ile</td>
+                        <td className="py-3 px-4 text-slate-600">{cutoff.varc_percentile}%ile</td>
+                        <td className="py-3 px-4 text-slate-600">{cutoff.dilr_percentile}%ile</td>
+                        <td className="py-3 px-4 text-slate-600">{cutoff.qa_percentile}%ile</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-slate-500 text-sm">Cutoff data coming soon</p>
+            )}
+          </div>
+        )}
 
-        {/* SCHOLARSHIPS */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h2 className="text-lg font-bold text-slate-900 mb-4">Scholarships</h2>
-          {c.scholarships && c.scholarships.length > 0 ? (
-            <div className="space-y-3">
-              {c.scholarships.map((scholarship, i) => (
-                <div key={i} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                  <p className="font-semibold text-slate-900">{scholarship.name}</p>
-                  <p className="text-sm text-slate-600 mt-1">{scholarship.criteria}</p>
-                  <p className="text-sm font-semibold text-indigo-600 mt-2">₹{scholarship.amount}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-slate-500 text-sm">Scholarship info coming soon</p>
-          )}
-        </div>
+        {/* SCHOLARSHIPS — Logged-in users only */}
+        {user && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h2 className="text-lg font-bold text-slate-900 mb-4">Scholarships</h2>
+            {c.scholarships && c.scholarships.length > 0 ? (
+              <div className="space-y-3">
+                {c.scholarships.map((scholarship, i) => (
+                  <div key={i} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                    <p className="font-semibold text-slate-900">{scholarship.name}</p>
+                    <p className="text-sm text-slate-600 mt-1">{scholarship.criteria}</p>
+                    <p className="text-sm font-semibold text-indigo-600 mt-2">₹{scholarship.amount}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-500 text-sm">Scholarship info coming soon</p>
+            )}
+          </div>
+        )}
 
         {/* ABOUT + FACILITIES */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
@@ -391,6 +432,39 @@ export default function CollegeProfile() {
         </div>
 
       </div>
+
+      {/* Sign-in modal for guests */}
+      {showSignInModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-8 max-w-sm w-full mx-4 space-y-6">
+            <h2 className="text-2xl font-bold text-slate-900">Sign in to track this college</h2>
+            <p className="text-slate-600">Create an account or sign in to start tracking your MBA applications.</p>
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setShowSignInModal(false)
+                  navigate('/login')
+                }}
+                className="w-full px-4 py-3 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition">
+                Sign in
+              </button>
+              <button
+                onClick={() => {
+                  setShowSignInModal(false)
+                  navigate('/signup')
+                }}
+                className="w-full px-4 py-3 rounded-lg border-2 border-indigo-600 text-indigo-600 font-semibold hover:bg-indigo-50 transition">
+                Sign up
+              </button>
+            </div>
+            <button
+              onClick={() => setShowSignInModal(false)}
+              className="w-full text-center text-slate-500 hover:text-slate-700">
+              Continue browsing
+            </button>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }
