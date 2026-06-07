@@ -393,8 +393,8 @@ export default function LandingPage() {
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div className="rounded-2xl overflow-hidden border-4 border-[#C9A84C] shadow-2xl">
                 <img
-                  src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=600&q=80"
-                  alt="Students"
+                  src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&q=80"
+                  alt="Students studying together"
                   className="w-full h-auto"
                 />
               </div>
