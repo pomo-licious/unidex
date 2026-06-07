@@ -25,6 +25,8 @@ import DeadlineCalendar  from './pages/DeadlineCalendar'
 import DocumentUpload    from './pages/DocumentUpload'
 import OfferCelebration  from './pages/OfferCelebration'
 import ApplyNow          from './pages/ApplyNow'
+import FeedbackSurvey    from './pages/FeedbackSurvey'
+import AdminDashboard    from './pages/AdminDashboard'
 
 // ── ProtectedRoute — redirects to /login if user is not authenticated ──
 function ProtectedRoute({ element, user, loading }) {
@@ -86,6 +88,9 @@ export default function App() {
           <Route path="/colleges"   element={<CollegeDirectory user={user} loading={loading} />} />
           <Route path="/college/:id" element={<CollegeProfile user={user} loading={loading} />} />
 
+          {/* Public feedback survey */}
+          <Route path="/feedback"   element={<FeedbackSurvey />} />
+
           {/* Protected routes — require authentication */}
           <Route path="/profile"    element={<ProtectedRoute element={<Profile />} user={user} loading={loading} />} />
           <Route path="/tracker"    element={<ProtectedRoute element={<AppTracker />} user={user} loading={loading} />} />
@@ -93,6 +98,7 @@ export default function App() {
           <Route path="/documents"  element={<ProtectedRoute element={<DocumentUpload />} user={user} loading={loading} />} />
           <Route path="/apply/:applicationId" element={<ProtectedRoute element={<ApplyNow />} user={user} loading={loading} />} />
           <Route path="/offer/:college_id" element={<ProtectedRoute element={<OfferCelebration />} user={user} loading={loading} />} />
+          <Route path="/admin"      element={<ProtectedRoute element={<AdminDashboard />} user={user} loading={loading} />} />
         </Routes>
       </BrowserRouter>
     </DemoProvider>
