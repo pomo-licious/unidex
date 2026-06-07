@@ -18,7 +18,13 @@ export default function AdminDashboard() {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser()
 
-      if (!user || user.email !== 'demo@unidex.co.in') {
+      if (!user) {
+        navigate('/login', { replace: true })
+        return
+      }
+
+      const isAdmin = user?.app_metadata?.role === 'admin'
+      if (!isAdmin) {
         navigate('/profile', { replace: true })
         return
       }

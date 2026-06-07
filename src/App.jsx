@@ -26,6 +26,7 @@ import DocumentUpload    from './pages/DocumentUpload'
 import OfferCelebration  from './pages/OfferCelebration'
 import ApplyNow          from './pages/ApplyNow'
 import FeedbackSurvey    from './pages/FeedbackSurvey'
+import AdminLogin        from './pages/AdminLogin'
 import AdminDashboard    from './pages/AdminDashboard'
 
 // ── ProtectedRoute — redirects to /login if user is not authenticated ──
@@ -90,6 +91,9 @@ export default function App() {
 
           {/* Public feedback survey */}
           <Route path="/feedback"   element={<FeedbackSurvey />} />
+
+          {/* Admin login (public, but checks role after auth) */}
+          <Route path="/admin/login" element={<AdminLogin />} />
 
           {/* Protected routes — require authentication */}
           <Route path="/profile"    element={<ProtectedRoute element={<Profile />} user={user} loading={loading} />} />
