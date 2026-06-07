@@ -7,6 +7,7 @@ export default function LandingPage() {
   const [user, setUser] = useState(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [navScrolled, setNavScrolled] = useState(false)
+  const scrollTimeoutRef = useRef(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -16,11 +17,22 @@ export default function LandingPage() {
   }, [navigate])
 
   useEffect(() => {
+    let lastScrollY = 0
     const handleScroll = () => {
-      setNavScrolled(window.scrollY > 50)
+      const scrolled = window.scrollY > 50
+      if ((lastScrollY > 50) !== scrolled) {
+        lastScrollY = window.scrollY
+        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
+        scrollTimeoutRef.current = setTimeout(() => {
+          setNavScrolled(scrolled)
+        }, 0)
+      }
     }
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
+    }
   }, [])
 
   const scrollToSection = (id) => {
@@ -524,8 +536,12 @@ export default function LandingPage() {
 // Scroll trigger component for fade-in animations
 function ScrollTrigger({ children }) {
   const ref = useRef(null)
+  const observerRef = useRef(null)
 
   useEffect(() => {
+    const target = ref.current
+    if (!target) return
+
     const observer = new IntersectionObserver(
       entries => {
         entries.forEach(entry => {
@@ -533,18 +549,24 @@ function ScrollTrigger({ children }) {
             entry.target.querySelectorAll('.fade-up').forEach(el => {
               el.classList.add('visible')
             })
-            observer.unobserve(entry.target)
+            if (observerRef.current) {
+              observerRef.current.unobserve(entry.target)
+            }
           }
         })
       },
       { threshold: 0.1 }
     )
 
-    if (ref.current) {
-      observer.observe(ref.current)
-    }
+    observerRef.current = observer
+    observer.observe(target)
 
-    return () => observer.disconnect()
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect()
+        observerRef.current = null
+      }
+    }
   }, [])
 
   return <div ref={ref}>{children}</div>
