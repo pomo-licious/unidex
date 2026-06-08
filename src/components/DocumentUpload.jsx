@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 const UPLOAD_ZONES = [
@@ -35,6 +35,7 @@ export default function DocumentUpload({ onExtracted }) {
   const [student, setStudent] = useState(null)
   const [initError, setInitError] = useState(null)
   const [toast, setToast] = useState(null)
+  const studentRef = useRef(null)
 
   // FIX #1: Changed useState to useEffect
   useEffect(() => {
@@ -71,6 +72,7 @@ export default function DocumentUpload({ onExtracted }) {
         }
 
         setStudent(data)
+        studentRef.current = data
         setInitError(null)
       } catch (err) {
         console.error('Initialization error:', err)
@@ -99,7 +101,7 @@ export default function DocumentUpload({ onExtracted }) {
 
   // Handle file upload
   const handleUpload = useCallback(async (file, zoneId, documentType) => {
-    console.log('[DocumentUpload] file selected:', file?.name, 'student:', student?.id ?? 'NULL')
+    console.log('[DocumentUpload] file selected:', file?.name, 'student:', studentRef.current?.id ?? 'NULL')
     if (!file) return
 
     const maxSize = 5 * 1024 * 1024
@@ -200,7 +202,7 @@ export default function DocumentUpload({ onExtracted }) {
   // Save corrections and log training data
   const handleConfirmAndSave = useCallback(async (zoneId, documentType, correctedValues) => {
     // FIX #2: Don't silently return — show user feedback
-    if (!student?.id || !user?.id) {
+    if (!studentRef.current?.id || !user?.id) {
       const errorMsg = 'Student profile not loaded. Please refresh the page.'
       console.error(errorMsg)
       showToast(errorMsg, 'error')
@@ -240,7 +242,7 @@ export default function DocumentUpload({ onExtracted }) {
       const { data: currentStudent, error: fetchError } = await supabase
         .from('students')
         .select('documents_uploaded')
-        .eq('id', student.id)
+        .eq('id', studentRef.current.id)
         .single()
 
       if (fetchError) {
@@ -256,7 +258,7 @@ export default function DocumentUpload({ onExtracted }) {
       const { error: studentError } = await supabase
         .from('students')
         .update(updateData)
-        .eq('id', student.id)
+        .eq('id', studentRef.current.id)
 
       if (studentError) throw new Error(`Failed to save profile: ${studentError.message}`)
 
@@ -267,7 +269,7 @@ export default function DocumentUpload({ onExtracted }) {
           human_verified: true,
           human_corrected_data: correctedValues
         })
-        .eq('student_id', student.id)
+        .eq('student_id', studentRef.current.id)
         .eq('document_type', documentType)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -300,7 +302,7 @@ export default function DocumentUpload({ onExtracted }) {
         message: errorMsg
       })
     }
-  }, [student?.id, user?.id, updateZoneState, showToast, onExtracted])
+  }, [user?.id, updateZoneState, showToast, onExtracted])
 
   const handleFileSelect = useCallback((e, zoneId, documentType) => {
     const file = e.target.files?.[0]

@@ -21,3 +21,5 @@ createRoot(document.getElementById('root')).render(
 
 // Remove the initial HTML loader once React has rendered
 document.getElementById('initial-loader')?.remove()
+
+// Cache bust — forces new bundle hash on each build
