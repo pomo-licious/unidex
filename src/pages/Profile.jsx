@@ -16,6 +16,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import Layout from '../components/Layout'
+import DocumentUpload from '../components/DocumentUpload'
 import { supabase } from '../lib/supabase'
 import { MOCK_APPLICATIONS, STATUS_META, STATUSES, COLLEGES, TYPE_META, fitLabel } from '../lib/mockData'
 
@@ -29,6 +30,7 @@ export default function Profile() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(false)
+  const [toast, setToast] = useState(null)
 
   // Listen to auth state changes with proper cleanup
   useEffect(() => {
@@ -115,6 +117,62 @@ export default function Profile() {
 
     loadSavedColleges()
   }, [student?.id])
+
+  // Handle extracted document data
+  const handleExtracted = async (documentType, extractedData) => {
+    if (!student?.id) return
+
+    try {
+      // Map document type to column name
+      const columnMap = {
+        '10th': 'academic_10th',
+        '12th': 'academic_12th',
+        'graduation': 'academic_graduation',
+        'scorecard': 'exam_scores'
+      }
+
+      const columnName = columnMap[documentType]
+      if (!columnName) throw new Error('Invalid document type')
+
+      // Prepare update data
+      const updateData = {
+        [columnName]: extractedData,
+        documents_uploaded: student.documents_uploaded || []
+      }
+
+      // Add document type to uploaded list if not already there
+      if (!updateData.documents_uploaded.includes(documentType)) {
+        updateData.documents_uploaded = [...updateData.documents_uploaded, documentType]
+      }
+
+      // Upsert to students table
+      const { error: upsertError } = await supabase
+        .from('students')
+        .update(updateData)
+        .eq('id', student.id)
+
+      if (upsertError) throw upsertError
+
+      // Show success toast
+      setToast({ type: 'success', message: 'Profile updated from document ✓' })
+      setTimeout(() => setToast(null), 3000)
+
+      // Reload student data
+      const { data } = await supabase
+        .from('students')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+
+      if (data) {
+        setStudent(data)
+      }
+    } catch (err) {
+      console.error('Error updating profile:', err)
+      setToast({ type: 'error', message: 'Failed to update profile' })
+      setTimeout(() => setToast(null), 3000)
+    }
+  }
 
   if (loading) {
     return (
@@ -335,6 +393,11 @@ export default function Profile() {
           )}
         </div>
 
+        {/* ── Documents & OCR section ── */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <DocumentUpload onExtracted={handleExtracted} />
+        </div>
+
         {/* ── AI Form Fill teaser banner ── */}
         {/* This feature (Anthropic API auto-fill) is planned for Month 5 in the roadmap */}
         <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 rounded-2xl p-6 flex items-center justify-between">
@@ -348,6 +411,17 @@ export default function Profile() {
         </div>
 
       </div>
+
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+          toast.type === 'success'
+            ? 'bg-green-500 text-white'
+            : 'bg-red-500 text-white'
+        }`}>
+          {toast.message}
+        </div>
+      )}
     </Layout>
   )
 }

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unidex Form Fill</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 300px;
+      background: #0d1525;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+    }
+
+    /* Header */
+    .header {
+      background: #1a2744;
+      padding: 12px 16px;
+      border-bottom: 1px solid #1e3050;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-logo {
+      font-size: 16px;
+      font-weight: 700;
+      color: #c9a84c;
+    }
+
+    .header-badge {
+      font-size: 11px;
+      color: #64748b;
+      background: #0d1525;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    /* Container */
+    .container {
+      padding: 16px;
+    }
+
+    /* States */
+    .state {
+      display: none;
+    }
+
+    .state.visible {
+      display: block;
+    }
+
+    /* Signed out state */
+    .signedout-text {
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    .signin-btn {
+      width: 100%;
+      padding: 10px;
+      background: #c9a84c;
+      color: #1a2744;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .signin-btn:hover {
+      opacity: 0.9;
+    }
+
+    /* Signed in state */
+    .user-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #1a2744;
+      border-radius: 6px;
+      border: 1px solid #1e3050;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #c9a84c;
+      color: #1a2744;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .user-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .user-name {
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-subtitle {
+      font-size: 12px;
+      color: #64748b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Status row */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding: 10px 12px;
+      background: #1a2744;
+      border-radius: 6px;
+      border: 1px solid #1e3050;
+      font-size: 13px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-dot.active {
+      background: #10b981;
+    }
+
+    .status-dot.inactive {
+      background: #6b7280;
+    }
+
+    .status-text {
+      color: #64748b;
+    }
+
+    /* Buttons */
+    .fill-btn {
+      width: 100%;
+      padding: 10px;
+      background: #1a2744;
+      color: #c9a84c;
+      border: 1.5px solid #c9a84c;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 12px;
+    }
+
+    .fill-btn:hover:not(:disabled) {
+      background: #0d1525;
+    }
+
+    .fill-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Result message */
+    .result-message {
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      display: none;
+    }
+
+    .result-message.visible {
+      display: block;
+    }
+
+    .result-message.success {
+      background: #10b98133;
+      color: #86efac;
+      border: 1px solid #10b981;
+    }
+
+    .result-message.error {
+      background: #ef444433;
+      color: #fca5a5;
+      border: 1px solid #ef4444;
+    }
+
+    /* Sign out button */
+    .signout-btn {
+      width: 100%;
+      padding: 8px;
+      background: transparent;
+      color: #64748b;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .signout-btn:hover {
+      color: #c9a84c;
+    }
+
+    /* Footer */
+    .footer {
+      border-top: 1px solid #1e3050;
+      padding: 12px 16px;
+      text-align: center;
+      font-size: 12px;
+    }
+
+    .footer a {
+      color: #c9a84c;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+
+    .footer a:hover {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">Unidex</div>
+    <div class="header-badge">AI Fill</div>
+  </div>
+
+  <!-- Main container -->
+  <div class="container">
+    <!-- Signed out state -->
+    <div id="signedout-state" class="state visible">
+      <p class="signedout-text">
+        AI-powered form filler for MBA college applications. Sign in to get started.
+      </p>
+      <button id="signin-btn" class="signin-btn">Sign in to Unidex ↗</button>
+    </div>
+
+    <!-- Signed in state -->
+    <div id="signedin-state" class="state">
+      <!-- User info -->
+      <div class="user-row">
+        <div class="avatar" id="avatar"></div>
+        <div class="user-info">
+          <div class="user-name" id="user-name">Loading...</div>
+          <div class="user-subtitle" id="user-subtitle"></div>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="status-row">
+        <div id="status-dot" class="status-dot inactive"></div>
+        <span class="status-text" id="status-text">Scanning form...</span>
+      </div>
+
+      <!-- Fill button -->
+      <button id="fill-btn" class="fill-btn" disabled>✦ Fill this form</button>
+
+      <!-- Result message -->
+      <div id="result-message" class="result-message"></div>
+
+      <!-- Sign out -->
+      <button id="signout-btn" class="signout-btn">Sign out</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <a href="https://unidex.co.in" target="_blank">Learn more</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
