@@ -16,13 +16,13 @@ const UPLOAD_ZONES = [
   },
   {
     id: 'graduation',
-    label: 'Graduation',
+    label: 'Graduation Transcript',
     documentType: 'graduation',
     fields: ['university', 'degree', 'branch', 'year', 'cgpa']
   },
   {
     id: 'scorecard',
-    label: 'Score Card',
+    label: 'Score Card (CAT/GMAT/GRE)',
     documentType: 'scorecard',
     fields: ['exam', 'year', 'total_score', 'percentile']
   }
@@ -66,7 +66,7 @@ export default function DocumentUpload({ onExtracted }) {
     if (!file) return
 
     const maxSize = 5 * 1024 * 1024
-    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf']
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 
     if (file.size > maxSize) {
       updateZoneState(zoneId, {
@@ -311,7 +311,7 @@ export default function DocumentUpload({ onExtracted }) {
                     <label className="cursor-pointer block">
                       <input
                         type="file"
-                        accept=".jpg,.jpeg,.png,.pdf"
+                        accept=".jpg,.jpeg,.png,.webp,.pdf"
                         onChange={(e) => handleFileSelect(e, zone.id, zone.documentType)}
                         onDrop={(e) => handleDrop(e, zone.id, zone.documentType)}
                         onDragOver={handleDragOver}
@@ -325,7 +325,7 @@ export default function DocumentUpload({ onExtracted }) {
                           Click to upload or drag and drop
                         </p>
                         <p className="text-xs text-gray-400">
-                          JPG, PNG, PDF up to 5MB
+                          JPG, PNG, WebP, PDF up to 5MB
                         </p>
                       </div>
                     </label>
