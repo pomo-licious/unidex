@@ -404,7 +404,7 @@ function RecentlyUpdatedSection() {
       try {
         const { data } = await supabase
           .from('colleges')
-          .select('id, name, image_url, updated_at')
+          .select('id, name, location, image_url, placement_avg_lpa, updated_at')
           .order('updated_at', { ascending: false })
           .limit(8)
 
@@ -422,33 +422,47 @@ function RecentlyUpdatedSection() {
   if (loading || colleges.length === 0) return null
 
   return (
-    <section className="bg-[#0A1628] py-16 border-b border-slate-700">
+    <section className="bg-[#0A1628] py-16">
       <div className="max-w-7xl mx-auto px-6">
-        <h3 className="text-2xl font-bold text-white mb-8">Recently Updated Colleges</h3>
-        <div className="overflow-x-auto pb-4 -mx-6 px-6">
-          <div className="flex gap-4 min-w-min">
+        <div className="mb-8">
+          <p className="text-xs uppercase tracking-widest text-[#C9A84C] font-semibold mb-2">Recently Updated</p>
+          <p className="text-slate-400 text-sm">Placement data verified from official 2023-24 reports</p>
+        </div>
+
+        <div className="overflow-x-auto pb-6 -mx-6 px-6 scrollbar-hide">
+          <div className="flex gap-6 min-w-min">
             {colleges.map(college => (
-              <div
+              <button
                 key={college.id}
                 onClick={() => window.location.href = `/college/${college.id}`}
-                className="w-48 flex-shrink-0 bg-[#0F2040] rounded-lg border border-slate-700 overflow-hidden cursor-pointer hover:border-[#C9A84C] transition group"
+                className="w-45 flex-shrink-0 bg-white rounded-lg overflow-hidden hover:shadow-lg transition text-left"
               >
-                {college.image_url && (
-                  <img
-                    src={college.image_url}
-                    alt={college.name}
-                    className="w-full h-32 object-cover group-hover:brightness-110 transition"
-                  />
-                )}
-                <div className="p-3">
-                  <p className="text-sm font-semibold text-white truncate">{college.name}</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Updated {new Date(college.updated_at).toLocaleDateString()}
-                  </p>
+                <div className="w-45 h-28 bg-slate-200 overflow-hidden">
+                  {college.image_url && (
+                    <img
+                      src={college.image_url}
+                      alt={college.name}
+                      className="w-full h-full object-cover"
+                      onError={e => e.target.style.display = 'none'}
+                    />
+                  )}
                 </div>
-              </div>
+                <div className="p-4">
+                  <p className="font-semibold text-slate-900 text-sm line-clamp-2">{college.name}</p>
+                  <p className="text-xs text-slate-500 mt-1">{college.location}</p>
+                  {college.placement_avg_lpa && (
+                    <p className="text-xs font-medium text-slate-700 mt-2">₹{college.placement_avg_lpa}L avg</p>
+                  )}
+                </div>
+              </button>
             ))}
           </div>
+        </div>
+
+        <div className="text-right mt-6">
+          <a href="/colleges" className="text-[#C9A84C] hover:text-[#dbb855] text-sm font-medium">
+            View all 71 colleges →
+          </a>
         </div>
       </div>
     </section>
@@ -464,13 +478,13 @@ function EmailCaptureModal() {
 
   const handleScroll = () => {
     const scrollPercent = (window.scrollY + window.innerHeight) / document.documentElement.scrollHeight
-    if (scrollPercent > 0.6 && !isOpen && !localStorage.getItem('emailCaptureSubmitted')) {
+    if (scrollPercent > 0.6 && !isOpen && !localStorage.getItem('email_captured')) {
       setIsOpen(true)
     }
   }
 
   useEffect(() => {
-    if (localStorage.getItem('emailCaptureSubmitted')) {
+    if (localStorage.getItem('email_captured')) {
       setSubmitted(true)
       return
     }
@@ -486,13 +500,13 @@ function EmailCaptureModal() {
     try {
       const { error } = await supabase
         .from('email_captures')
-        .insert([{ email, source: 'landing_page' }])
+        .insert([{ email, source: 'landing_deadline_calendar' }])
 
       if (error && error.code !== '23505') throw error // 23505 = unique constraint
 
-      localStorage.setItem('emailCaptureSubmitted', 'true')
+      localStorage.setItem('email_captured', 'true')
       setSubmitted(true)
-      setTimeout(() => setIsOpen(false), 2000)
+      setTimeout(() => setIsOpen(false), 3000)
     } catch (err) {
       console.error('Error capturing email:', err)
     } finally {
@@ -512,11 +526,11 @@ function EmailCaptureModal() {
   if (!isOpen) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-[#0F2040] border-t border-slate-700 z-40 animate-in slide-in-from-bottom duration-300">
-      <div className="max-w-3xl mx-auto px-6 py-6 flex items-center justify-between gap-6">
-        <div>
-          <p className="text-white font-semibold text-sm">Join the MBA journey</p>
-          <p className="text-slate-400 text-xs mt-1">Get insider tips, college updates, and CAT prep guides.</p>
+    <div className="fixed bottom-0 left-0 right-0 bg-[#0F2040] border-t border-[#C9A84C]/30 z-40">
+      <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between gap-8">
+        <div className="flex-1">
+          <p className="text-white font-semibold text-sm">📅 Get the MBA 2026 deadline calendar — free</p>
+          <p className="text-slate-400 text-xs mt-1">Key dates for IIM A/B/C, XLRI, ISB, FMS and 67 more programmes</p>
         </div>
 
         {!submitted ? (
@@ -534,7 +548,7 @@ function EmailCaptureModal() {
               disabled={loading}
               className="px-6 py-2 bg-[#C9A84C] text-[#0A1628] rounded-lg font-semibold text-sm hover:brightness-110 transition disabled:opacity-50 flex-shrink-0"
             >
-              {loading ? 'Joining…' : 'Join'}
+              {loading ? 'Sending…' : 'Send me the calendar'}
             </button>
           </form>
         ) : (
@@ -545,7 +559,7 @@ function EmailCaptureModal() {
 
         <button
           onClick={() => setIsOpen(false)}
-          className="text-slate-400 hover:text-white transition flex-shrink-0"
+          className="text-slate-400 hover:text-white transition flex-shrink-0 ml-2"
         >
           ✕
         </button>

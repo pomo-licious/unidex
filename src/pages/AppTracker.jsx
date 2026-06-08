@@ -21,6 +21,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { GraduationCap } from 'lucide-react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { STATUSES, STATUS_META } from '../lib/mockData'
@@ -371,13 +372,13 @@ export default function AppTracker() {
 
             {/* ── Empty state ── */}
             {apps.length === 0 ? (
-              <div className="text-center py-20">
-                <p className="text-4xl mb-4">📋</p>
-                <p className="text-sm font-semibold text-gray-700">No applications yet</p>
-                <p className="text-xs text-gray-400 mt-1">Add a college above to start tracking your MBA journey.</p>
+              <div className="text-center py-32">
+                <GraduationCap className="w-16 h-16 text-slate-300 mx-auto mb-6" />
+                <h2 className="text-xl text-slate-600 font-semibold mb-2">No applications yet</h2>
+                <p className="text-slate-400 mb-8">Add colleges from the directory to start tracking your MBA journey.</p>
                 <button
                   onClick={() => navigate('/colleges')}
-                  className="mt-4 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors">
+                  className="px-6 py-3 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors">
                   Browse colleges →
                 </button>
               </div>

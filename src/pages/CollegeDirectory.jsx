@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { Heart } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
 
@@ -563,10 +564,16 @@ function CollegeCard({ college, student, user, isTracked, isAdding, isSaved, onN
           {user && (
             <button
               onClick={onSaveClick}
-              className="absolute top-2 left-2 w-8 h-8 flex items-center justify-center rounded-full bg-white/90 hover:bg-white transition text-lg"
+              className="absolute top-2 left-2 z-20 transition hover:scale-110"
               title={isSaved ? 'Remove from saved' : 'Save for later'}
             >
-              {isSaved ? '❤️' : '🤍'}
+              <Heart
+                className={`w-6 h-6 transition ${
+                  isSaved
+                    ? 'fill-red-400 stroke-red-400'
+                    : 'stroke-white opacity-70 hover:opacity-100'
+                }`}
+              />
             </button>
           )}
         </div>

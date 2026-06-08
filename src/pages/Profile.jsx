@@ -14,6 +14,7 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Plus } from 'lucide-react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { MOCK_APPLICATIONS, STATUS_META, STATUSES, COLLEGES, TYPE_META, fitLabel } from '../lib/mockData'
@@ -245,7 +246,16 @@ export default function Profile() {
           </div>
 
           {s.target_colleges.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-4">No colleges added yet.</p>
+            <div className="text-center py-8">
+              <Plus className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-lg text-slate-500 font-medium">No target colleges yet</p>
+              <button
+                onClick={() => navigate('/colleges')}
+                className="mt-4 text-sm font-medium text-indigo-600 hover:underline"
+              >
+                + Add colleges
+              </button>
+            </div>
           )}
         </div>
 

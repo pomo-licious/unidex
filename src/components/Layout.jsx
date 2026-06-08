@@ -9,47 +9,11 @@
 // Usage: wrap any page in <Layout>...</Layout> to get the sidebar automatically.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useIsDemo } from '../context/DemoContext'
 import { NewsTicker } from './NewsTicker'
 import { supabase } from '../lib/supabase'
-
-// ─── CAT Countdown Widget ─────────────────────────────────────────────────────
-function CATCountdownWidget() {
-  const [days, setDays] = useState(0)
-
-  useEffect(() => {
-    const updateCountdown = () => {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const catExam = new Date('2026-11-28')
-      catExam.setHours(0, 0, 0, 0)
-      const daysLeft = Math.max(0, Math.round((catExam - today) / (1000 * 60 * 60 * 24)))
-      setDays(daysLeft)
-    }
-
-    updateCountdown()
-    // Update at midnight
-    const now = new Date()
-    const tomorrow = new Date(now)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    tomorrow.setHours(0, 0, 0, 0)
-    const timeout = setTimeout(() => {
-      updateCountdown()
-      setInterval(updateCountdown, 24 * 60 * 60 * 1000)
-    }, tomorrow - now)
-
-    return () => clearTimeout(timeout)
-  }, [])
-
-  return (
-    <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
-      <p className="text-xs font-semibold text-amber-700">CAT Exam</p>
-      <p className="text-xs text-amber-600 mt-0.5">{days} days away</p>
-    </div>
-  )
-}
 
 // ─── Sidebar navigation items ────────────────────────────────────────────────
 // Each item has a URL path, a display label, and an inline SVG icon.
@@ -111,11 +75,13 @@ const NAV = [
 // Accepts `children` — whatever the page puts inside <Layout>...</Layout>
 export default function Layout({ children }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const isDemo   = useIsDemo()
   const [user, setUser] = useState(null)
   const [student, setStudent] = useState(null)
   const [notifications, setNotifications] = useState([])
   const [showNotifications, setShowNotifications] = useState(false)
+  const [daysUntilCAT, setDaysUntilCAT] = useState(0)
 
   // Listen to auth state changes with proper cleanup
   useEffect(() => {
@@ -174,6 +140,16 @@ export default function Layout({ children }) {
 
     loadNotifications()
   }, [user?.id])
+
+  // Calculate days until CAT exam
+  useEffect(() => {
+    const catDate = new Date('2026-11-30')
+    catDate.setHours(0, 0, 0, 0)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const days = Math.ceil((catDate - today) / (1000 * 60 * 60 * 24))
+    setDaysUntilCAT(Math.max(0, days))
+  }, [])
 
   // Generate initials from the student's name
   const name = student?.name || 'U'
@@ -273,11 +249,6 @@ export default function Layout({ children }) {
             )}
           </div>
 
-          {/* CAT exam countdown widget */}
-          <div className="pt-4 mt-4 border-t border-gray-100">
-            <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">CAT 2026</p>
-            <CATCountdownWidget />
-          </div>
         </nav>
 
         {/* User chip at the bottom of the sidebar — shows name and logout button */}
@@ -306,6 +277,14 @@ export default function Layout({ children }) {
       {/* ── Main content area — everything to the right of the sidebar ── */}
       {/* ml-60 = left margin equal to sidebar width so content doesn't overlap */}
       <main className="ml-60 flex-1 min-h-screen flex flex-col">
+        {/* CAT countdown banner — shown only if user is logged in and not on public routes */}
+        {user && !['/', '/login', '/signup'].includes(location.pathname) && daysUntilCAT > 0 && (
+          <div className="h-9 bg-amber-50 border-b border-amber-200 flex items-center justify-center text-sm text-amber-900 px-6">
+            <span>📅 CAT 2026 — {daysUntilCAT} days away · </span>
+            <a href="/calendar" className="underline font-medium hover:text-amber-800 ml-1">View deadline calendar →</a>
+          </div>
+        )}
+
         {/* Live news ticker — visible on all authenticated pages */}
         <NewsTicker />
         <div className="flex-1">
