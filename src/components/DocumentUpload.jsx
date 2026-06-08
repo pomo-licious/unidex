@@ -29,6 +29,7 @@ const UPLOAD_ZONES = [
 ]
 
 export default function DocumentUpload({ onExtracted }) {
+  console.log('[DocumentUpload] component rendered')
   const [zoneStates, setZoneStates] = useState({})
   const [user, setUser] = useState(null)
   const [student, setStudent] = useState(null)
@@ -37,9 +38,11 @@ export default function DocumentUpload({ onExtracted }) {
 
   // FIX #1: Changed useState to useEffect
   useEffect(() => {
+    console.log('[DocumentUpload] useEffect fired')
     ;(async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
+        console.log('[DocumentUpload] session:', session?.user?.id ?? 'NO SESSION')
         if (!session) {
           setInitError('Not authenticated')
           return
@@ -53,6 +56,8 @@ export default function DocumentUpload({ onExtracted }) {
           .select('id, documents_uploaded')
           .eq('user_id', session.user.id)
           .single()
+
+        console.log('[DocumentUpload] student result:', data, 'error:', error)
 
         if (error) {
           console.error('Student lookup failed:', error)
@@ -94,6 +99,7 @@ export default function DocumentUpload({ onExtracted }) {
 
   // Handle file upload
   const handleUpload = useCallback(async (file, zoneId, documentType) => {
+    console.log('[DocumentUpload] file selected:', file?.name, 'student:', student?.id ?? 'NULL')
     if (!file) return
 
     const maxSize = 5 * 1024 * 1024
