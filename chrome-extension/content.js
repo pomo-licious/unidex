@@ -18,10 +18,47 @@ if (window.__unidexInjected) {
 }
 
 // Main initialization
-function initUnidex() {
+async function initUnidex() {
   const hasFormElements = !!document.querySelector('form, input, textarea, select')
   if (hasFormElements && !document.getElementById('unidex-fill-btn')) {
+    await fetchProfile()
     injectFillButton()
+  }
+}
+
+// Fetch profile from background script and store in window.__unidexProfile
+async function fetchProfile() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'GET_TOKEN'
+    })
+
+    const token = response.token
+    if (!token) {
+      window.__unidexProfile = null
+      return
+    }
+
+    const profileResponse = await fetch(
+      'https://siheziegpnrfjgzubjrk.supabase.co/functions/v1/get-profile',
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    )
+
+    if (profileResponse.ok) {
+      const profile = await profileResponse.json()
+      window.__unidexProfile = profile
+      console.log('Profile loaded:', profile)
+    } else {
+      window.__unidexProfile = null
+    }
+  } catch (error) {
+    console.error('Error fetching profile:', error)
+    window.__unidexProfile = null
   }
 }
 
@@ -157,7 +194,12 @@ function detectCollegeId() {
 function injectFillButton() {
   const button = document.createElement('button')
   button.id = 'unidex-fill-btn'
+
+  // Set button text with profile completeness if available
+  const completeness = window.__unidexProfile?.profile_completeness || 0
   button.textContent = '✦ Unidex Fill'
+  button.title = `Profile completeness: ${completeness}%`
+
   button.style.cssText = `
     position: fixed;
     bottom: 24px;
@@ -175,10 +217,17 @@ function injectFillButton() {
   `
 
   button.addEventListener('click', async () => {
-    button.disabled = true
-    button.textContent = '⏳ Filling...'
-
     try {
+      // Check profile completeness
+      const completeness = window.__unidexProfile?.profile_completeness || 0
+      if (completeness < 50) {
+        showToast(`⚠️ Profile is ${completeness}% complete. Please complete your profile first.`, 'warning')
+        return
+      }
+
+      button.disabled = true
+      button.textContent = '⏳ Filling...'
+
       const formFields = extractFormFields()
       const collegeId = detectCollegeId()
 

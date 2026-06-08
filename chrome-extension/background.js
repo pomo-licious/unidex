@@ -13,7 +13,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return
           }
 
-          const response = await fetch(
+          // Step 1: Fetch the flat profile from get-profile edge function
+          const profileResponse = await fetch(
+            'https://siheziegpnrfjgzubjrk.supabase.co/functions/v1/get-profile',
+            {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            }
+          )
+
+          if (!profileResponse.ok) {
+            throw new Error(`Failed to fetch profile: ${profileResponse.statusText}`)
+          }
+
+          const profile = await profileResponse.json()
+
+          // Step 2: Call profile-formfill with the full profile
+          const fillResponse = await fetch(
             'https://siheziegpnrfjgzubjrk.supabase.co/functions/v1/profile-formfill',
             {
               method: 'POST',
@@ -22,17 +40,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
+                profile,
                 form_fields: request.formFields,
                 college_id: request.collegeId
               })
             }
           )
 
-          if (!response.ok) {
-            throw new Error(`Edge function error: ${response.statusText}`)
+          if (!fillResponse.ok) {
+            throw new Error(`Edge function error: ${fillResponse.statusText}`)
           }
 
-          const data = await response.json()
+          const data = await fillResponse.json()
           sendResponse(data)
           break
         }
