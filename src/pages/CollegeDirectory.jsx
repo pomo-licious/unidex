@@ -21,6 +21,7 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
   const [colleges, setColleges] = useState([])
   const [applicationCounts, setApplicationCounts] = useState({})
   const [trackedColleges, setTrackedColleges] = useState(new Set())
+  const [savedColleges, setSavedColleges] = useState(new Set())
   const [adding, setAdding] = useState(new Set())
 
   const [loading, setLoading] = useState(true)
@@ -69,6 +70,16 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
 
           if (appData) {
             setTrackedColleges(new Set(appData.map(a => a.college_id)))
+          }
+
+          // Load saved colleges
+          const { data: savedData } = await supabase
+            .from('saved_colleges')
+            .select('college_id')
+            .eq('student_id', data.id)
+
+          if (savedData) {
+            setSavedColleges(new Set(savedData.map(s => s.college_id)))
           }
         }
       } catch (err) {
@@ -165,6 +176,49 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
     }
   }
 
+  const handleSaveCollege = async (collegeId, e) => {
+    e.stopPropagation()
+
+    if (!user) {
+      setShowSignInModal(true)
+      return
+    }
+    if (!student) return
+
+    const isSaved = savedColleges.has(collegeId)
+
+    try {
+      if (isSaved) {
+        // Remove from saved
+        const { error } = await supabase
+          .from('saved_colleges')
+          .delete()
+          .eq('student_id', student.id)
+          .eq('college_id', collegeId)
+
+        if (error) throw error
+        setSavedColleges(prev => {
+          const next = new Set(prev)
+          next.delete(collegeId)
+          return next
+        })
+      } else {
+        // Add to saved
+        const { error } = await supabase
+          .from('saved_colleges')
+          .insert({
+            student_id: student.id,
+            college_id: collegeId
+          })
+
+        if (error && error.code !== '23505') throw error // 23505 = unique constraint
+        setSavedColleges(prev => new Set([...prev, collegeId]))
+      }
+    } catch (err) {
+      console.error('Error toggling saved college:', err)
+    }
+  }
+
   // Row component
   function ScrollRow({ title, colleges: rowColleges, seeAllLink }) {
     const scrollRef = useRef(null)
@@ -218,8 +272,10 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
                 user={user}
                 isTracked={trackedColleges.has(college.id)}
                 isAdding={adding.has(college.id)}
+                isSaved={savedColleges.has(college.id)}
                 onNavigate={() => navigate(`/college/${college.id}`)}
                 onAddClick={(e) => handleAddToTracker(college.id, e)}
+                onSaveClick={(e) => handleSaveCollege(college.id, e)}
               />
             ))}
           </div>
@@ -447,7 +503,7 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
 }
 
 // Compact card component
-function CollegeCard({ college, student, user, isTracked, isAdding, onNavigate, onAddClick }) {
+function CollegeCard({ college, student, user, isTracked, isAdding, isSaved, onNavigate, onAddClick, onSaveClick }) {
   const getMatchScore = (college, percentile) => {
     const tier = college.tier || 3
     const thresholds = MATCH_SCORE_THRESHOLDS[tier]
@@ -501,6 +557,17 @@ function CollegeCard({ college, student, user, isTracked, isAdding, onNavigate, 
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-2xl font-bold text-white opacity-40">{initials}</span>
             </div>
+          )}
+
+          {/* Save heart button */}
+          {user && (
+            <button
+              onClick={onSaveClick}
+              className="absolute top-2 left-2 w-8 h-8 flex items-center justify-center rounded-full bg-white/90 hover:bg-white transition text-lg"
+              title={isSaved ? 'Remove from saved' : 'Save for later'}
+            >
+              {isSaved ? '❤️' : '🤍'}
+            </button>
           )}
         </div>
 

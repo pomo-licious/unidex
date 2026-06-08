@@ -24,6 +24,7 @@ export default function Profile() {
   const [user, setUser] = useState(null)
   const [student, setStudent] = useState(null)
   const [applications, setApplications] = useState([])
+  const [savedColleges, setSavedColleges] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(false)
@@ -90,6 +91,28 @@ export default function Profile() {
     }
 
     loadApplications()
+  }, [student?.id])
+
+  // Fetch saved colleges for the logged-in student
+  useEffect(() => {
+    if (!student?.id) return
+
+    async function loadSavedColleges() {
+      try {
+        const { data, error: fetchErr } = await supabase
+          .from('saved_colleges')
+          .select('college_id, colleges(id, name, location, image_url, tier)')
+          .eq('student_id', student.id)
+
+        if (fetchErr) throw fetchErr
+        setSavedColleges(data?.map(s => s.colleges) || [])
+      } catch (err) {
+        console.error('Error fetching saved colleges:', err)
+        setSavedColleges([])
+      }
+    }
+
+    loadSavedColleges()
   }, [student?.id])
 
   if (loading) {
@@ -254,6 +277,50 @@ export default function Profile() {
               <button onClick={() => navigate('/colleges')} className="mt-2 text-sm text-indigo-600 font-medium hover:underline">
                 Browse colleges →
               </button>
+            </div>
+          )}
+        </div>
+
+        {/* ── Saved Colleges section ── */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-900">Saved Colleges</h2>
+            <button onClick={() => navigate('/colleges')} className="text-xs text-indigo-600 font-medium hover:underline">
+              + Save more
+            </button>
+          </div>
+
+          {savedColleges.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-3xl mb-2">♡</p>
+              <p className="text-sm font-medium text-gray-700">No saved colleges yet</p>
+              <p className="text-xs text-gray-500 mt-1">Use the heart icon on college cards to save for later</p>
+              <button
+                onClick={() => navigate('/colleges')}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors"
+              >
+                + Browse colleges
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-3">
+              {savedColleges.map(college => (
+                <button
+                  key={college.id}
+                  onClick={() => navigate(`/college/${college.id}`)}
+                  className="text-left p-3 rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-md transition group"
+                >
+                  {college.image_url && (
+                    <img
+                      src={college.image_url}
+                      alt={college.name}
+                      className="w-full h-20 object-cover rounded-lg mb-2 group-hover:brightness-110 transition"
+                    />
+                  )}
+                  <p className="text-sm font-semibold text-gray-900 line-clamp-2 group-hover:underline">{college.name}</p>
+                  <p className="text-xs text-gray-500 mt-1">{college.location}</p>
+                </button>
+              ))}
             </div>
           )}
         </div>

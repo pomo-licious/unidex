@@ -339,6 +339,12 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* RECENTLY UPDATED COLLEGES — FIX 3 */}
+      <RecentlyUpdatedSection />
+
+      {/* EMAIL CAPTURE BANNER — FIX 5 */}
+      <EmailCaptureModal />
+
       {/* FOOTER */}
       <footer className="bg-[#060E1A] border-t border-slate-800 py-16">
         <div className="max-w-7xl mx-auto px-6">
@@ -384,6 +390,166 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+    </div>
+  )
+}
+
+// ─── Recently Updated Colleges Section (FIX 3) ─────────────────────────────────
+function RecentlyUpdatedSection() {
+  const [colleges, setColleges] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadRecentColleges() {
+      try {
+        const { data } = await supabase
+          .from('colleges')
+          .select('id, name, image_url, updated_at')
+          .order('updated_at', { ascending: false })
+          .limit(8)
+
+        setColleges(data || [])
+      } catch (err) {
+        console.error('Error loading colleges:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadRecentColleges()
+  }, [])
+
+  if (loading || colleges.length === 0) return null
+
+  return (
+    <section className="bg-[#0A1628] py-16 border-b border-slate-700">
+      <div className="max-w-7xl mx-auto px-6">
+        <h3 className="text-2xl font-bold text-white mb-8">Recently Updated Colleges</h3>
+        <div className="overflow-x-auto pb-4 -mx-6 px-6">
+          <div className="flex gap-4 min-w-min">
+            {colleges.map(college => (
+              <div
+                key={college.id}
+                onClick={() => window.location.href = `/college/${college.id}`}
+                className="w-48 flex-shrink-0 bg-[#0F2040] rounded-lg border border-slate-700 overflow-hidden cursor-pointer hover:border-[#C9A84C] transition group"
+              >
+                {college.image_url && (
+                  <img
+                    src={college.image_url}
+                    alt={college.name}
+                    className="w-full h-32 object-cover group-hover:brightness-110 transition"
+                  />
+                )}
+                <div className="p-3">
+                  <p className="text-sm font-semibold text-white truncate">{college.name}</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Updated {new Date(college.updated_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── Email Capture Banner (FIX 5) ────────────────────────────────────────────────
+function EmailCaptureModal() {
+  const [email, setEmail] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  const handleScroll = () => {
+    const scrollPercent = (window.scrollY + window.innerHeight) / document.documentElement.scrollHeight
+    if (scrollPercent > 0.6 && !isOpen && !localStorage.getItem('emailCaptureSubmitted')) {
+      setIsOpen(true)
+    }
+  }
+
+  useEffect(() => {
+    if (localStorage.getItem('emailCaptureSubmitted')) {
+      setSubmitted(true)
+      return
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [isOpen])
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const { error } = await supabase
+        .from('email_captures')
+        .insert([{ email, source: 'landing_page' }])
+
+      if (error && error.code !== '23505') throw error // 23505 = unique constraint
+
+      localStorage.setItem('emailCaptureSubmitted', 'true')
+      setSubmitted(true)
+      setTimeout(() => setIsOpen(false), 2000)
+    } catch (err) {
+      console.error('Error capturing email:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const [user] = useState(null)
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setSubmitted(true)
+    })
+  }, [])
+
+  if (submitted || user) return null
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 bg-[#0F2040] border-t border-slate-700 z-40 animate-in slide-in-from-bottom duration-300">
+      <div className="max-w-3xl mx-auto px-6 py-6 flex items-center justify-between gap-6">
+        <div>
+          <p className="text-white font-semibold text-sm">Join the MBA journey</p>
+          <p className="text-slate-400 text-xs mt-1">Get insider tips, college updates, and CAT prep guides.</p>
+        </div>
+
+        {!submitted ? (
+          <form onSubmit={handleSubmit} className="flex gap-2 flex-shrink-0">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="Enter your email"
+              className="px-4 py-2 bg-[#0A1628] border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-6 py-2 bg-[#C9A84C] text-[#0A1628] rounded-lg font-semibold text-sm hover:brightness-110 transition disabled:opacity-50 flex-shrink-0"
+            >
+              {loading ? 'Joining…' : 'Join'}
+            </button>
+          </form>
+        ) : (
+          <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium flex-shrink-0">
+            ✓ Check your inbox!
+          </div>
+        )}
+
+        <button
+          onClick={() => setIsOpen(false)}
+          className="text-slate-400 hover:text-white transition flex-shrink-0"
+        >
+          ✕
+        </button>
+      </div>
     </div>
   )
 }
