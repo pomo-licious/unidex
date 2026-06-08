@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
 const UPLOAD_ZONES = [
@@ -32,19 +32,44 @@ export default function DocumentUpload({ onExtracted }) {
   const [zoneStates, setZoneStates] = useState({})
   const [user, setUser] = useState(null)
   const [student, setStudent] = useState(null)
+  const [initError, setInitError] = useState(null)
+  const [toast, setToast] = useState(null)
 
-  // Initialize user/student on mount
-  useState(() => {
+  // FIX #1: Changed useState to useEffect
+  useEffect(() => {
     ;(async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          setInitError('Not authenticated')
+          return
+        }
+
         setUser(session.user)
-        const { data } = await supabase
+
+        // FIX #4: Add error handling for student lookup
+        const { data, error } = await supabase
           .from('students')
-          .select('id')
+          .select('id, documents_uploaded')
           .eq('user_id', session.user.id)
           .single()
-        if (data) setStudent(data)
+
+        if (error) {
+          console.error('Student lookup failed:', error)
+          setInitError('Could not load student profile')
+          return
+        }
+
+        if (!data) {
+          setInitError('Student profile not found')
+          return
+        }
+
+        setStudent(data)
+        setInitError(null)
+      } catch (err) {
+        console.error('Initialization error:', err)
+        setInitError('Failed to initialize component')
       }
     })()
   }, [])
@@ -59,6 +84,12 @@ export default function DocumentUpload({ onExtracted }) {
       ...prev,
       [zoneId]: newState
     }))
+  }, [])
+
+  // Show toast notification
+  const showToast = useCallback((message, type = 'info') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 3000)
   }, [])
 
   // Handle file upload
@@ -79,7 +110,7 @@ export default function DocumentUpload({ onExtracted }) {
     if (!allowedTypes.includes(file.type)) {
       updateZoneState(zoneId, {
         status: 'error',
-        message: 'Only JPG, PNG, or PDF files allowed'
+        message: 'Only JPG, PNG, WebP, or PDF files allowed'
       })
       return
     }
@@ -162,8 +193,15 @@ export default function DocumentUpload({ onExtracted }) {
 
   // Save corrections and log training data
   const handleConfirmAndSave = useCallback(async (zoneId, documentType, correctedValues) => {
+    // FIX #2: Don't silently return — show user feedback
     if (!student?.id || !user?.id) {
-      console.error('Student ID or User ID missing')
+      const errorMsg = 'Student profile not loaded. Please refresh the page.'
+      console.error(errorMsg)
+      showToast(errorMsg, 'error')
+      updateZoneState(zoneId, {
+        status: 'error',
+        message: errorMsg
+      })
       return
     }
 
@@ -193,11 +231,15 @@ export default function DocumentUpload({ onExtracted }) {
       }
 
       // Get current documents_uploaded array
-      const { data: currentStudent } = await supabase
+      const { data: currentStudent, error: fetchError } = await supabase
         .from('students')
         .select('documents_uploaded')
         .eq('id', student.id)
         .single()
+
+      if (fetchError) {
+        throw new Error(`Failed to fetch current profile: ${fetchError.message}`)
+      }
 
       updateData.documents_uploaded = currentStudent?.documents_uploaded || []
       if (!updateData.documents_uploaded.includes(documentType)) {
@@ -210,9 +252,9 @@ export default function DocumentUpload({ onExtracted }) {
         .update(updateData)
         .eq('id', student.id)
 
-      if (studentError) throw studentError
+      if (studentError) throw new Error(`Failed to save profile: ${studentError.message}`)
 
-      // Log to ocr_training_data (update most recent record)
+      // FIX #3: Don't ignore training data errors — report them
       const { error: trainingError } = await supabase
         .from('ocr_training_data')
         .update({
@@ -226,7 +268,10 @@ export default function DocumentUpload({ onExtracted }) {
 
       if (trainingError) {
         console.warn('Training data update failed:', trainingError)
-        // Don't fail the whole operation if training log fails
+        // Still show success for profile save, but warn about training log
+        showToast('Profile saved, but training data update failed', 'warning')
+      } else {
+        showToast('Profile updated ✓', 'success')
       }
 
       // Show success state
@@ -242,12 +287,14 @@ export default function DocumentUpload({ onExtracted }) {
       }
     } catch (error) {
       console.error('Save error:', error)
+      const errorMsg = error.message || 'Save failed'
+      showToast(errorMsg, 'error')
       updateZoneState(zoneId, {
         status: 'error',
-        message: error.message || 'Save failed'
+        message: errorMsg
       })
     }
-  }, [student?.id, user?.id, updateZoneState, onExtracted])
+  }, [student?.id, user?.id, updateZoneState, showToast, onExtracted])
 
   const handleFileSelect = useCallback((e, zoneId, documentType) => {
     const file = e.target.files?.[0]
@@ -273,6 +320,19 @@ export default function DocumentUpload({ onExtracted }) {
   const resetZone = useCallback((zoneId) => {
     updateZoneState(zoneId, { status: 'idle' })
   }, [updateZoneState])
+
+  // Show initialization error
+  if (initError) {
+    return (
+      <div className="w-full">
+        <h2 className="text-sm font-semibold text-gray-900 mb-4">Documents & OCR</h2>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+          <p className="font-medium">Unable to load documents section</p>
+          <p className="text-xs mt-1">{initError}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="w-full">
@@ -451,6 +511,19 @@ export default function DocumentUpload({ onExtracted }) {
           )
         })}
       </div>
+
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 px-4 py-3 rounded-lg text-sm font-medium transition-all z-50 ${
+          toast.type === 'success'
+            ? 'bg-green-500 text-white'
+            : toast.type === 'warning'
+            ? 'bg-amber-500 text-white'
+            : 'bg-red-500 text-white'
+        }`}>
+          {toast.message}
+        </div>
+      )}
     </div>
   )
 }
