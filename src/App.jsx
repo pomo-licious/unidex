@@ -28,6 +28,8 @@ import ApplyNow          from './pages/ApplyNow'
 import FeedbackSurvey    from './pages/FeedbackSurvey'
 import AdminLogin        from './pages/AdminLogin'
 import AdminDashboard    from './pages/AdminDashboard'
+import Applications      from './pages/Applications'
+import Reminders         from './pages/Reminders'
 
 // ── ProtectedRoute — redirects to /login if user is not authenticated ──
 function ProtectedRoute({ element, user, loading }) {
@@ -98,6 +100,8 @@ export default function App() {
           {/* Protected routes — require authentication */}
           <Route path="/profile"    element={<ProtectedRoute element={<Profile />} user={user} loading={loading} />} />
           <Route path="/tracker"    element={<ProtectedRoute element={<AppTracker />} user={user} loading={loading} />} />
+          <Route path="/applications" element={<ProtectedRoute element={<Applications />} user={user} loading={loading} />} />
+          <Route path="/reminders"  element={<ProtectedRoute element={<Reminders />} user={user} loading={loading} />} />
           <Route path="/calendar"   element={<ProtectedRoute element={<DeadlineCalendar />} user={user} loading={loading} />} />
           <Route path="/documents"  element={<ProtectedRoute element={<DocumentUpload />} user={user} loading={loading} />} />
           <Route path="/apply/:applicationId" element={<ProtectedRoute element={<ApplyNow />} user={user} loading={loading} />} />

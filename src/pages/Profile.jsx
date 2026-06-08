@@ -96,26 +96,13 @@ export default function Profile() {
     loadApplications()
   }, [student?.id])
 
-  // Fetch saved colleges for the logged-in student
+  // Fetch saved colleges from student's target_colleges list
   useEffect(() => {
     if (!student?.id) return
 
-    async function loadSavedColleges() {
-      try {
-        const { data, error: fetchErr } = await supabase
-          .from('saved_colleges')
-          .select('college_id, colleges(id, name, location, image_url, tier)')
-          .eq('student_id', student.id)
-
-        if (fetchErr) throw fetchErr
-        setSavedColleges(data?.map(s => s.colleges) || [])
-      } catch (err) {
-        console.error('Error fetching saved colleges:', err)
-        setSavedColleges([])
-      }
-    }
-
-    loadSavedColleges()
+    // Map target_colleges names to full college objects
+    const saved = COLLEGES.filter(c => student.target_colleges?.includes(c.name)) || []
+    setSavedColleges(saved)
   }, [student?.id])
 
   // Handle extracted document data
