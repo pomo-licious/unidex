@@ -30,8 +30,26 @@ const UPLOAD_ZONES = [
 
 export default function DocumentUpload({ onExtracted }) {
   const [zoneStates, setZoneStates] = useState({})
+  const [user, setUser] = useState(null)
+  const [student, setStudent] = useState(null)
 
-  // Initialize all zones to idle state
+  // Initialize user/student on mount
+  useState(() => {
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        setUser(session.user)
+        const { data } = await supabase
+          .from('students')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .single()
+        if (data) setStudent(data)
+      }
+    })()
+  }, [])
+
+  // Get zone state with defaults
   const getZoneState = useCallback((zoneId) => {
     return zoneStates[zoneId] || { status: 'idle' }
   }, [zoneStates])
@@ -43,11 +61,11 @@ export default function DocumentUpload({ onExtracted }) {
     }))
   }, [])
 
+  // Handle file upload
   const handleUpload = useCallback(async (file, zoneId, documentType) => {
-    // Validate file
     if (!file) return
 
-    const maxSize = 5 * 1024 * 1024 // 5MB
+    const maxSize = 5 * 1024 * 1024
     const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf']
 
     if (file.size > maxSize) {
@@ -69,7 +87,6 @@ export default function DocumentUpload({ onExtracted }) {
     updateZoneState(zoneId, { status: 'uploading' })
 
     try {
-      // Get session token
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
 
@@ -77,12 +94,10 @@ export default function DocumentUpload({ onExtracted }) {
         throw new Error('Not authenticated')
       }
 
-      // Prepare form data
       const formData = new FormData()
       formData.append('file', file)
       formData.append('document_type', documentType)
 
-      // Call edge function
       const response = await fetch(
         'https://siheziegpnrfjgzubjrk.supabase.co/functions/v1/ocr-extract',
         {
@@ -104,17 +119,14 @@ export default function DocumentUpload({ onExtracted }) {
         throw new Error(data.error || 'OCR extraction failed')
       }
 
-      // Success state
+      // Move to correction phase
       updateZoneState(zoneId, {
-        status: 'success',
+        status: 'correction',
         extracted: data.extracted,
-        documentType: data.document_type
+        documentType: data.document_type,
+        correctedValues: { ...data.extracted },
+        editingFields: {}
       })
-
-      // Call parent callback
-      if (onExtracted) {
-        onExtracted(data.document_type, data.extracted)
-      }
     } catch (error) {
       console.error('Upload error:', error)
       updateZoneState(zoneId, {
@@ -122,7 +134,120 @@ export default function DocumentUpload({ onExtracted }) {
         message: error.message || 'Upload failed'
       })
     }
-  }, [updateZoneState, onExtracted])
+  }, [updateZoneState])
+
+  // Handle field correction
+  const handleFieldChange = useCallback((zoneId, fieldKey, value) => {
+    const state = getZoneState(zoneId)
+    updateZoneState(zoneId, {
+      ...state,
+      correctedValues: {
+        ...state.correctedValues,
+        [fieldKey]: value
+      }
+    })
+  }, [getZoneState, updateZoneState])
+
+  // Toggle edit mode for a field
+  const toggleEditField = useCallback((zoneId, fieldKey) => {
+    const state = getZoneState(zoneId)
+    updateZoneState(zoneId, {
+      ...state,
+      editingFields: {
+        ...state.editingFields,
+        [fieldKey]: !state.editingFields?.[fieldKey]
+      }
+    })
+  }, [getZoneState, updateZoneState])
+
+  // Save corrections and log training data
+  const handleConfirmAndSave = useCallback(async (zoneId, documentType, correctedValues) => {
+    if (!student?.id || !user?.id) {
+      console.error('Student ID or User ID missing')
+      return
+    }
+
+    updateZoneState(zoneId, { status: 'saving' })
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
+      if (!token) throw new Error('Not authenticated')
+
+      // Map document type to column
+      const columnMap = {
+        '10th': 'academic_10th',
+        '12th': 'academic_12th',
+        'graduation': 'academic_graduation',
+        'scorecard': 'exam_scores'
+      }
+
+      const columnName = columnMap[documentType]
+      if (!columnName) throw new Error('Invalid document type')
+
+      // Prepare update data for students table
+      const updateData = {
+        [columnName]: correctedValues,
+        documents_uploaded: []
+      }
+
+      // Get current documents_uploaded array
+      const { data: currentStudent } = await supabase
+        .from('students')
+        .select('documents_uploaded')
+        .eq('id', student.id)
+        .single()
+
+      updateData.documents_uploaded = currentStudent?.documents_uploaded || []
+      if (!updateData.documents_uploaded.includes(documentType)) {
+        updateData.documents_uploaded.push(documentType)
+      }
+
+      // Save to students table
+      const { error: studentError } = await supabase
+        .from('students')
+        .update(updateData)
+        .eq('id', student.id)
+
+      if (studentError) throw studentError
+
+      // Log to ocr_training_data (update most recent record)
+      const { error: trainingError } = await supabase
+        .from('ocr_training_data')
+        .update({
+          human_verified: true,
+          human_corrected_data: correctedValues
+        })
+        .eq('student_id', student.id)
+        .eq('document_type', documentType)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (trainingError) {
+        console.warn('Training data update failed:', trainingError)
+        // Don't fail the whole operation if training log fails
+      }
+
+      // Show success state
+      updateZoneState(zoneId, {
+        status: 'success',
+        extracted: correctedValues,
+        documentType
+      })
+
+      // Call parent callback
+      if (onExtracted) {
+        onExtracted(documentType, correctedValues)
+      }
+    } catch (error) {
+      console.error('Save error:', error)
+      updateZoneState(zoneId, {
+        status: 'error',
+        message: error.message || 'Save failed'
+      })
+    }
+  }, [student?.id, user?.id, updateZoneState, onExtracted])
 
   const handleFileSelect = useCallback((e, zoneId, documentType) => {
     const file = e.target.files?.[0]
@@ -159,6 +284,8 @@ export default function DocumentUpload({ onExtracted }) {
           const state = getZoneState(zone.id)
           const isIdle = state.status === 'idle'
           const isUploading = state.status === 'uploading'
+          const isCorrection = state.status === 'correction'
+          const isSaving = state.status === 'saving'
           const isSuccess = state.status === 'success'
           const isError = state.status === 'error'
 
@@ -166,14 +293,16 @@ export default function DocumentUpload({ onExtracted }) {
             <div key={zone.id}>
               {/* Upload Zone */}
               <div
-                className={`relative rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+                className={`relative rounded-lg border-2 p-8 transition-colors ${
                   isIdle
-                    ? 'border-[#1e3050] bg-[#0d1525] hover:border-[#c9a84c] cursor-pointer'
+                    ? 'border-dashed border-[#1e3050] bg-[#0d1525] hover:border-[#c9a84c] cursor-pointer'
                     : isUploading
-                    ? 'border-[#c9a84c] bg-[#0d1525]'
+                    ? 'border-solid border-[#c9a84c] bg-[#0d1525]'
+                    : isCorrection
+                    ? 'border-solid border-amber-500 bg-amber-500/5'
                     : isSuccess
-                    ? 'border-green-500 bg-green-500/5'
-                    : 'border-red-500 bg-red-500/5'
+                    ? 'border-solid border-green-500 bg-green-500/5'
+                    : 'border-solid border-red-500 bg-red-500/5'
                 }`}
               >
                 {/* Idle state */}
@@ -211,18 +340,77 @@ export default function DocumentUpload({ onExtracted }) {
                   </div>
                 )}
 
-                {/* Success state */}
-                {isSuccess && (
+                {/* Correction state - editable fields */}
+                {isCorrection && (
                   <div className="text-left">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-green-500 text-xl">✓</span>
-                      <p className="text-sm font-semibold text-green-700">
-                        {zone.label} uploaded
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-amber-500 text-xl">✎</span>
+                      <p className="text-sm font-semibold text-amber-700">
+                        Review & correct {zone.label}
                       </p>
                     </div>
 
-                    {/* Extracted fields */}
-                    <div className="space-y-1 text-xs">
+                    {/* Extracted fields with edit toggles */}
+                    <div className="space-y-2 mb-4">
+                      {state.extracted && Object.entries(state.extracted).map(([key, value]) => {
+                        const isEditing = state.editingFields?.[key]
+                        const correctedValue = state.correctedValues?.[key] || ''
+
+                        return (
+                          <div key={key} className="flex items-center gap-2 py-1">
+                            <span className="text-xs text-gray-600 capitalize min-w-20">
+                              {key}:
+                            </span>
+
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={correctedValue}
+                                onChange={(e) => handleFieldChange(zone.id, key, e.target.value)}
+                                className="flex-1 px-2 py-1 bg-white border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-[#c9a84c]"
+                                autoFocus
+                              />
+                            ) : (
+                              <span className="flex-1 text-xs text-gray-900 font-medium">
+                                {correctedValue}
+                              </span>
+                            )}
+
+                            <button
+                              onClick={() => toggleEditField(zone.id, key)}
+                              className="text-gray-400 hover:text-gray-600 text-xs px-1"
+                              title={isEditing ? 'Done' : 'Edit'}
+                            >
+                              {isEditing ? '✓' : '✎'}
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Confirm & Save button */}
+                    <button
+                      onClick={() => handleConfirmAndSave(zone.id, zone.documentType, state.correctedValues)}
+                      disabled={isSaving}
+                      className="w-full px-3 py-2 bg-amber-600 text-white text-xs font-semibold rounded hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSaving ? 'Saving...' : 'Confirm & Save'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Success state */}
+                {isSuccess && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-green-500 text-xl">✓</span>
+                      <p className="text-sm font-semibold text-green-700">
+                        {zone.label} saved
+                      </p>
+                    </div>
+
+                    {/* Summary of saved fields */}
+                    <div className="space-y-1 text-xs mb-3">
                       {state.extracted && Object.entries(state.extracted).map(([key, value]) => (
                         <div key={key} className="flex justify-between">
                           <span className="text-gray-600 capitalize">{key}:</span>
@@ -231,10 +419,10 @@ export default function DocumentUpload({ onExtracted }) {
                       ))}
                     </div>
 
-                    {/* Retry button */}
+                    {/* Re-upload button */}
                     <button
                       onClick={() => resetZone(zone.id)}
-                      className="mt-3 text-xs text-green-600 hover:text-green-700 font-medium"
+                      className="text-xs text-green-600 hover:text-green-700 font-medium"
                     >
                       Re-upload
                     </button>
