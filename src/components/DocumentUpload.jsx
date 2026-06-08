@@ -374,8 +374,9 @@ export default function DocumentUpload({ onExtracted }) {
                 {/* Idle state */}
                 {isIdle && (
                   <>
-                    <label className="cursor-pointer block">
+                    <label htmlFor={`file-${zone.id}`} className="cursor-pointer block">
                       <input
+                        id={`file-${zone.id}`}
                         type="file"
                         accept=".jpg,.jpeg,.png,.webp,.pdf"
                         onChange={(e) => handleFileSelect(e, zone.id, zone.documentType)}
@@ -384,7 +385,7 @@ export default function DocumentUpload({ onExtracted }) {
                         className="hidden"
                       />
                       <div>
-                        <p className="text-sm font-semibold text-gray-900 mb-2">
+                        <p className="text-sm font-semibold text-[#c9a84c] mb-2">
                           {zone.label}
                         </p>
                         <p className="text-xs text-gray-500 mb-3">
