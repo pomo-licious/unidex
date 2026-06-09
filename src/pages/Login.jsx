@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, Clock, BarChart3, Quote } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { getAuthErrorMessage } from '../lib/authErrors'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -24,13 +25,7 @@ export default function Login() {
     })
 
     if (signInError) {
-      if (signInError.message?.toLowerCase().includes('rate limit') ||
-          signInError.message?.toLowerCase().includes('wait') ||
-          signInError.message?.toLowerCase().includes('second')) {
-        setError('Too many attempts. Please wait a moment and try again.')
-      } else {
-        setError(signInError.message)
-      }
+      setError(getAuthErrorMessage(signInError))
       setLoading(false)
       return
     }

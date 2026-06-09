@@ -14,6 +14,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'   // The single shared Supabase connection
+import { getAuthErrorMessage } from '../lib/authErrors'
 
 export default function Signup() {
   const navigate = useNavigate()   // Used to redirect to another page after success
@@ -57,13 +58,7 @@ export default function Signup() {
 
     // If Supabase returns an error (e.g. email already used), show it and stop
     if (authError) {
-      if (authError.message?.toLowerCase().includes('rate limit') ||
-          authError.message?.toLowerCase().includes('wait') ||
-          authError.message?.toLowerCase().includes('second')) {
-        setError('Too many attempts. Please wait a moment and try again.')
-      } else {
-        setError(authError.message)
-      }
+      setError(getAuthErrorMessage(authError))
       setLoading(false)
       return
     }
@@ -86,13 +81,7 @@ export default function Signup() {
 
     // If the database insert fails (e.g. duplicate email), show the error
     if (insertError) {
-      if (insertError.message?.toLowerCase().includes('rate limit') ||
-          insertError.message?.toLowerCase().includes('wait') ||
-          insertError.message?.toLowerCase().includes('second')) {
-        setError('Too many attempts. Please wait a moment and try again.')
-      } else {
-        setError(insertError.message)
-      }
+      setError(getAuthErrorMessage(insertError))
       setLoading(false)
       return
     }

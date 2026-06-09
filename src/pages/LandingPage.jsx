@@ -514,14 +514,7 @@ function EmailCaptureModal() {
     }
   }
 
-  const [user] = useState(null)
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setSubmitted(true)
-    })
-  }, [])
-
-  if (submitted || user) return null
+  if (submitted) return null
 
   if (!isOpen) return null
 

@@ -17,8 +17,9 @@ const EXAM_COLORS = {
 export default function ExamCalendar() {
   const { exams, loading } = useExamCalendar()
 
-  const upcoming = exams.filter(e => !e.exam_date || new Date(e.exam_date) >= new Date())
-  const past     = exams.filter(e => e.exam_date && new Date(e.exam_date) < new Date())
+  const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+  const upcoming = exams.filter(e => !e.exam_date || e.exam_date >= today)
+  const past     = exams.filter(e => e.exam_date && e.exam_date < today)
 
   return (
     <div className="space-y-6">

@@ -50,11 +50,12 @@ export default function RejectionRecoveryModal({ studentId, collegeId, onClose, 
         }
 
         // Score candidates and show top 3
+        const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD in local time
         const scored = candidates.map(c => {
           const deadlines = c.deadlines || []
           const nextDeadline = deadlines
-            .filter(d => new Date(d.date) >= new Date())
-            .sort((a, b) => new Date(a.date) - new Date(b.date))[0]
+            .filter(d => d.date >= today) // Compare as date strings, not timestamps
+            .sort((a, b) => a.date.localeCompare(b.date))[0]
 
           return {
             ...c,

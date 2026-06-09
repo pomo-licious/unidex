@@ -39,6 +39,7 @@ export function useColleges({ tier, state, search } = {}) {
 export function useCollegeCutoffs(collegeId) {
   const [cutoffs, setCutoffs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     if (!collegeId) return
@@ -46,24 +47,53 @@ export function useCollegeCutoffs(collegeId) {
       .from('college_cutoffs')
       .select('*')
       .eq('college_id', collegeId)
-      .then(({ data }) => { setCutoffs(data || []); setLoading(false) })
+      .then(({ data, error: err }) => {
+        if (err) {
+          console.error('Error fetching cutoffs:', err)
+          setError(err)
+        } else {
+          setCutoffs(data || [])
+          setError(null)
+        }
+        setLoading(false)
+      })
+      .catch(err => {
+        console.error('Error fetching cutoffs:', err)
+        setError(err)
+        setLoading(false)
+      })
   }, [collegeId])
 
-  return { cutoffs, loading }
+  return { cutoffs, loading, error }
 }
 
 // ── Full exam calendar ─────────────────────────────────────
 export function useExamCalendar() {
   const [exams, setExams]     = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState(null)
 
   useEffect(() => {
     supabase
       .from('exam_calendar')
       .select('*')
       .order('exam_date', { ascending: true, nullsFirst: false })
-      .then(({ data }) => { setExams(data || []); setLoading(false) })
+      .then(({ data, error: err }) => {
+        if (err) {
+          console.error('Error fetching exam calendar:', err)
+          setError(err)
+        } else {
+          setExams(data || [])
+          setError(null)
+        }
+        setLoading(false)
+      })
+      .catch(err => {
+        console.error('Error fetching exam calendar:', err)
+        setError(err)
+        setLoading(false)
+      })
   }, [])
 
-  return { exams, loading }
+  return { exams, loading, error }
 }
