@@ -101,7 +101,7 @@ export default function Profile() {
     if (!student?.id) return
 
     // Map target_colleges names to full college objects
-    const saved = COLLEGES.filter(c => student.target_colleges?.includes(c.name)) || []
+    const saved = COLLEGES.filter(c => (student.target_colleges ?? []).includes(c.name))
     setSavedColleges(saved)
   }, [student?.id])
 
@@ -220,7 +220,7 @@ export default function Profile() {
 
               <div>
                 <h1 className="text-xl font-bold text-gray-900">{s.name}</h1>
-                <p className="text-sm text-gray-600 mt-0.5">{ab.role} · {ab.company}</p>
+                <p className="text-sm text-gray-600 mt-0.5">{ab.role || 'Professional'} · {ab.company || 'Organization'}</p>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   {ab.grad_year && (
                     <>

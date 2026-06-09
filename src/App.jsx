@@ -48,18 +48,11 @@ export default function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check if user is currently logged in
-    supabase.auth.getUser().then(({ data: { user }, error }) => {
-      setUser(user || null)
-      setLoading(false)
-    }).catch(() => {
-      setUser(null)
-      setLoading(false)
-    })
-
     // Listen for auth changes (login/logout)
+    // This listener fires immediately with current session on mount
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user || null)
+      setLoading(false)
     })
 
     return () => subscription?.unsubscribe()

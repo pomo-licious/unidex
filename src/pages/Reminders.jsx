@@ -10,17 +10,12 @@ export default function Reminders() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Get current user
+  // Get current user via auth listener
   useEffect(() => {
-    try {
-      supabase.auth.getUser().then(({ data: { user: authUser } }) => {
-        setUser(authUser || null)
-      })
-    } catch (err) {
-      console.error('Auth error:', err)
-      setError('Authentication failed')
-      setLoading(false)
-    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user || null)
+    })
+    return () => subscription?.unsubscribe()
   }, [])
 
   // Load student and applications with deadlines

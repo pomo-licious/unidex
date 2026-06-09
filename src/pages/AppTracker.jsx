@@ -47,7 +47,7 @@ function nearestDeadline(deadlines) {
   const today = new Date().toISOString().split('T')[0]   // "YYYY-MM-DD"
   const dates = deadlines.map(d => d.date).filter(Boolean).sort()
   const future = dates.filter(d => d >= today)
-  return future[0] ?? dates.at(-1) ?? null   // Prefer upcoming; fall back to most recent past
+  return future[0] ?? dates[dates.length - 1] ?? null   // Prefer upcoming; fall back to most recent past
 }
 
 // ─── Helper: normalise a raw Supabase application row into a flat UI object ──

@@ -117,7 +117,7 @@ export default function Onboarding() {
           {step === 1 && (
             <div className="space-y-4">
               <Field label="Full name *"   name="name"  value={form.name}  onChange={set} placeholder="Arjun Sharma" />
-              <Field label="Email *"       name="email" type="email" value={form.email} onChange={set} placeholder="arjun@example.com" />
+              <Field label="Email *" name="email" type="email" value={form.email} onChange={set} placeholder="arjun@example.com" required />
               <Field label="Phone"         name="phone" value={form.phone} onChange={set} placeholder="+91 98765 43210" />
               <SelectField label="Current city" name="city" value={form.city} onChange={set} options={CITIES} />
             </div>
@@ -128,21 +128,21 @@ export default function Onboarding() {
             <div className="space-y-4">
               <SelectField label="Degree" name="degree" value={form.degree} onChange={set} options={DEGREES} />
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Graduation year" name="grad_year" type="number" value={form.grad_year} onChange={set} placeholder="2022" />
-                <Field label="GPA / CGPA"      name="gpa"       type="number" step="0.01" value={form.gpa} onChange={set} placeholder="8.4" />
+                <Field label="Graduation year" name="grad_year" type="number" value={form.grad_year} onChange={set} placeholder="2022" min="2020" max="2030" />
+                <Field label="GPA / CGPA" name="gpa" type="number" step="0.01" value={form.gpa} onChange={set} placeholder="8.4" min="0" max="10" />
               </div>
 
               {/* Grouped entrance exam scores */}
               <div className="rounded-lg bg-gray-50 border border-gray-200 p-4 space-y-3">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Entrance exam</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="CAT percentile" name="cat_percentile" type="number" step="0.01" value={form.cat_percentile} onChange={set} placeholder="97.6" />
-                  <Field label="GMAT score"      name="gmat_score"     type="number" value={form.gmat_score} onChange={set} placeholder="720" />
+                  <Field label="CAT percentile" name="cat_percentile" type="number" step="0.01" value={form.cat_percentile} onChange={set} placeholder="97.6" min="0" max="100" />
+                  <Field label="GMAT score" name="gmat_score" type="number" value={form.gmat_score} onChange={set} placeholder="720" min="200" max="800" />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                <Field label="Work exp (yrs)" name="work_exp_yrs" type="number" value={form.work_exp_yrs} onChange={set} placeholder="3" />
+                <Field label="Work exp (yrs)" name="work_exp_yrs" type="number" value={form.work_exp_yrs} onChange={set} placeholder="3" min="0" max="50" />
                 <div className="col-span-2">
                   <Field label="Current company" name="company" value={form.company} onChange={set} placeholder="Deloitte" />
                 </div>
@@ -253,12 +253,22 @@ export default function Onboarding() {
 // ─── Reusable sub-components (local to this file) ────────────────────────────
 
 // Field — a labelled text/number input. Used everywhere in the form.
-function Field({ label, name, type = 'text', step, value, onChange, placeholder }) {
+function Field({ label, name, type = 'text', step, value, onChange, placeholder, min, max, required }) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      <input name={name} type={type} step={step} value={value} onChange={onChange} placeholder={placeholder}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+      <input
+        name={name}
+        type={type}
+        step={step}
+        min={min}
+        max={max}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        required={required}
+        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+      />
     </div>
   )
 }

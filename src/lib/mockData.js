@@ -110,7 +110,7 @@ export function fitLabel(studentPercentile, cutoff) {
 // daysUntil — calculates how many days from today until a given date string
 // Returns a negative number if the deadline has already passed
 export function daysUntil(dateStr) {
-  const today  = new Date('2026-06-01')    // Hardcoded to project start date; swap for new Date() in production
+  const today  = new Date()    // Current date (was hardcoded '2026-06-01' during development)
   const target = new Date(dateStr)
   return Math.round((target - today) / (1000 * 60 * 60 * 24))  // Convert milliseconds → days
 }

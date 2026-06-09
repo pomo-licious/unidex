@@ -398,19 +398,27 @@ export default function LandingPage() {
 function RecentlyUpdatedSection() {
   const [colleges, setColleges] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     async function loadRecentColleges() {
       try {
-        const { data } = await supabase
+        const { data, error: queryError } = await supabase
           .from('colleges')
           .select('id, name, location, image_url, placement_avg_lpa, updated_at')
           .order('updated_at', { ascending: false })
           .limit(8)
 
-        setColleges(data || [])
+        if (queryError) {
+          console.error('Error loading colleges:', queryError)
+          setError(queryError.message)
+        } else {
+          setColleges(data || [])
+          setError(null)
+        }
       } catch (err) {
         console.error('Error loading colleges:', err)
+        setError(err.message)
       } finally {
         setLoading(false)
       }
@@ -419,7 +427,8 @@ function RecentlyUpdatedSection() {
     loadRecentColleges()
   }, [])
 
-  if (loading || colleges.length === 0) return null
+  if (loading) return null
+  if (error || colleges.length === 0) return null
 
   return (
     <section className="bg-[#0A1628] py-16">

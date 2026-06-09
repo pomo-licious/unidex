@@ -56,7 +56,7 @@ export default function CollegeProfile({ user: propUser, loading: propLoading })
             .select('id')
             .eq('student_id', data.id)
             .eq('college_id', id)
-            .single()
+            .maybeSingle()
 
           setIsTracked(!!app)
         }

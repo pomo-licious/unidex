@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Heart } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -226,19 +226,19 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
     const [canScrollLeft, setCanScrollLeft] = useState(false)
     const [canScrollRight, setCanScrollRight] = useState(true)
 
-    const checkScroll = () => {
+    const checkScroll = useCallback(() => {
       if (!scrollRef.current) return
       setCanScrollLeft(scrollRef.current.scrollLeft > 0)
       setCanScrollRight(
         scrollRef.current.scrollLeft < scrollRef.current.scrollWidth - scrollRef.current.clientWidth - 10
       )
-    }
+    }, [])
 
     useEffect(() => {
       checkScroll()
       window.addEventListener('resize', checkScroll)
       return () => window.removeEventListener('resize', checkScroll)
-    }, [])
+    }, [checkScroll])
 
     const scroll = (direction) => {
       if (!scrollRef.current) return
@@ -301,6 +301,23 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
     )
   }
 
+  // Helper: filter colleges by type
+  const filterByType = (colleges, type) => {
+    if (type === 'All') return colleges
+    if (type === 'Private') return colleges.filter(c => c.type === 'Private')
+    return colleges.filter(c => ['IIM', 'IIT', 'Government'].includes(c.type))
+  }
+
+  // Helper: sort colleges by property
+  const sortByProperty = (colleges, prop, reverse = false) => {
+    return [...colleges].sort((a, b) => {
+      const aVal = a[prop] || (prop === 'name' ? '' : 999)
+      const bVal = b[prop] || (prop === 'name' ? '' : 999)
+      if (typeof aVal === 'string') return reverse ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal)
+      return reverse ? bVal - aVal : aVal - bVal
+    })
+  }
+
   // Build rows based on active tab
   const buildRows = () => {
     const cat = student?.academic_background?.cat_percentile
@@ -350,16 +367,12 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
     }
 
     if (activeTab === 'all') {
-      const filtered = subFilter === 'All'
-        ? filteredColleges
-        : subFilter === 'Private'
-        ? filteredColleges.filter(c => c.type === 'Private')
-        : filteredColleges.filter(c => ['IIM', 'IIT', 'Government'].includes(c.type))
+      const filtered = filterByType(filteredColleges, subFilter)
 
-      const iims = filtered.filter(c => c.type === 'IIM').sort((a, b) => a.name.localeCompare(b.name))
-      const iits = filtered.filter(c => c.type === 'IIT').sort((a, b) => a.name.localeCompare(b.name))
-      const privates = filtered.filter(c => c.type === 'Private').sort((a, b) => a.name.localeCompare(b.name))
-      const govOther = filtered.filter(c => c.type === 'Government' && !['IIM', 'IIT'].includes(c.type)).sort((a, b) => a.name.localeCompare(b.name))
+      const iims = sortByProperty(filtered.filter(c => c.type === 'IIM'), 'name')
+      const iits = sortByProperty(filtered.filter(c => c.type === 'IIT'), 'name')
+      const privates = sortByProperty(filtered.filter(c => c.type === 'Private'), 'name')
+      const govOther = sortByProperty(filtered.filter(c => c.type === 'Government' && !['IIM', 'IIT'].includes(c.type)), 'name')
 
       return [
         { title: 'IIMs', colleges: iims },

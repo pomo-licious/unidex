@@ -232,11 +232,20 @@ export default function Layout({ children }) {
                         key={notif.id}
                         className="px-3 py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 cursor-pointer"
                         onClick={async () => {
-                          await supabase
-                            .from('notifications')
-                            .update({ sent: true })
-                            .eq('id', notif.id)
-                          setNotifications(prev => prev.filter(n => n.id !== notif.id))
+                          try {
+                            const { error } = await supabase
+                              .from('notifications')
+                              .update({ sent: true })
+                              .eq('id', notif.id)
+
+                            if (!error) {
+                              setNotifications(prev => prev.filter(n => n.id !== notif.id))
+                            } else {
+                              console.error('Failed to mark notification as sent:', error)
+                            }
+                          } catch (err) {
+                            console.error('Error updating notification:', err)
+                          }
                         }}
                       >
                         <p className="text-xs text-gray-800">{notif.message}</p>
