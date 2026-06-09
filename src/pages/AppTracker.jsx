@@ -27,7 +27,7 @@ import { supabase } from '../lib/supabase'
 import { STATUSES, STATUS_META } from '../lib/mockData'
 import { useIsDemo } from '../context/DemoContext'
 import { SidebarAds } from '../components/AdBanner'
-import { createDeadlineNotifications } from '../lib/notificationHelpers.mjs'
+import { createDeadlineNotifications } from '../lib/notificationHelpers'
 import RejectionRecoveryModal from '../components/RejectionRecoveryModal'
 
 // ─── Helper: days from today until a date string ──────────────────────────────

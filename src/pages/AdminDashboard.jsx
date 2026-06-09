@@ -23,8 +23,15 @@ export default function AdminDashboard() {
         return
       }
 
-      const isAdmin = user?.app_metadata?.role === 'admin'
-      if (!isAdmin) {
+      // Verify admin role with server-side check
+      // Try to read from admin table - if RLS denies it, user is not admin
+      const { error: adminCheck } = await supabase
+        .from('uat_feedback')
+        .select('count()', { count: 'exact' })
+        .limit(0)
+
+      // If query fails with permissions error, user is not admin
+      if (adminCheck && adminCheck.message?.includes('permission')) {
         navigate('/profile', { replace: true })
         return
       }

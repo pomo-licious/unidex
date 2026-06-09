@@ -81,7 +81,10 @@ export default function Signup() {
 
     // If the database insert fails (e.g. duplicate email), show the error
     if (insertError) {
-      setError(getAuthErrorMessage(insertError))
+      console.error('Failed to create student profile:', insertError)
+      // Note: auth account was created but student row failed
+      // This is a critical issue that needs manual cleanup
+      setError('Account creation failed at final step. Please contact support with your email: ' + form.email)
       setLoading(false)
       return
     }

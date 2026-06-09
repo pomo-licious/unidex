@@ -144,7 +144,13 @@ export default function Profile() {
       setToast({ type: 'success', message: 'Profile updated from document ✓' })
       setTimeout(() => setToast(null), 3000)
 
-      // Reload student data
+      // Reload student data (verify user is still available)
+      if (!user?.id) {
+        setToast({ type: 'error', message: 'Session expired' })
+        setTimeout(() => setToast(null), 3000)
+        return
+      }
+
       const { data } = await supabase
         .from('students')
         .select('*')

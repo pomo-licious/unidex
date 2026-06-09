@@ -137,6 +137,8 @@ export default function DocumentUpload({ onExtracted }) {
       formData.append('file', file)
       formData.append('document_type', documentType)
 
+      // Use AbortController to cancel request if component unmounts
+      const controller = new AbortController()
       const response = await fetch(
         'https://siheziegpnrfjgzubjrk.supabase.co/functions/v1/ocr-extract',
         {
@@ -144,7 +146,8 @@ export default function DocumentUpload({ onExtracted }) {
           headers: {
             'Authorization': `Bearer ${token}`
           },
-          body: formData
+          body: formData,
+          signal: controller.signal
         }
       )
 

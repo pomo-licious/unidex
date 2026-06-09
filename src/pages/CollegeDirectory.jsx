@@ -37,9 +37,9 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
     setActiveTab(defaultTab)
   }, [location.search])
 
-  // Auth listener
+  // Auth listener - use propUser if provided, otherwise rely on auth listener
   useEffect(() => {
-    if (propUser !== undefined) {
+    if (propUser !== undefined && propUser !== null) {
       setUser(propUser)
       return
     }

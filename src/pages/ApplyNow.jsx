@@ -69,6 +69,11 @@ export default function ApplyNow() {
   useEffect(() => {
     if (step !== 2 || !student) return
 
+    // Clear any existing interval before starting a new one
+    if (animationRef.current) {
+      clearInterval(animationRef.current)
+    }
+
     let index = 0
     const totalFields = 7 // Number of form fields to animate
 
@@ -77,11 +82,15 @@ export default function ApplyNow() {
       setVisibleFields(Array.from({ length: Math.min(index, totalFields) }, (_, i) => i))
       if (index >= totalFields) {
         clearInterval(animationRef.current)
+        animationRef.current = null
       }
     }, 600)
 
     return () => {
-      if (animationRef.current) clearInterval(animationRef.current)
+      if (animationRef.current) {
+        clearInterval(animationRef.current)
+        animationRef.current = null
+      }
     }
   }, [step, student?.id])
 

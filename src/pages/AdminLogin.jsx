@@ -27,8 +27,8 @@ export default function AdminLogin() {
         return
       }
 
-      // Check if user has admin role
-      const { data: { user } } = await supabase.auth.getUser()
+      // Check if user has admin role (use user from signin response, not a new getUser call)
+      const user = data?.user
       const isAdmin = user?.app_metadata?.role === 'admin'
 
       if (!isAdmin) {

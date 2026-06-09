@@ -443,7 +443,7 @@ function RecentlyUpdatedSection() {
             {colleges.map(college => (
               <button
                 key={college.id}
-                onClick={() => window.location.href = `/college/${college.id}`}
+                onClick={() => navigate(`/college/${college.id}`)}
                 className="w-45 flex-shrink-0 bg-white rounded-lg overflow-hidden hover:shadow-lg transition text-left"
               >
                 <div className="w-45 h-28 bg-slate-200 overflow-hidden">

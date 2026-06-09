@@ -21,14 +21,7 @@ export function DemoProvider({ children }) {
   const [isDemo, setIsDemo] = useState(false)
 
   useEffect(() => {
-    // Check the current session on mount
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setIsDemo(user?.email === DEMO_EMAIL)
-    }).catch(() => {
-      setIsDemo(false)
-    })
-
-    // Update whenever the user logs in or out
+    // Auth listener fires immediately with current session, then on auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setIsDemo(session?.user?.email === DEMO_EMAIL)
     })

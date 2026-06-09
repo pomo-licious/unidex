@@ -14,9 +14,16 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Read the project URL and public key from environment variables (.env file)
-// The ?? '' fallback prevents a crash if the env file is missing (e.g. on CI)
-const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL      ?? ''
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
+const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+// Validate that required env vars are present
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Missing Supabase environment variables. ' +
+    'Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file'
+  )
+}
 
 // Create and export the single Supabase client used by the whole app
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
