@@ -358,18 +358,38 @@ export default function LandingPage() {
             </div>
 
             {[
-              { title: 'Product', links: ['How it works', 'Features', 'Browse colleges', 'Pricing'] },
-              { title: 'Company', links: ['About us', 'For colleges'] },
-              { title: 'Legal', links: ['Privacy', 'Terms'] },
+              {
+                title: 'Product',
+                links: [
+                  { label: 'How it works', action: () => scrollToSection('how-it-works') },
+                  { label: 'Features', action: () => scrollToSection('features') },
+                  { label: 'Browse colleges', action: () => navigate('/colleges?tab=all') },
+                  { label: 'Pricing', action: () => scrollToSection('pricing') }
+                ]
+              },
+              {
+                title: 'Company',
+                links: [
+                  { label: 'About us', action: () => navigate('/about') },
+                  { label: 'For colleges', action: () => scrollToSection('for-colleges') }
+                ]
+              },
+              {
+                title: 'Legal',
+                links: [
+                  { label: 'Privacy', action: () => navigate('/privacy') },
+                  { label: 'Terms', action: () => navigate('/terms') }
+                ]
+              },
             ].map((col, i) => (
               <div key={i}>
                 <h4 className="font-semibold text-sm mb-4">{col.title}</h4>
                 <ul className="space-y-2">
                   {col.links.map(link => (
-                    <li key={link}>
-                      <a href="#" className="text-xs text-slate-500 hover:text-white transition">
-                        {link}
-                      </a>
+                    <li key={link.label}>
+                      <button onClick={link.action} className="text-xs text-slate-500 hover:text-white transition text-left">
+                        {link.label}
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -379,8 +399,8 @@ export default function LandingPage() {
             <div>
               <h4 className="font-semibold text-sm mb-4">Follow us</h4>
               <div className="space-y-2">
-                <a href="#" className="block text-xs text-slate-500 hover:text-white transition">Instagram</a>
-                <a href="#" className="block text-xs text-slate-500 hover:text-white transition">LinkedIn</a>
+                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="block text-xs text-slate-500 hover:text-white transition">Instagram</a>
+                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="block text-xs text-slate-500 hover:text-white transition">LinkedIn</a>
               </div>
             </div>
           </div>
@@ -431,7 +451,7 @@ function RecentlyUpdatedSection() {
   if (error || colleges.length === 0) return null
 
   return (
-    <section className="bg-[#0A1628] py-16">
+    <section id="colleges" className="bg-[#0A1628] py-16">
       <div className="max-w-7xl mx-auto px-6">
         <div className="mb-8">
           <p className="text-xs uppercase tracking-widest text-[#C9A84C] font-semibold mb-2">Recently Updated</p>

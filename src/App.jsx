@@ -30,6 +30,9 @@ import AdminLogin        from './pages/AdminLogin'
 import AdminDashboard    from './pages/AdminDashboard'
 import Applications      from './pages/Applications'
 import Reminders         from './pages/Reminders'
+import Privacy           from './pages/Privacy'
+import Terms             from './pages/Terms'
+import About             from './pages/About'
 
 // ── ProtectedRoute — redirects to /login if user is not authenticated ──
 function ProtectedRoute({ element, user, loading }) {
@@ -86,6 +89,11 @@ export default function App() {
 
           {/* Public feedback survey */}
           <Route path="/feedback"   element={<FeedbackSurvey />} />
+
+          {/* Public pages */}
+          <Route path="/privacy"    element={<Privacy />} />
+          <Route path="/terms"      element={<Terms />} />
+          <Route path="/about"      element={<About />} />
 
           {/* Admin login (public, but checks role after auth) */}
           <Route path="/admin/login" element={<AdminLogin />} />
