@@ -31,6 +31,9 @@ export default function Profile() {
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(false)
   const [toast, setToast] = useState(null)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deleteInput, setDeleteInput] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   // Listen to auth state changes with proper cleanup
   useEffect(() => {
@@ -164,6 +167,39 @@ export default function Profile() {
       console.error('Error updating profile:', err)
       setToast({ type: 'error', message: 'Failed to update profile' })
       setTimeout(() => setToast(null), 3000)
+    }
+  }
+
+  // Handle account deletion
+  const handleDeleteAccount = async () => {
+    if (deleteInput !== 'DELETE') return
+
+    setDeleteLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('No active session')
+
+      const response = await fetch('https://siheziegpnrfjgzubjrk.supabase.co/functions/v1/delete-account', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Deletion failed')
+      }
+
+      // Sign out and redirect
+      await supabase.auth.signOut()
+      navigate('/')
+    } catch (err) {
+      console.error('Error deleting account:', err)
+      setToast({ type: 'error', message: 'Deletion failed. Please contact privacy@unidex.co.in' })
+      setTimeout(() => setToast(null), 3000)
+      setDeleteLoading(false)
     }
   }
 
@@ -403,6 +439,19 @@ export default function Profile() {
           </button>
         </div>
 
+        {/* ── Danger Zone — Delete Account ── */}
+        <div className="border-2 border-red-200 rounded-2xl p-6 bg-red-50">
+          <h2 className="text-sm font-bold text-red-900 mb-3">Danger Zone</h2>
+          <p className="text-sm text-red-800 mb-4">Permanently delete your account and all data</p>
+          <button
+            onClick={() => { setDeleteModalOpen(true); setDeleteInput('') }}
+            disabled={deleteLoading}
+            className="px-4 py-2 text-sm font-semibold border-2 border-red-600 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Delete my account
+          </button>
+        </div>
+
       </div>
 
       {/* Toast notification */}
@@ -413,6 +462,49 @@ export default function Profile() {
             : 'bg-red-500 text-white'
         }`}>
           {toast.message}
+        </div>
+      )}
+
+      {/* Delete Account Confirmation Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Are you sure?</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Permanently delete profile, applications, documents, all data. Cannot be undone.
+            </p>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Type DELETE to confirm
+              </label>
+              <input
+                type="text"
+                value={deleteInput}
+                onChange={(e) => setDeleteInput(e.target.value)}
+                placeholder="Type DELETE"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
+                disabled={deleteLoading}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteModalOpen(false)}
+                disabled={deleteLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteInput !== 'DELETE' || deleteLoading}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {deleteLoading ? 'Deleting…' : 'Yes, delete'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </Layout>

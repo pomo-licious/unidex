@@ -331,6 +331,13 @@ export default function Login() {
           </svg>
           <span>Bank-level security. Your data is safe with us.</span>
         </div>
+
+        {/* Footer: Legal links */}
+        <div className="flex items-center justify-center gap-6 text-xs text-gray-500 mt-6 lg:mt-4">
+          <button onClick={() => navigate('/privacy')} className="hover:text-gray-400 transition">Privacy</button>
+          <span>•</span>
+          <button onClick={() => navigate('/terms')} className="hover:text-gray-400 transition">Terms</button>
+        </div>
       </div>
     </div>
   )
