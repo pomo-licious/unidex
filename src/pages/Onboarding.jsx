@@ -12,6 +12,7 @@
 
 import { useState, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
 import { COLLEGES, TYPE_META, fitLabel } from '../lib/mockData'
 
 // ─── Static option lists for dropdowns ───────────────────────────────────────
@@ -41,6 +42,10 @@ export default function Onboarding() {
     target_colleges: [],
   })
 
+  // ── Save state for loading and error handling ──────────────────────────────
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+
   // ── set — generic input handler: updates whichever field was changed ───────
   const set = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
@@ -52,6 +57,49 @@ export default function Onboarding() {
         ? f.target_colleges.filter(c => c !== name)   // already selected → remove it
         : [...f.target_colleges, name],               // not selected → add it
     }))
+  }
+
+  // ── handleStartTracking — save form data to Supabase and navigate ──────────
+  async function handleStartTracking() {
+    setSaving(true)
+    setError(null)
+
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      // Upsert into students table
+      const { error: upsertError } = await supabase
+        .from('students')
+        .upsert({
+          user_id: user.id,
+          name: form.name,
+          email: form.email,
+          target_colleges: form.target_colleges,
+          academic_background: {
+            phone: form.phone,
+            city: form.city,
+            degree: form.degree,
+            grad_year: form.grad_year ? parseInt(form.grad_year) : null,
+            cgpa: form.gpa ? parseFloat(form.gpa) : null,
+            cat_percentile: form.cat_percentile ? parseFloat(form.cat_percentile) : null,
+            gmat_score: form.gmat_score ? parseInt(form.gmat_score) : null,
+            work_exp_yrs: form.work_exp_yrs ? parseFloat(form.work_exp_yrs) : null,
+            company: form.company,
+            role: form.role,
+          }
+        }, { onConflict: 'user_id' })
+
+      if (upsertError) throw upsertError
+
+      // Success — navigate to profile
+      navigate('/profile')
+    } catch (err) {
+      console.error('Error saving profile:', err)
+      setError(err.message || 'Failed to save profile')
+      setSaving(false)
+    }
   }
 
   // ── visible — colleges to show after applying the type filter ─────────────
@@ -212,6 +260,13 @@ export default function Onboarding() {
             </div>
           )}
 
+          {/* ── Error message ── */}
+          {error && (
+            <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
+
           {/* ── Navigation buttons (Back / Continue / Start Tracking) ── */}
           <div className="flex justify-between items-center mt-8">
             {/* Show "Back" on steps 2 and 3; empty div on step 1 to keep layout aligned */}
@@ -231,11 +286,11 @@ export default function Onboarding() {
                 Continue →
               </button>
             ) : (
-              // TODO: save form data to Supabase before navigating
               <button
-                onClick={() => navigate('/profile')}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors">
-                Start Tracking →
+                onClick={handleStartTracking}
+                disabled={saving}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                {saving ? 'Saving…' : 'Start Tracking →'}
               </button>
             )}
           </div>
