@@ -392,14 +392,6 @@ export default function Layout({ children }) {
       {/* ── Main content area — everything to the right of the sidebar ── */}
       {/* ml-60 = left margin equal to sidebar width so content doesn't overlap */}
       <main className="ml-60 flex-1 min-h-screen flex flex-col">
-        {/* CAT countdown banner — shown only if user is logged in and not on public routes */}
-        {user && !['/', '/login', '/signup'].includes(location.pathname) && daysUntilCAT > 0 && (
-          <div className="bg-amber-50 border-b border-amber-200 flex items-center justify-center text-xs text-amber-900 px-6 py-0.5">
-            <span>📅 CAT 2026 — {daysUntilCAT}d · </span>
-            <a href="/calendar" className="underline font-medium hover:text-amber-800 ml-1">calendar</a>
-          </div>
-        )}
-
         {/* Header with news ticker and bell icon */}
         <div className="flex items-center justify-between px-6 py-1 border-b border-gray-200 bg-white">
           <NewsTicker />
