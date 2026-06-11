@@ -118,7 +118,7 @@ export default function Profile() {
         })
 
         upcoming.sort((a, b) => new Date(a.date) - new Date(b.date))
-        setCollegeDeadlines(upcoming.slice(0, 3))
+        setCollegeDeadlines(upcoming.slice(0, 2))
       } catch (err) {
         console.error('Error fetching deadlines:', err)
       }
@@ -203,7 +203,7 @@ export default function Profile() {
 
   // Get target colleges with fit
   const targetColleges = COLLEGES.filter(c => s.target_colleges?.includes(c.name))
-    .slice(0, 5)
+    .slice(0, 4)
     .map(c => {
       const catPct = parseFloat(ab.cat_percentile) || 0
       const fit = fitLabel(catPct, c.cutoff)
@@ -220,18 +220,18 @@ export default function Profile() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-6 py-4 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 120px)' }}>
 
         {/* ROW 1: HERO BANNER */}
-        <div className="bg-gradient-to-r from-[#1a2744] to-[#2a3f66] rounded-2xl p-8 flex items-center justify-between border border-[#3a5080]">
-          <div className="flex items-start gap-6">
+        <div className="bg-gradient-to-r from-[#1a2744] to-[#2a3f66] rounded-2xl p-4 flex items-center justify-between border border-[#3a5080]">
+          <div className="flex items-start gap-4">
             {/* Avatar */}
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#c9a84c] to-[#d4b563] flex items-center justify-center text-white text-3xl font-bold ring-4 ring-[#c9a84c]/20 shrink-0">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#c9a84c] to-[#d4b563] flex items-center justify-center text-white text-xl font-bold ring-4 ring-[#c9a84c]/20 shrink-0">
               {initials}
             </div>
 
             <div>
-              <h1 className="text-3xl font-bold text-white mb-1">{s.name}</h1>
+              <h1 className="text-2xl font-bold text-white mb-0.5">{s.name}</h1>
               <div className="flex items-center gap-2 mb-2">
                 {ab.grad_year && (
                   <span className="inline-block px-3 py-1 bg-[#c9a84c] text-[#1a2744] text-sm font-semibold rounded-full">
@@ -259,35 +259,35 @@ export default function Profile() {
         </div>
 
         {/* ROW 2: 4 STAT CARDS */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-4 gap-2">
           {[
             { icon: '📊', label: 'CAT Percentile', value: ab.cat_percentile || '-', unit: '%ile' },
             { icon: '📚', label: 'CGPA', value: ab.cgpa || '-', unit: '/10' },
             { icon: '💼', label: 'Work Experience', value: ab.work_exp_yrs || '-', unit: 'yrs' },
             { icon: '🎓', label: 'Batch', value: ab.grad_year || '-', unit: '' },
           ].map((stat, idx) => (
-            <div key={idx} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="text-3xl mb-2">{stat.icon}</div>
-              <p className="text-3xl font-bold text-gray-900">
+            <div key={idx} className="bg-white rounded-lg border border-gray-200 p-2 shadow-sm hover:shadow-md transition-shadow">
+              <div className="text-2xl mb-1">{stat.icon}</div>
+              <p className="text-2xl font-bold text-gray-900">
                 {stat.value}
-                <span className="text-sm font-normal text-gray-500 ml-1">{stat.unit}</span>
+                <span className="text-xs font-normal text-gray-500 ml-0.5">{stat.unit}</span>
               </p>
-              <p className="text-xs text-gray-600 mt-2">{stat.label}</p>
+              <p className="text-xs text-gray-600 mt-1">{stat.label}</p>
             </div>
           ))}
         </div>
 
         {/* ROW 3: TWO-COLUMN GRID */}
-        <div className="grid grid-cols-[1.4fr_1fr] gap-6">
+        <div className="grid grid-cols-[1.4fr_1fr] gap-3">
 
           {/* LEFT COLUMN */}
-          <div className="space-y-6">
+          <div className="space-y-3">
 
             {/* TARGET COLLEGES CARD */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <span className="text-xl">🏛</span> Target Colleges
+            <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1">
+                  <span className="text-lg">🏛</span> Target Colleges
                 </h2>
                 <button
                   onClick={() => navigate('/colleges')}
@@ -346,38 +346,38 @@ export default function Profile() {
             </div>
 
             {/* APPLICATION OVERVIEW CARD */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <span className="text-xl">📋</span> Application Overview
+            <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1">
+                  <span className="text-lg">📋</span> Application Overview
                 </h2>
                 <button onClick={() => navigate('/tracker')} className="text-xs text-[#c9a84c] font-semibold hover:underline">
-                  View tracker →
+                  View →
                 </button>
               </div>
 
               {/* 4 inline stats */}
-              <div className="grid grid-cols-4 gap-2 mb-4">
+              <div className="grid grid-cols-4 gap-1 mb-2">
                 {[
                   { label: 'Applied', value: statusCounts.Applied, color: 'text-blue-600' },
                   { label: 'Target', value: statusCounts.Target, color: 'text-indigo-600' },
                   { label: 'In Progress', value: statusCounts['In Progress'], color: 'text-amber-600' },
                   { label: 'Offers', value: statusCounts.Offers, color: 'text-green-600' },
                 ].map((stat, idx) => (
-                  <div key={idx} className="bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
-                    <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                    <p className="text-xs text-gray-600 mt-1">{stat.label}</p>
+                  <div key={idx} className="bg-gray-50 rounded p-1.5 text-center border border-gray-200">
+                    <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
+                    <p className="text-xs text-gray-600 mt-0.5">{stat.label}</p>
                   </div>
                 ))}
               </div>
 
               {/* Progress bar */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs font-semibold text-gray-600">Overall Progress</p>
+                <div className="flex items-center justify-between mb-0.5">
+                  <p className="text-xs font-semibold text-gray-600">Progress</p>
                   <p className="text-xs font-bold text-gray-900">{overallProgress}%</p>
                 </div>
-                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-[#1a2744] to-green-500 transition-all"
                     style={{ width: `${overallProgress}%` }}
@@ -389,13 +389,13 @@ export default function Profile() {
           </div>
 
           {/* RIGHT COLUMN */}
-          <div className="space-y-6">
+          <div className="space-y-3">
 
             {/* UPCOMING DEADLINES CARD */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <span className="text-xl">📅</span> Upcoming Deadlines
+            <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1">
+                  <span className="text-lg">📅</span> Upcoming Deadlines
                 </h2>
                 <button onClick={() => navigate('/reminders')} className="text-xs text-[#c9a84c] font-semibold hover:underline">
                   View all →
@@ -424,10 +424,10 @@ export default function Profile() {
             </div>
 
             {/* DOCUMENTS CARD */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <span className="text-xl">📄</span> Documents
+            <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1">
+                  <span className="text-lg">📄</span> Documents
                 </h2>
                 <button onClick={() => navigate('/documents')} className="text-xs text-[#c9a84c] font-semibold hover:underline">
                   View all →
@@ -453,7 +453,7 @@ export default function Profile() {
         </div>
 
         {/* ACCOUNT SETTINGS ACCORDION (DANGER ZONE) */}
-        <div className="border-t border-gray-200 pt-6">
+        <div className="border-t border-gray-200 pt-3">
           <button
             onClick={() => setSettingsOpen(!settingsOpen)}
             className="flex items-center gap-2 text-gray-700 hover:text-gray-900 font-medium text-sm"

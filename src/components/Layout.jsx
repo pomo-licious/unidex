@@ -84,6 +84,7 @@ export default function Layout({ children }) {
   const [notifications, setNotifications] = useState([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [daysUntilCAT, setDaysUntilCAT] = useState(0)
+  const [sidebarDeadlines, setSidebarDeadlines] = useState([])
 
   // Listen to auth state changes with proper cleanup
   useEffect(() => {
@@ -191,6 +192,52 @@ export default function Layout({ children }) {
     loadDeadlines()
   }, [student?.id])
 
+  // Load upcoming deadlines for sidebar (next 3)
+  useEffect(() => {
+    if (!student?.id) {
+      setSidebarDeadlines([])
+      return
+    }
+
+    async function loadSidebarDeadlines() {
+      try {
+        const { data: appData } = await supabase
+          .from('applications')
+          .select('*, colleges(name, deadlines)')
+          .eq('student_id', student.id)
+
+        const deadlines = []
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        (appData || []).forEach(app => {
+          if (app.colleges?.deadlines && Array.isArray(app.colleges.deadlines)) {
+            app.colleges.deadlines.forEach(deadline => {
+              const deadlineDate = new Date(deadline.date || deadline)
+              deadlineDate.setHours(0, 0, 0, 0)
+              if (deadlineDate >= today) {
+                const daysLeft = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24))
+                deadlines.push({
+                  id: `${app.id}-${deadline.date}`,
+                  college: app.colleges.name.substring(0, 12),
+                  daysLeft,
+                  date: deadline.date
+                })
+              }
+            })
+          }
+        })
+
+        deadlines.sort((a, b) => a.daysLeft - b.daysLeft)
+        setSidebarDeadlines(deadlines.slice(0, 3))
+      } catch (err) {
+        console.error('Failed to load sidebar deadlines:', err)
+      }
+    }
+
+    loadSidebarDeadlines()
+  }, [student?.id])
+
   // Generate initials from the student's name
   const name = student?.name || 'U'
   const initials = name.split(' ').map(n => n[0]).join('')
@@ -208,7 +255,10 @@ export default function Layout({ children }) {
       <aside className="w-60 bg-white border-r border-gray-200 flex flex-col fixed inset-y-0 left-0 z-10">
 
         {/* Logo and tagline */}
-        <div className="px-6 py-5 border-b border-gray-100">
+        <button
+          onClick={() => navigate('/')}
+          className="w-full text-left px-6 py-5 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+        >
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
               <span className="text-white text-xs font-bold">U</span>
@@ -216,7 +266,7 @@ export default function Layout({ children }) {
             <span className="text-lg font-bold text-gray-900">Unidex</span>
           </div>
           <p className="text-xs text-gray-400 mt-1 ml-9">MBA Application Hub</p>
-        </div>
+        </button>
 
         {/* Navigation links — NavLink auto-highlights the active route */}
         <nav className="flex-1 px-3 py-4 space-y-0.5">
@@ -300,18 +350,34 @@ export default function Layout({ children }) {
 
         </nav>
 
-        {/* User chip at the bottom of the sidebar — shows name and logout button */}
-        <div className="px-4 py-4 border-t border-gray-100 space-y-3">
-          <div className="flex items-center gap-3">
-            {/* Avatar circle with initials */}
-            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
-              {initials}
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-gray-800 truncate">{student?.name || 'Loading…'}</p>
+        {/* Upcoming deadlines section */}
+        {(daysUntilCAT <= 200 || sidebarDeadlines.length > 0) && (
+          <div className="px-3 py-3 border-t border-gray-100 space-y-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2">Upcoming</p>
+            <div className="space-y-1.5">
+              {daysUntilCAT <= 200 && (
+                <div className="flex items-center gap-2 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 rounded transition">
+                  <span className="w-2 h-2 rounded-full bg-gray-400 shrink-0" />
+                  <span className="truncate flex-1">CAT 2026</span>
+                  <span className="text-gray-500 whitespace-nowrap">{daysUntilCAT}d</span>
+                </div>
+              )}
+              {sidebarDeadlines.map(deadline => {
+                const color = deadline.daysLeft <= 7 ? 'bg-red-400' : deadline.daysLeft <= 30 ? 'bg-amber-400' : 'bg-gray-300'
+                return (
+                  <div key={deadline.id} className="flex items-center gap-2 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 rounded transition">
+                    <span className={`w-2 h-2 rounded-full ${color} shrink-0`} />
+                    <span className="truncate flex-1">{deadline.college}</span>
+                    <span className="text-gray-500 whitespace-nowrap">{deadline.daysLeft}d</span>
+                  </div>
+                )
+              })}
             </div>
           </div>
-          {/* Logout button */}
+        )}
+
+        {/* Sign out button at the bottom */}
+        <div className="px-4 py-3 border-t border-gray-100">
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-700 transition-colors">
@@ -328,14 +394,14 @@ export default function Layout({ children }) {
       <main className="ml-60 flex-1 min-h-screen flex flex-col">
         {/* CAT countdown banner — shown only if user is logged in and not on public routes */}
         {user && !['/', '/login', '/signup'].includes(location.pathname) && daysUntilCAT > 0 && (
-          <div className="h-9 bg-amber-50 border-b border-amber-200 flex items-center justify-center text-sm text-amber-900 px-6">
-            <span>📅 CAT 2026 — {daysUntilCAT} days away · </span>
-            <a href="/calendar" className="underline font-medium hover:text-amber-800 ml-1">View deadline calendar →</a>
+          <div className="bg-amber-50 border-b border-amber-200 flex items-center justify-center text-xs text-amber-900 px-6 py-0.5">
+            <span>📅 CAT 2026 — {daysUntilCAT}d · </span>
+            <a href="/calendar" className="underline font-medium hover:text-amber-800 ml-1">calendar</a>
           </div>
         )}
 
         {/* Header with news ticker and bell icon */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
+        <div className="flex items-center justify-between px-6 py-1 border-b border-gray-200 bg-white">
           <NewsTicker />
           {user && (
             <button
