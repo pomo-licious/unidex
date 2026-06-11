@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Shield, Users, Calendar, GraduationCap, Play, Mail, Linkedin, Instagram } from 'lucide-react'
+import { Shield, Users, Calendar, GraduationCap, Play, Mail, Share2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 export default function LandingPage() {
@@ -386,10 +386,10 @@ export default function LandingPage() {
             {/* Right: Social */}
             <div className="flex gap-4 sm:justify-end">
               <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-[#1a2744] transition">
-                <Linkedin className="w-5 h-5" />
+                <Share2 className="w-5 h-5" />
               </a>
               <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-[#1a2744] transition">
-                <Instagram className="w-5 h-5" />
+                <Share2 className="w-5 h-5" />
               </a>
               <a href="mailto:hello@unidex.co.in" className="text-gray-600 hover:text-[#1a2744] transition">
                 <Mail className="w-5 h-5" />

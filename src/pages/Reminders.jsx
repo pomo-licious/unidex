@@ -249,8 +249,6 @@ export default function Reminders() {
           </div>
         )}
       </div>
-
-      </div>
     </Layout>
   )
 }
