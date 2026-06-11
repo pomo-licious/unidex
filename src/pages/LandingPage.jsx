@@ -235,7 +235,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">
           {/* Left: Mockup */}
           <div className="order-2 md:order-1">
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200 p-8 shadow-lg">
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200 p-8 shadow-lg overflow-hidden">
               <div className="space-y-3 mb-6">
                 <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider">College Directory</div>
                 {['ISB Hyderabad', 'IIM Ahmedabad', 'SPJIMR Mumbai', 'IIM Bangalore', 'FMS Delhi'].map((college, idx) => (
