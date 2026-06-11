@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Shield, Users, Calendar, GraduationCap, Play, Mail, Linkedin, Instagram } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 export default function LandingPage() {
@@ -9,6 +10,7 @@ export default function LandingPage() {
   const [navScrolled, setNavScrolled] = useState(false)
   const scrollTimeoutRef = useRef(null)
 
+  // Redirect logged-in users to profile
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user || null)
@@ -16,6 +18,7 @@ export default function LandingPage() {
     })
   }, [navigate])
 
+  // Navbar scroll effect
   useEffect(() => {
     let lastScrollY = 0
     const handleScroll = () => {
@@ -40,121 +43,139 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="bg-[#0A1628] text-white overflow-hidden">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
-        * { font-family: 'Space Grotesk', system-ui, sans-serif; }
-        .fade-up { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
-        .fade-up.visible { opacity: 1; transform: translateY(0); }
-        .fade-up.visible:nth-child(1) { transition-delay: 0ms; }
-        .fade-up.visible:nth-child(2) { transition-delay: 100ms; }
-        .fade-up.visible:nth-child(3) { transition-delay: 200ms; }
-        .fade-up.visible:nth-child(4) { transition-delay: 300ms; }
-      `}</style>
+    <div className="bg-white overflow-hidden text-gray-900">
 
-      {/* NAV */}
-      <nav className={`sticky top-0 z-50 transition-all duration-300 border-b border-slate-700 ${navScrolled ? 'bg-[#0A1628]/95 backdrop-blur' : ''}`}>
+      {/* SECTION 1: NAVBAR */}
+      <nav className={`sticky top-0 z-50 transition-all duration-300 border-b border-gray-200 ${navScrolled ? 'bg-white shadow-sm' : 'bg-white'}`}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-2xl font-bold">
-            <div className="w-7 h-7 bg-[#C9A84C] rounded" />
-            <span>Unidex</span>
+          {/* Logo */}
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-[#c9a84c] rounded-lg flex items-center justify-center text-white font-bold text-sm">U</div>
+            <div className="hidden sm:block">
+              <div className="text-sm font-bold text-[#1a2744]">UNIDEX</div>
+              <div className="text-xs text-gray-600">MBA APPLICATION HUB</div>
+            </div>
           </div>
 
+          {/* Center Links (Desktop) */}
           <div className="hidden md:flex items-center gap-8">
-            <button onClick={() => scrollToSection('how-it-works')} className="text-sm text-slate-400 hover:text-white transition">How it works</button>
-            <button onClick={() => scrollToSection('features')} className="text-sm text-slate-400 hover:text-white transition">Features</button>
-            <button onClick={() => scrollToSection('for-colleges')} className="text-sm text-slate-400 hover:text-white transition">For colleges</button>
-            <button onClick={() => navigate('/colleges?tab=all')} className="text-sm text-slate-400 hover:text-white transition">Browse colleges</button>
+            <button onClick={() => scrollToSection('how-it-works')} className="text-sm text-gray-600 hover:text-[#1a2744] transition font-medium">
+              How it works
+            </button>
+            <button onClick={() => scrollToSection('features')} className="text-sm text-gray-600 hover:text-[#1a2744] transition font-medium">
+              Features
+            </button>
+            <button onClick={() => scrollToSection('for-colleges')} className="text-sm text-gray-600 hover:text-[#1a2744] transition font-medium">
+              For colleges
+            </button>
           </div>
 
+          {/* Right Side (Desktop) */}
           <div className="hidden md:flex items-center gap-4">
-            <button onClick={() => navigate('/login')} className="px-4 py-2 text-sm border border-slate-600 rounded-lg hover:border-white transition">Sign in</button>
-            <button onClick={() => navigate('/signup')} className="px-6 py-2 bg-[#C9A84C] text-[#0A1628] rounded-full text-sm font-semibold hover:scale-[1.02] hover:brightness-95 transition-all duration-200">Start for free</button>
+            <button onClick={() => navigate('/login')} className="text-sm text-[#1a2744] font-medium hover:text-[#c9a84c] transition">
+              Sign in
+            </button>
+            <button onClick={() => navigate('/signup')} className="px-6 py-2 bg-[#c9a84c] text-white rounded-lg text-sm font-semibold hover:brightness-95 transition-all">
+              Get started
+            </button>
           </div>
 
-          <button className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            <div className={`w-6 h-0.5 bg-white mb-1.5 transition-transform ${mobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`} />
-            <div className={`w-6 h-0.5 bg-white mb-1.5 transition-opacity ${mobileMenuOpen ? 'opacity-0' : ''}`} />
-            <div className={`w-6 h-0.5 bg-white transition-transform ${mobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
+          {/* Mobile Menu Button */}
+          <button className="md:hidden text-[#1a2744]" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            <div className="space-y-1">
+              <div className={`h-0.5 w-5 bg-[#1a2744] transition-transform ${mobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`} />
+              <div className={`h-0.5 w-5 bg-[#1a2744] transition-opacity ${mobileMenuOpen ? 'opacity-0' : ''}`} />
+              <div className={`h-0.5 w-5 bg-[#1a2744] transition-transform ${mobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
+            </div>
           </button>
         </div>
 
+        {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-[#0F2040] border-t border-slate-700 p-6 space-y-4">
-            <button onClick={() => scrollToSection('how-it-works')} className="block w-full text-left text-slate-300 py-2">How it works</button>
-            <button onClick={() => scrollToSection('features')} className="block w-full text-left text-slate-300 py-2">Features</button>
-            <button onClick={() => scrollToSection('for-colleges')} className="block w-full text-left text-slate-300 py-2">For colleges</button>
-            <button onClick={() => navigate('/colleges?tab=all')} className="block w-full text-left text-slate-300 py-2">Browse colleges</button>
-            <hr className="border-slate-700" />
-            <button onClick={() => navigate('/login')} className="block w-full text-center px-4 py-2 text-sm border border-slate-600 rounded-lg">Sign in</button>
-            <button onClick={() => navigate('/signup')} className="block w-full text-center px-4 py-2 bg-[#C9A84C] text-[#0A1628] rounded-full text-sm font-semibold">Start for free</button>
+          <div className="md:hidden bg-white border-t border-gray-200 p-6 space-y-4">
+            <button onClick={() => scrollToSection('how-it-works')} className="block w-full text-left text-gray-600 py-2 font-medium">
+              How it works
+            </button>
+            <button onClick={() => scrollToSection('features')} className="block w-full text-left text-gray-600 py-2 font-medium">
+              Features
+            </button>
+            <button onClick={() => scrollToSection('for-colleges')} className="block w-full text-left text-gray-600 py-2 font-medium">
+              For colleges
+            </button>
+            <hr className="border-gray-200" />
+            <button onClick={() => navigate('/login')} className="block w-full text-center text-[#1a2744] py-2 font-medium">
+              Sign in
+            </button>
+            <button onClick={() => navigate('/signup')} className="block w-full text-center bg-[#c9a84c] text-white py-2 rounded-lg font-semibold">
+              Get started
+            </button>
           </div>
         )}
       </nav>
 
-      {/* HERO — Asymmetric layout */}
-      <section className="min-h-screen bg-[#0A1628] flex items-center relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-b from-[#C9A84C]/10 to-transparent rounded-full blur-3xl" />
-
-        <div className="max-w-7xl mx-auto px-6 w-full grid md:grid-cols-5 gap-12 items-center relative z-10">
-          {/* Left: 3/5 width */}
-          <div className="md:col-span-3">
-            <div className="mb-8">
-              <span className="text-[#C9A84C] text-sm uppercase tracking-wider font-semibold">India's MBA Application Hub</span>
-              <div className="w-12 h-px bg-[#C9A84C] mt-3" />
+      {/* SECTION 2: HERO */}
+      <section className="bg-white py-16 md:py-24">
+        <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">
+          {/* Left: Text */}
+          <div>
+            <h1 className="text-4xl md:text-5xl font-serif font-bold text-[#1a2744] mb-4 leading-tight">
+              Track all your MBA applications from one place.
+            </h1>
+            <p className="text-lg text-gray-600 mb-8 font-medium">
+              One profile. All your applications. Total clarity.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button onClick={() => navigate('/signup')} className="px-6 py-3 bg-[#c9a84c] text-white rounded-lg font-semibold hover:brightness-95 transition-all">
+                Create your profile
+              </button>
+              <button onClick={() => scrollToSection('how-it-works')} className="px-6 py-3 border-2 border-gray-300 text-[#1a2744] rounded-lg font-semibold hover:bg-gray-50 transition-all flex items-center justify-center gap-2">
+                <Play className="w-4 h-4 fill-current" /> See how it works
+              </button>
             </div>
-
-            <h1 className="text-[80px] leading-[1.05] tracking-[-0.03em] font-bold mb-8">One place for every MBA application.</h1>
-
-            <p className="text-lg leading-relaxed text-slate-300 mb-10 max-w-lg">Discover colleges, build your profile, track deadlines, and apply — without switching between ten portals.</p>
-
-            <div className="flex flex-col sm:flex-row gap-4 mb-10">
-              <button onClick={() => navigate('/signup')} className="px-8 py-3 bg-[#C9A84C] text-[#0A1628] rounded-full font-semibold hover:scale-[1.02] hover:brightness-95 transition-all duration-200 w-fit">Start for free</button>
-              <button onClick={() => navigate('/colleges?tab=all')} className="px-8 py-3 border-2 border-white text-white rounded-full font-semibold hover:scale-[1.02] hover:brightness-95 transition-all duration-200 w-fit">Browse colleges →</button>
-            </div>
-
-            <p className="text-sm text-slate-400">Used by aspirants targeting IIM A, B, C, ISB, XLRI and 67 more programmes.</p>
           </div>
 
-          {/* Right: 2/5 width — Mockup */}
-          <div className="md:col-span-2 hidden md:block">
-            <div className="bg-[#0F2040] rounded-2xl border border-slate-700 p-5 shadow-2xl">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-sm">My Applications</h3>
-                <span className="text-xs px-2 py-1 bg-slate-700 rounded-full">5 tracked</span>
+          {/* Right: Mockup Card */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+            <div className="flex h-96 bg-gray-50">
+              {/* Sidebar */}
+              <div className="w-40 bg-[#1a2744] text-white p-4 space-y-6">
+                <div>
+                  <div className="text-xs uppercase font-bold text-[#c9a84c] tracking-wider mb-4">Menu</div>
+                  <nav className="space-y-2 text-sm">
+                    <div className="px-3 py-2 bg-[#2a3f66] rounded text-white font-medium">Dashboard</div>
+                    <div className="px-3 py-2 text-gray-300 hover:text-white cursor-pointer">Colleges</div>
+                    <div className="px-3 py-2 text-gray-300 hover:text-white cursor-pointer">Applications</div>
+                    <div className="px-3 py-2 text-gray-300 hover:text-white cursor-pointer">Documents</div>
+                    <div className="px-3 py-2 text-gray-300 hover:text-white cursor-pointer">Deadlines</div>
+                    <div className="px-3 py-2 text-gray-300 hover:text-white cursor-pointer">Profile</div>
+                  </nav>
+                </div>
               </div>
 
-              <div className="space-y-2 mb-4">
-                {[
-                  { name: 'IIM Ahmedabad', status: 'Applied', color: 'bg-blue-500/20 text-blue-300' },
-                  { name: 'IIM Bangalore', status: 'Interview', color: 'bg-amber-500/20 text-amber-300' },
-                  { name: 'IIM Calcutta', status: 'Researching', color: 'bg-slate-500/20 text-slate-300' },
-                  { name: 'XLRI Jamshedpur', status: 'Offer', color: 'bg-emerald-500/20 text-emerald-300' },
-                  { name: 'ISB Hyderabad', status: 'Rejected', color: 'bg-red-500/20 text-red-300' },
-                ].map(app => (
-                  <div key={app.name} className="flex justify-between items-center text-xs py-1.5">
-                    <span className="text-slate-300">{app.name}</span>
-                    <span className={`px-2 py-0.5 rounded-full font-medium ${app.color}`}>{app.status}</span>
+              {/* Content */}
+              <div className="flex-1 p-6 bg-white overflow-auto">
+                <h3 className="text-lg font-bold text-[#1a2744] mb-4">Welcome back, Arjun 👋</h3>
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <span className="text-sm font-medium text-[#1a2744]">ISB Hyderabad</span>
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">In progress</span>
                   </div>
-                ))}
-              </div>
-
-              <div className="border-t border-slate-600 pt-3 grid grid-cols-4 gap-2 text-center text-xs">
-                <div>
-                  <div className="font-bold text-slate-200">2</div>
-                  <div className="text-slate-500">Applied</div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <span className="text-sm font-medium text-[#1a2744]">SPJIMR Mumbai</span>
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-semibold">Submitted</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <span className="text-sm font-medium text-[#1a2744]">IIM Bangalore</span>
+                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded font-semibold">Shortlisted</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <span className="text-sm font-medium text-[#1a2744]">FMS Delhi</span>
+                    <span className="text-xs bg-gray-300 text-gray-700 px-2 py-1 rounded font-semibold">Not started</span>
+                  </div>
                 </div>
-                <div>
-                  <div className="font-bold text-slate-200">1</div>
-                  <div className="text-slate-500">Interview</div>
-                </div>
-                <div>
-                  <div className="font-bold text-slate-200">1</div>
-                  <div className="text-slate-500">Offer</div>
-                </div>
-                <div>
-                  <div className="font-bold text-slate-200">1</div>
-                  <div className="text-slate-500">Rejected</div>
+                <div className="border-t border-gray-200 pt-4">
+                  <p className="text-xs font-semibold text-gray-600 mb-2">Upcoming Deadlines</p>
+                  <p className="text-sm text-red-600 font-semibold">SPJIMR Round 1 — 15 May</p>
                 </div>
               </div>
             </div>
@@ -162,451 +183,226 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* STATS — Compressed spacing, 3 columns */}
-      <section className="bg-[#C9A84C] py-12">
-        <ScrollTrigger>
-          <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-8">
+      {/* SECTION 3: TRUST BAR */}
+      <section className="bg-white py-12 border-y border-gray-200">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid md:grid-cols-4 gap-8">
             {[
-              { value: '250,000+', label: 'CAT aspirants/year' },
-              { value: '71', label: 'MBA programmes in one place' },
-              { value: '✓', label: 'Free to get started' },
-            ].map((stat, i) => (
-              <div key={i} className="text-center fade-up">
-                <div className="text-4xl font-bold text-[#0A1628] mb-2">{stat.value}</div>
-                <div className="text-sm text-[#0A1628]/80">{stat.label}</div>
+              { icon: Shield, title: 'Secure & private', desc: 'Your data is encrypted and never shared' },
+              { icon: Users, title: 'One profile for all', desc: 'Apply to multiple colleges at once' },
+              { icon: Calendar, title: 'Deadlines in one place', desc: 'Never miss an important date' },
+              { icon: GraduationCap, title: 'Built for MBA aspirants', desc: 'Designed by and for students' },
+            ].map((item, idx) => (
+              <div key={idx} className="flex items-start gap-4">
+                <item.icon className="w-6 h-6 text-[#c9a84c] shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-[#1a2744] text-sm mb-1">{item.title}</h3>
+                  <p className="text-xs text-gray-600">{item.desc}</p>
+                </div>
               </div>
             ))}
           </div>
-        </ScrollTrigger>
-      </section>
-
-      {/* PROBLEM — Expanded spacing */}
-      <section id="how-it-works" className="bg-white py-32">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <span className="text-sm font-semibold tracking-wider text-[#C9A84C] uppercase">The problem</span>
-            <h2 className="text-5xl leading-[1.1] tracking-tight font-semibold text-[#0A1628] mt-4">MBA applications are scattered. Your attention shouldn't be.</h2>
-          </div>
-
-          <ScrollTrigger>
-            <div className="grid md:grid-cols-2 gap-8">
-              {[
-                { icon: '🏛', title: 'Different portals', desc: 'Every college has its own process and portal' },
-                { icon: '🔄', title: 'Repeated forms', desc: 'Same details entered again and again' },
-                { icon: '⏰', title: 'Missed deadlines', desc: 'Important dates slip through the chaos' },
-                { icon: '📁', title: 'Lost documents', desc: 'Files everywhere, never where you need them' },
-              ].map((item, i) => (
-                <div key={i} className="p-8 bg-white border border-slate-200 rounded-2xl hover:shadow-xl hover:scale-[1.02] transition-all duration-200 fade-up">
-                  <div className="text-4xl mb-4">{item.icon}</div>
-                  <h3 className="text-lg font-semibold text-[#0A1628] mb-2">{item.title}</h3>
-                  <p className="text-slate-600 text-sm">{item.desc}</p>
-                </div>
-              ))}
-            </div>
-          </ScrollTrigger>
         </div>
       </section>
 
-      {/* SOLUTION FLOW */}
-      <section className="bg-[#0A1628] py-24">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-5xl leading-[1.1] tracking-tight font-semibold text-white">One organised flow. Start to finish.</h2>
-            <p className="text-lg leading-relaxed text-slate-300 mt-4 max-w-lg mx-auto">From discovery to offer letter — Unidex handles the journey.</p>
+      {/* SECTION 4: PROBLEM */}
+      <section className="bg-[#faf8f5] py-16 md:py-24">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <h2 className="text-3xl md:text-4xl font-serif font-bold text-[#1a2744] mb-12">
+            Applying is hard. Unidex makes it simple.
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              { icon: '📂', title: 'Scattered information', desc: 'College details, deadlines, and requirements everywhere' },
+              { icon: '⏰', title: 'Missed deadlines', desc: 'Easy to lose track of important dates' },
+              { icon: '📝', title: 'Repetitive form filling', desc: 'Type the same information over and over' },
+            ].map((item, idx) => (
+              <div key={idx} className="flex flex-col items-center">
+                <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-3xl mb-4">
+                  {item.icon}
+                </div>
+                <h3 className="font-semibold text-[#1a2744] mb-2">{item.title}</h3>
+                <p className="text-sm text-gray-600">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 5: HOW IT WORKS */}
+      <section id="how-it-works" className="bg-white py-16 md:py-24">
+        <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">
+          {/* Left: Mockup */}
+          <div className="order-2 md:order-1">
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200 p-8 shadow-lg">
+              <div className="space-y-3 mb-6">
+                <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider">College Directory</div>
+                {['ISB Hyderabad', 'IIM Ahmedabad', 'SPJIMR Mumbai', 'IIM Bangalore', 'FMS Delhi'].map((college, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                    <span className="text-sm font-medium text-[#1a2744]">{college}</span>
+                    <button className="text-xs text-[#c9a84c] font-semibold hover:underline">View →</button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <ScrollTrigger>
-            <div className="grid md:grid-cols-5 gap-8 relative">
-              <div className="hidden md:block absolute top-8 left-0 right-0 h-0.5 bg-gradient-to-r from-[#C9A84C] via-[#C9A84C] to-transparent" />
+          {/* Right: Steps */}
+          <div className="order-1 md:order-2">
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-[#1a2744] mb-2">
+              From shortlisting to submission.
+            </h2>
+            <p className="text-gray-600 mb-8 font-medium">
+              Everything you need, in the right order.
+            </p>
 
+            <div className="space-y-6">
               {[
-                { num: '1', icon: '🔍', title: 'Discover', desc: 'Find colleges' },
-                { num: '2', icon: '👤', title: 'Profile', desc: 'Your details' },
-                { num: '3', icon: '📁', title: 'Documents', desc: 'All in one' },
-                { num: '4', icon: '✍️', title: 'Apply', desc: 'Smart guide' },
-                { num: '5', icon: '🎯', title: 'Track', desc: 'Get offers' },
-              ].map((step, i) => (
-                <div key={i} className="relative text-center fade-up" style={{ transitionDelay: `${i * 150}ms` }}>
-                  <div className="w-16 h-16 bg-[#C9A84C] rounded-full flex items-center justify-center font-bold text-[#0A1628] mb-4 mx-auto text-xl relative z-10">
+                { num: '1', title: 'Discover colleges', desc: 'Explore and shortlist the right MBA programs.' },
+                { num: '2', title: 'Create one profile', desc: 'Add your details once and reuse everywhere.' },
+                { num: '3', title: 'Upload documents', desc: 'Store and manage all your documents securely.' },
+                { num: '4', title: 'Track deadlines', desc: 'Never miss an important date again.' },
+                { num: '5', title: 'Apply with confidence', desc: 'Submit complete, accurate applications.' },
+              ].map((step, idx) => (
+                <div key={idx} className="flex gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#c9a84c] text-white flex items-center justify-center font-bold text-sm">
                     {step.num}
                   </div>
-                  <div className="text-2xl mb-2">{step.icon}</div>
-                  <h3 className="font-semibold text-white mb-1">{step.title}</h3>
-                  <p className="text-xs text-slate-400">{step.desc}</p>
+                  <div>
+                    <h3 className="font-semibold text-[#1a2744] mb-1">{step.title}</h3>
+                    <p className="text-sm text-gray-600">{step.desc}</p>
+                  </div>
                 </div>
               ))}
             </div>
-          </ScrollTrigger>
+          </div>
         </div>
       </section>
 
-      {/* FEATURES — Standard spacing */}
-      <section id="features" className="bg-[#F8F9FA] py-24">
-        <div className="max-w-6xl mx-auto px-6">
-          <ScrollTrigger>
-            <div className="grid md:grid-cols-2 gap-16 items-center">
-              <div className="space-y-6">
-                {[
-                  'Personalised college matches based on CAT score',
-                  'One profile reused across all applications',
-                  'Document vault — resume, transcripts, photos',
-                  'Deadline reminders — 7, 3, 1 day before',
-                  'AI form fill (coming soon)',
-                  'Application status tracker',
-                ].map((feature, i) => (
-                  <div key={i} className="flex gap-4 fade-up">
-                    <span className="text-emerald-400 font-bold flex-shrink-0">✓</span>
-                    <span className="text-[#0A1628]">{feature}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="relative rounded-2xl overflow-hidden shadow-2xl">
-                <img src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&q=80" alt="Product" className="w-full h-auto" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              </div>
-            </div>
-          </ScrollTrigger>
-        </div>
-      </section>
-
-      {/* SOCIAL PROOF — Expanded spacing */}
-      <section className="bg-[#0A1628] py-32">
-        <div className="max-w-6xl mx-auto px-6">
-          <ScrollTrigger>
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="rounded-2xl overflow-hidden shadow-2xl">
-                <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&q=80" alt="Students" className="w-full h-auto" />
-              </div>
-
-              <div>
-                <blockquote className="text-2xl italic text-white mb-6 leading-relaxed">"Finally, everything I need for my MBA applications in one place. The deadline reminders alone saved me."</blockquote>
-                <p className="text-slate-400 mb-8">— CAT 2024 aspirant, 98.6 percentile</p>
-                <div className="space-y-3 text-sm text-slate-300">
-                  <div className="flex gap-2"><span>🎯</span><span>Focus on your goals</span></div>
-                  <div className="flex gap-2"><span>⚡</span><span>Save time & effort</span></div>
-                  <div className="flex gap-2"><span>✅</span><span>Apply with confidence</span></div>
-                </div>
-              </div>
-            </div>
-          </ScrollTrigger>
-        </div>
-      </section>
-
-      {/* FOR COLLEGES */}
-      <section id="for-colleges" className="bg-[#C9A84C] py-20">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-5xl leading-[1.1] tracking-tight font-semibold text-[#0A1628] mb-4">Partner with Unidex</h2>
-          <p className="text-lg leading-relaxed text-[#0A1628]/80 mb-8 max-w-2xl mx-auto">Reach thousands of serious MBA applicants actively researching and tracking applications.</p>
-          <a href="mailto:colleges@unidex.co.in" className="inline-block px-8 py-3 bg-[#0A1628] text-[#C9A84C] rounded-full font-semibold hover:scale-[1.02] hover:brightness-95 transition-all duration-200">Get in touch →</a>
-        </div>
-      </section>
-
-      {/* VISION + MISSION — Standard spacing */}
-      <section className="bg-white py-20">
-        <div className="max-w-5xl mx-auto px-6">
-          <ScrollTrigger>
-            <div className="grid md:grid-cols-2 gap-8">
-              <div className="p-12 bg-[#0A1628] rounded-2xl text-white">
-                <div className="text-4xl mb-4">⭐</div>
-                <h3 className="text-5xl leading-[1.1] tracking-tight font-semibold mb-4">Vision</h3>
-                <p className="text-slate-300 leading-relaxed">To become India's trusted application infrastructure for higher education.</p>
-              </div>
-              <div className="p-12 bg-white rounded-2xl border-2 border-[#C9A84C]">
-                <div className="text-4xl mb-4">🚀</div>
-                <h3 className="text-5xl leading-[1.1] tracking-tight font-semibold text-[#0A1628] mb-4">Mission</h3>
-                <p className="text-slate-600 leading-relaxed">To help every MBA aspirant discover, complete, and track their applications with confidence.</p>
-              </div>
-            </div>
-          </ScrollTrigger>
-        </div>
-      </section>
-
-      {/* FINAL CTA — Most space */}
-      <section className="bg-[#0A1628] py-40">
-        <div className="max-w-3xl mx-auto px-6 text-center">
-          <ScrollTrigger>
-            <h2 className="text-[80px] leading-[1.05] tracking-[-0.03em] font-bold text-white mb-6 fade-up">Start your MBA journey with clarity.</h2>
-            <p className="text-lg leading-relaxed text-slate-300 mb-10 fade-up">Join thousands of aspirants already using Unidex. Free to get started.</p>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8 fade-up">
-              <button onClick={() => navigate('/signup')} className="px-8 py-3 bg-[#C9A84C] text-[#0A1628] rounded-full font-semibold hover:scale-[1.02] hover:brightness-95 transition-all duration-200">Start for free</button>
-              <button onClick={() => navigate('/login')} className="px-8 py-3 border-2 border-white text-white rounded-full font-semibold hover:scale-[1.02] hover:brightness-95 transition-all duration-200">Sign in</button>
-            </div>
-
-            <p className="text-xs text-slate-500 fade-up">No credit card required · Takes 2 minutes · Cancel anytime</p>
-          </ScrollTrigger>
-        </div>
-      </section>
-
-      {/* RECENTLY UPDATED COLLEGES — FIX 3 */}
-      <RecentlyUpdatedSection />
-
-      {/* EMAIL CAPTURE BANNER — FIX 5 */}
-      <EmailCaptureModal />
-
-      {/* FOOTER */}
-      <footer className="bg-[#060E1A] border-t border-slate-800 py-16">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid md:grid-cols-4 gap-12 mb-12">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-6 h-6 bg-[#C9A84C] rounded" />
-                <span className="font-bold">Unidex</span>
-              </div>
-              <p className="text-xs text-slate-500">MBA Application Hub</p>
-            </div>
-
-            {[
-              {
-                title: 'Product',
-                links: [
-                  { label: 'How it works', action: () => scrollToSection('how-it-works') },
-                  { label: 'Features', action: () => scrollToSection('features') },
-                  { label: 'Browse colleges', action: () => navigate('/colleges?tab=all') },
-                  { label: 'Pricing', action: () => scrollToSection('pricing') }
-                ]
-              },
-              {
-                title: 'Company',
-                links: [
-                  { label: 'About us', action: () => navigate('/about') },
-                  { label: 'For colleges', action: () => scrollToSection('for-colleges') }
-                ]
-              },
-              {
-                title: 'Legal',
-                links: [
-                  { label: 'Privacy', action: () => navigate('/privacy') },
-                  { label: 'Terms', action: () => navigate('/terms') }
-                ]
-              },
-            ].map((col, i) => (
-              <div key={i}>
-                <h4 className="font-semibold text-sm mb-4">{col.title}</h4>
-                <ul className="space-y-2">
-                  {col.links.map(link => (
-                    <li key={link.label}>
-                      <button onClick={link.action} className="text-xs text-slate-500 hover:text-white transition text-left">
-                        {link.label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-
-            <div>
-              <h4 className="font-semibold text-sm mb-4">Follow us</h4>
-              <div className="space-y-2">
-                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="block text-xs text-slate-500 hover:text-white transition">Instagram</a>
-                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="block text-xs text-slate-500 hover:text-white transition">LinkedIn</a>
-              </div>
+      {/* SECTION 6: STAY ORGANIZED */}
+      <section id="features" className="bg-[#faf8f5] py-16 md:py-24">
+        <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">
+          {/* Left: Photo Placeholder */}
+          <div className="bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl aspect-square flex items-center justify-center">
+            <div className="text-center">
+              <GraduationCap className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 font-medium">Students at laptop</p>
             </div>
           </div>
 
-          <div className="border-t border-slate-800 pt-8 text-center text-xs text-slate-500">
+          {/* Right: Text */}
+          <div>
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-[#1a2744] mb-8">
+              Stay organized at every step.
+            </h2>
+
+            <div className="space-y-6">
+              {[
+                { icon: '🎯', title: 'Focus on your goals', desc: 'Let Unidex handle the organization so you can focus on your MBA goals.' },
+                { icon: '⚡', title: 'Save time & effort', desc: 'Reduce the stress of managing multiple applications and deadlines.' },
+                { icon: '✨', title: 'Apply with confidence', desc: 'Submit strong, complete applications to every college.' },
+              ].map((item, idx) => (
+                <div key={idx} className="flex gap-4">
+                  <span className="text-3xl">{item.icon}</span>
+                  <div>
+                    <h3 className="font-semibold text-[#1a2744] mb-1">{item.title}</h3>
+                    <p className="text-sm text-gray-600">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 7: VISION/MISSION */}
+      <section id="for-colleges" className="bg-[#1a2744] text-white py-16 md:py-24">
+        <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12">
+          {/* Vision */}
+          <div>
+            <h3 className="text-sm font-bold text-[#c9a84c] uppercase tracking-wider mb-3">Our Vision</h3>
+            <p className="text-2xl md:text-3xl font-serif font-bold mb-6">
+              To become India's trusted application infrastructure for higher education.
+            </p>
+            <p className="text-gray-300">
+              We believe that every MBA aspirant deserves tools that make their journey simpler, not more complicated.
+            </p>
+          </div>
+
+          {/* Divider & Mission */}
+          <div className="border-l border-[#c9a84c]/30 pl-12">
+            <h3 className="text-sm font-bold text-[#c9a84c] uppercase tracking-wider mb-3">Our Mission</h3>
+            <p className="text-2xl md:text-3xl font-serif font-bold mb-6">
+              To help students discover, organize, and submit their applications seamlessly.
+            </p>
+            <p className="text-gray-300">
+              Through thoughtful design and smart technology, we're building the future of MBA applications in India.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 8: FINAL CTA */}
+      <section className="bg-[#faf8f5] py-16 md:py-24">
+        <div className="max-w-2xl mx-auto px-6 text-center">
+          <h2 className="text-3xl md:text-4xl font-serif font-bold text-[#1a2744] mb-8">
+            Start managing your MBA applications with clarity.
+          </h2>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button onClick={() => navigate('/signup')} className="px-8 py-3 bg-[#c9a84c] text-white rounded-lg font-semibold hover:brightness-95 transition-all">
+              Create your profile
+            </button>
+            <button onClick={() => navigate('/login')} className="px-8 py-3 border-2 border-[#1a2744] text-[#1a2744] rounded-lg font-semibold hover:bg-gray-50 transition-all">
+              Sign in to Unidex
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 9: FOOTER */}
+      <footer className="bg-white border-t border-gray-200 py-12">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid md:grid-cols-3 gap-8 mb-8 pb-8 border-b border-gray-200">
+            {/* Left: Logo */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-[#c9a84c] rounded-lg flex items-center justify-center text-white font-bold text-sm">U</div>
+              <div>
+                <div className="text-sm font-bold text-[#1a2744]">UNIDEX</div>
+                <div className="text-xs text-gray-600">MBA APPLICATION HUB</div>
+              </div>
+            </div>
+
+            {/* Center: Links */}
+            <div className="flex flex-col sm:flex-row gap-6 sm:justify-center">
+              <button onClick={() => scrollToSection('how-it-works')} className="text-sm text-gray-600 hover:text-[#1a2744] transition font-medium">How it works</button>
+              <button onClick={() => scrollToSection('features')} className="text-sm text-gray-600 hover:text-[#1a2744] transition font-medium">Features</button>
+              <button onClick={() => scrollToSection('for-colleges')} className="text-sm text-gray-600 hover:text-[#1a2744] transition font-medium">For colleges</button>
+              <button onClick={() => navigate('/privacy')} className="text-sm text-gray-600 hover:text-[#1a2744] transition font-medium">Privacy</button>
+              <button onClick={() => navigate('/terms')} className="text-sm text-gray-600 hover:text-[#1a2744] transition font-medium">Terms</button>
+            </div>
+
+            {/* Right: Social */}
+            <div className="flex gap-4 sm:justify-end">
+              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-[#1a2744] transition">
+                <Linkedin className="w-5 h-5" />
+              </a>
+              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-[#1a2744] transition">
+                <Instagram className="w-5 h-5" />
+              </a>
+              <a href="mailto:hello@unidex.co.in" className="text-gray-600 hover:text-[#1a2744] transition">
+                <Mail className="w-5 h-5" />
+              </a>
+            </div>
+          </div>
+
+          <div className="text-center text-sm text-gray-600">
             <p>© 2026 Unidex. All rights reserved.</p>
           </div>
         </div>
       </footer>
+
     </div>
   )
-}
-
-// ─── Recently Updated Colleges Section (FIX 3) ─────────────────────────────────
-function RecentlyUpdatedSection() {
-  const [colleges, setColleges] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    async function loadRecentColleges() {
-      try {
-        const { data, error: queryError } = await supabase
-          .from('colleges')
-          .select('id, name, location, image_url, placement_avg_lpa, updated_at')
-          .order('updated_at', { ascending: false })
-          .limit(8)
-
-        if (queryError) {
-          console.error('Error loading colleges:', queryError)
-          setError(queryError.message)
-        } else {
-          setColleges(data || [])
-          setError(null)
-        }
-      } catch (err) {
-        console.error('Error loading colleges:', err)
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadRecentColleges()
-  }, [])
-
-  if (loading) return null
-  if (error || colleges.length === 0) return null
-
-  return (
-    <section id="colleges" className="bg-[#0A1628] py-16">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="mb-8">
-          <p className="text-xs uppercase tracking-widest text-[#C9A84C] font-semibold mb-2">Recently Updated</p>
-          <p className="text-slate-400 text-sm">Placement data verified from official 2023-24 reports</p>
-        </div>
-
-        <div className="overflow-x-auto pb-6 -mx-6 px-6 scrollbar-hide">
-          <div className="flex gap-6 min-w-min">
-            {colleges.map(college => (
-              <button
-                key={college.id}
-                onClick={() => navigate(`/college/${college.id}`)}
-                className="w-45 flex-shrink-0 bg-white rounded-lg overflow-hidden hover:shadow-lg transition text-left"
-              >
-                <div className="w-45 h-28 bg-slate-200 overflow-hidden">
-                  {college.image_url && (
-                    <img
-                      src={college.image_url}
-                      alt={college.name}
-                      className="w-full h-full object-cover"
-                      onError={e => e.target.style.display = 'none'}
-                    />
-                  )}
-                </div>
-                <div className="p-4">
-                  <p className="font-semibold text-slate-900 text-sm line-clamp-2">{college.name}</p>
-                  <p className="text-xs text-slate-500 mt-1">{college.location}</p>
-                  {college.placement_avg_lpa && (
-                    <p className="text-xs font-medium text-slate-700 mt-2">₹{college.placement_avg_lpa}L avg</p>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="text-right mt-6">
-          <a href="/colleges" className="text-[#C9A84C] hover:text-[#dbb855] text-sm font-medium">
-            View all 71 colleges →
-          </a>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-// ─── Email Capture Banner (FIX 5) ────────────────────────────────────────────────
-function EmailCaptureModal() {
-  const [email, setEmail] = useState('')
-  const [isOpen, setIsOpen] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
-  const [loading, setLoading] = useState(false)
-
-  const handleScroll = () => {
-    const scrollPercent = (window.scrollY + window.innerHeight) / document.documentElement.scrollHeight
-    if (scrollPercent > 0.6 && !isOpen && !localStorage.getItem('email_captured')) {
-      setIsOpen(true)
-    }
-  }
-
-  useEffect(() => {
-    if (localStorage.getItem('email_captured')) {
-      setSubmitted(true)
-      return
-    }
-
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [isOpen])
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-
-    try {
-      const { error } = await supabase
-        .from('email_captures')
-        .insert([{ email, source: 'landing_deadline_calendar' }])
-
-      if (error && error.code !== '23505') throw error // 23505 = unique constraint
-
-      localStorage.setItem('email_captured', 'true')
-      setSubmitted(true)
-      setTimeout(() => setIsOpen(false), 3000)
-    } catch (err) {
-      console.error('Error capturing email:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (submitted) return null
-
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed bottom-0 left-0 right-0 bg-[#0F2040] border-t border-[#C9A84C]/30 z-40">
-      <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between gap-8">
-        <div className="flex-1">
-          <p className="text-white font-semibold text-sm">📅 Get the MBA 2026 deadline calendar — free</p>
-          <p className="text-slate-400 text-xs mt-1">Key dates for IIM A/B/C, XLRI, ISB, FMS and 67 more programmes</p>
-        </div>
-
-        {!submitted ? (
-          <form onSubmit={handleSubmit} className="flex gap-2 flex-shrink-0">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="Enter your email"
-              className="px-4 py-2 bg-[#0A1628] border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2 bg-[#C9A84C] text-[#0A1628] rounded-lg font-semibold text-sm hover:brightness-110 transition disabled:opacity-50 flex-shrink-0"
-            >
-              {loading ? 'Sending…' : 'Send me the calendar'}
-            </button>
-          </form>
-        ) : (
-          <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium flex-shrink-0">
-            ✓ Check your inbox!
-          </div>
-        )}
-
-        <button
-          onClick={() => setIsOpen(false)}
-          className="text-slate-400 hover:text-white transition flex-shrink-0 ml-2"
-        >
-          ✕
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function ScrollTrigger({ children }) {
-  const ref = useRef(null)
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      entries => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            entry.target.querySelectorAll('.fade-up').forEach(el => el.classList.add('visible'))
-            observer.unobserve(entry.target)
-          }
-        })
-      },
-      { threshold: 0.1 }
-    )
-    if (ref.current) observer.observe(ref.current)
-    return () => observer.disconnect()
-  }, [])
-
-  return <div ref={ref}>{children}</div>
 }
