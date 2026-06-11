@@ -1,7 +1,58 @@
 import { useState, useEffect } from 'react'
-import { Bell, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Bell, CheckCircle2, AlertCircle, ChevronDown } from 'lucide-react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
+
+function DeadlineCard({ deadline }) {
+  const isUrgent = deadline.daysRemaining <= 7
+  const isVeryUrgent = deadline.daysRemaining <= 2
+
+  return (
+    <div
+      className={`rounded-lg border p-4 ${
+        isVeryUrgent
+          ? 'bg-red-50 border-red-200'
+          : isUrgent
+          ? 'bg-amber-50 border-amber-200'
+          : 'bg-white border-gray-200'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            {isVeryUrgent ? (
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            ) : isUrgent ? (
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            ) : null}
+            <h3 className={`font-semibold text-sm ${
+              isVeryUrgent ? 'text-red-900' : isUrgent ? 'text-amber-900' : 'text-gray-900'
+            }`}>
+              {deadline.collegeName}
+            </h3>
+          </div>
+          <p className={`text-xs ${
+            isVeryUrgent ? 'text-red-700' : isUrgent ? 'text-amber-700' : 'text-gray-600'
+          }`}>
+            {deadline.type} deadline
+          </p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className={`font-bold text-sm ${
+            isVeryUrgent ? 'text-red-600' : isUrgent ? 'text-amber-600' : 'text-gray-900'
+          }`}>
+            {deadline.daysRemaining} day{deadline.daysRemaining !== 1 ? 's' : ''}
+          </p>
+          <p className={`text-xs ${
+            isVeryUrgent ? 'text-red-600' : isUrgent ? 'text-amber-600' : 'text-gray-500'
+          }`}>
+            {new Date(deadline.date).toLocaleDateString()}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function Reminders() {
   const [user, setUser] = useState(null)
@@ -9,6 +60,7 @@ export default function Reminders() {
   const [applications, setApplications] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showLater, setShowLater] = useState(false)
 
   // Get current user via auth listener
   useEffect(() => {
@@ -136,7 +188,7 @@ export default function Reminders() {
           </div>
         </div>
 
-        {/* Deadlines list */}
+        {/* Deadlines grouped by urgency */}
         {upcomingDeadlines.length === 0 ? (
           <div className="text-center py-12">
             <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4 opacity-50" />
@@ -144,60 +196,60 @@ export default function Reminders() {
             <p className="text-sm text-gray-400 mt-2">You're all caught up!</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {upcomingDeadlines.map(deadline => {
-              const isUrgent = deadline.daysRemaining <= 7
-              const isVeryUrgent = deadline.daysRemaining <= 2
-
-              return (
-                <div
-                  key={deadline.id}
-                  className={`rounded-lg border p-4 ${
-                    isVeryUrgent
-                      ? 'bg-red-50 border-red-200'
-                      : isUrgent
-                      ? 'bg-amber-50 border-amber-200'
-                      : 'bg-white border-gray-200'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        {isVeryUrgent ? (
-                          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                        ) : isUrgent ? (
-                          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                        ) : null}
-                        <h3 className={`font-semibold text-sm ${
-                          isVeryUrgent ? 'text-red-900' : isUrgent ? 'text-amber-900' : 'text-gray-900'
-                        }`}>
-                          {deadline.collegeName}
-                        </h3>
-                      </div>
-                      <p className={`text-xs ${
-                        isVeryUrgent ? 'text-red-700' : isUrgent ? 'text-amber-700' : 'text-gray-600'
-                      }`}>
-                        {deadline.type} deadline
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className={`font-bold text-sm ${
-                        isVeryUrgent ? 'text-red-600' : isUrgent ? 'text-amber-600' : 'text-gray-900'
-                      }`}>
-                        {deadline.daysRemaining} day{deadline.daysRemaining !== 1 ? 's' : ''}
-                      </p>
-                      <p className={`text-xs ${
-                        isVeryUrgent ? 'text-red-600' : isUrgent ? 'text-amber-600' : 'text-gray-500'
-                      }`}>
-                        {new Date(deadline.date).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
+          <div className="space-y-8">
+            {/* This Week */}
+            {upcomingDeadlines.filter(d => d.daysRemaining <= 7).length > 0 && (
+              <div>
+                <h2 className="text-sm font-bold text-red-600 mb-3 flex items-center gap-2">
+                  <span className="text-lg">🔴</span> This week
+                </h2>
+                <div className="space-y-3">
+                  {upcomingDeadlines.filter(d => d.daysRemaining <= 7).map(deadline => (
+                    <DeadlineCard key={deadline.id} deadline={deadline} />
+                  ))}
                 </div>
-              )
-            })}
+              </div>
+            )}
+
+            {/* This Month */}
+            {upcomingDeadlines.filter(d => d.daysRemaining > 7 && d.daysRemaining <= 30).length > 0 && (
+              <div>
+                <h2 className="text-sm font-bold text-amber-600 mb-3 flex items-center gap-2">
+                  <span className="text-lg">🟡</span> This month
+                </h2>
+                <div className="space-y-3">
+                  {upcomingDeadlines.filter(d => d.daysRemaining > 7 && d.daysRemaining <= 30).map(deadline => (
+                    <DeadlineCard key={deadline.id} deadline={deadline} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Later */}
+            {upcomingDeadlines.filter(d => d.daysRemaining > 30).length > 0 && (
+              <div>
+                <button
+                  onClick={() => setShowLater(!showLater)}
+                  className="w-full flex items-center justify-between text-sm font-bold text-gray-600 hover:text-gray-900 transition mb-3"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-lg">⚪</span> Later ({upcomingDeadlines.filter(d => d.daysRemaining > 30).length})
+                  </span>
+                  <ChevronDown className={`w-4 h-4 transition ${showLater ? 'rotate-180' : ''}`} />
+                </button>
+                {showLater && (
+                  <div className="space-y-3">
+                    {upcomingDeadlines.filter(d => d.daysRemaining > 30).map(deadline => (
+                      <DeadlineCard key={deadline.id} deadline={deadline} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
+      </div>
+
       </div>
     </Layout>
   )

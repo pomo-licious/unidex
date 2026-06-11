@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Heart } from 'lucide-react'
+import { Heart, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
 
@@ -27,8 +27,11 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
 
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [searchTimeout, setSearchTimeout] = useState(null)
   const [activeTab, setActiveTab] = useState('relevant')
   const [subFilter, setSubFilter] = useState('All')
+  const [rowPages, setRowPages] = useState({})
+  const CARDS_PER_PAGE = 5
 
   // Read URL params on mount
   useEffect(() => {
@@ -220,83 +223,85 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
     }
   }
 
-  // Row component
+  // Row component with Netflix-style pagination
   function ScrollRow({ title, colleges: rowColleges, seeAllLink }) {
-    const scrollRef = useRef(null)
-    const [canScrollLeft, setCanScrollLeft] = useState(false)
-    const [canScrollRight, setCanScrollRight] = useState(true)
+    const rowId = title.replace(/\s+/g, '-')
+    const currentPage = rowPages[rowId] || 0
+    const totalPages = Math.ceil(rowColleges.length / CARDS_PER_PAGE)
+    const startIdx = currentPage * CARDS_PER_PAGE
+    const endIdx = startIdx + CARDS_PER_PAGE
+    const displayedColleges = rowColleges.slice(startIdx, endIdx)
+    const hasNextPage = currentPage < totalPages - 1
 
-    const checkScroll = useCallback(() => {
-      if (!scrollRef.current) return
-      setCanScrollLeft(scrollRef.current.scrollLeft > 0)
-      setCanScrollRight(
-        scrollRef.current.scrollLeft < scrollRef.current.scrollWidth - scrollRef.current.clientWidth - 10
-      )
-    }, [])
-
-    useEffect(() => {
-      checkScroll()
-      window.addEventListener('resize', checkScroll)
-      return () => window.removeEventListener('resize', checkScroll)
-    }, [checkScroll])
-
-    const scroll = (direction) => {
-      if (!scrollRef.current) return
-      const distance = 240
-      scrollRef.current.scrollBy({ left: direction === 'left' ? -distance : distance, behavior: 'smooth' })
-      setTimeout(checkScroll, 300)
+    const goToPage = (page) => {
+      setRowPages(prev => ({ ...prev, [rowId]: Math.max(0, Math.min(page, totalPages - 1)) }))
     }
 
     return (
       <div className="mb-12">
         <div className="flex items-center justify-between mb-4 px-6">
           <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-          {seeAllLink && (
+        </div>
+
+        <div className="relative group px-6">
+          {/* Cards Container */}
+          <div className="flex gap-4 scroll-smooth scrollbar-hide overflow-hidden">
+            {displayedColleges.map(college => (
+              <div key={college.id} className="flex-shrink-0 w-1/5">
+                <CollegeCard
+                  college={college}
+                  student={student}
+                  user={user}
+                  isTracked={trackedColleges.has(college.id)}
+                  isAdding={adding.has(college.id)}
+                  isSaved={savedColleges.has(college.id)}
+                  onNavigate={() => navigate(`/college/${college.id}`)}
+                  onAddClick={(e) => handleAddToTracker(college.id, e)}
+                  onSaveClick={(e) => handleSaveCollege(college.id, e)}
+                />
+              </div>
+            ))}
+
+            {/* View All Card at End */}
+            {hasNextPage && (
+              <div className="flex-shrink-0 w-1/5 flex items-center justify-center bg-slate-100 rounded-lg border border-dashed border-slate-300 min-h-64 cursor-pointer hover:bg-slate-200 transition" onClick={() => navigate(seeAllLink)}>
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-slate-700">View all</p>
+                  <p className="text-xs text-slate-500 mt-1">{rowColleges.length} colleges</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Chevron Buttons */}
+          {currentPage > 0 && (
             <button
-              onClick={() => navigate(seeAllLink)}
-              className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
-              See all →
+              onClick={() => goToPage(currentPage - 1)}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-50 transition">
+              <ChevronLeft className="w-5 h-5 text-[#c9a84c]" />
+            </button>
+          )}
+          {hasNextPage && (
+            <button
+              onClick={() => goToPage(currentPage + 1)}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-50 transition">
+              <ChevronRight className="w-5 h-5 text-[#c9a84c]" />
             </button>
           )}
         </div>
 
-        <div className="relative group">
-          <div
-            ref={scrollRef}
-            className="flex gap-4 overflow-x-auto px-6 pb-2 scroll-smooth scrollbar-hide"
-            onScroll={checkScroll}>
-            {rowColleges.map(college => (
-              <CollegeCard
-                key={college.id}
-                college={college}
-                student={student}
-                user={user}
-                isTracked={trackedColleges.has(college.id)}
-                isAdding={adding.has(college.id)}
-                isSaved={savedColleges.has(college.id)}
-                onNavigate={() => navigate(`/college/${college.id}`)}
-                onAddClick={(e) => handleAddToTracker(college.id, e)}
-                onSaveClick={(e) => handleSaveCollege(college.id, e)}
+        {/* Page Dots */}
+        {totalPages > 1 && (
+          <div className="flex gap-1.5 justify-center mt-4">
+            {Array.from({ length: totalPages }).map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => goToPage(idx)}
+                className={`w-2 h-2 rounded-full transition ${idx === currentPage ? 'bg-[#c9a84c]' : 'bg-slate-300'}`}
               />
             ))}
           </div>
-
-          {/* Arrow buttons */}
-          {canScrollLeft && (
-            <button
-              onClick={() => scroll('left')}
-              className="hidden group-hover:flex absolute left-0 top-1/3 z-10 items-center justify-center w-10 h-10 rounded-full bg-black/50 text-white hover:bg-black/70 transition">
-              ←
-            </button>
-          )}
-          {canScrollRight && (
-            <button
-              onClick={() => scroll('right')}
-              className="hidden group-hover:flex absolute right-0 top-1/3 z-10 items-center justify-center w-10 h-10 rounded-full bg-black/50 text-white hover:bg-black/70 transition">
-              →
-            </button>
-          )}
-        </div>
+        )}
       </div>
     )
   }
@@ -393,14 +398,36 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
         {/* Sticky header */}
         <div className="sticky top-0 z-30 bg-white border-b border-slate-200">
           {/* Search bar */}
-          <div className="px-6 py-4">
-            <input
-              type="text"
-              placeholder="Search colleges by name or city…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+          <div className="px-6 py-4 space-y-2">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search colleges by name or city…"
+                value={search}
+                onChange={e => {
+                  setSearch(e.target.value)
+                  if (searchTimeout) clearTimeout(searchTimeout)
+                  setSearchTimeout(setTimeout(() => {}, 300))
+                }}
+                className="w-full px-4 py-2.5 pr-10 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            {search && (
+              <p className="text-xs text-slate-500 px-1">
+                {filteredColleges.length} result{filteredColleges.length !== 1 ? 's' : ''} for "{search}"
+              </p>
+            )}
+            {search && filteredColleges.length === 0 && (
+              <p className="text-sm text-slate-600 px-1">No colleges found — try a different name or city</p>
+            )}
           </div>
 
           {/* Tabs */}

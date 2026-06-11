@@ -101,6 +101,22 @@ export default function Applications() {
     )
   }
 
+  const statusCounts = {
+    'Researching': applications.filter(a => a.status === 'Researching').length,
+    'Applied': applications.filter(a => a.status === 'Applied').length,
+    'Interview': applications.filter(a => a.status === 'Interview').length,
+    'Offer': applications.filter(a => a.status === 'Offer').length,
+    'Rejected': applications.filter(a => a.status === 'Rejected').length,
+  }
+
+  const nextActions = {
+    'Researching': 'Add deadline',
+    'Applied': 'Prepare for interview',
+    'Interview': 'Await result',
+    'Offer': '🎉 Congratulations',
+    'Rejected': null
+  }
+
   return (
     <Layout>
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
@@ -118,7 +134,24 @@ export default function Applications() {
           </button>
         </div>
 
-        {/* Applications list */}
+        {/* Progress Summary */}
+        {applications.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { label: 'Applied', count: statusCounts['Applied'], color: 'bg-blue-100 text-blue-700' },
+              { label: 'Target', count: applications.length, color: 'bg-indigo-100 text-indigo-700' },
+              { label: 'In Progress', count: statusCounts['Interview'], color: 'bg-amber-100 text-amber-700' },
+              { label: 'Offers', count: statusCounts['Offer'], color: 'bg-green-100 text-green-700' },
+            ].map((stat, idx) => (
+              <div key={idx} className={`${stat.color} rounded-lg p-3 text-center border border-current/20`}>
+                <p className="text-2xl font-bold">{stat.count}</p>
+                <p className="text-xs font-medium mt-1">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Applications by Status */}
         {applications.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">No applications yet</p>
@@ -130,32 +163,50 @@ export default function Applications() {
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {applications.map(app => (
-              <div
-                key={app.id}
-                className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-gray-900">
-                      {app.colleges?.name || 'Unknown College'}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {app.colleges?.location}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className={`text-xs px-3 py-1 rounded-full font-medium ${STATUS_META[app.status]?.color || 'bg-gray-100 text-gray-600'}`}>
-                      {app.status}
+          <div className="space-y-8">
+            {['Researching', 'Applied', 'Interview', 'Offer', 'Rejected'].map(status => {
+              const statusApps = applications.filter(a => a.status === status)
+              if (statusApps.length === 0) return null
+
+              return (
+                <div key={status}>
+                  <h2 className={`text-sm font-bold mb-3 flex items-center gap-2 ${STATUS_META[status]?.color.split(' ')[0]}`}>
+                    <span className={`px-2 py-1 rounded text-white text-xs font-bold ${STATUS_META[status]?.color}`}>
+                      {statusCounts[status]}
                     </span>
-                    {app.notes && (
-                      <p className="text-xs text-gray-500 max-w-xs truncate">{app.notes}</p>
-                    )}
+                    {status}
+                  </h2>
+                  <div className="space-y-3">
+                    {statusApps.map(app => (
+                      <div
+                        key={app.id}
+                        className={`bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition ${status === 'Rejected' ? 'opacity-60' : ''}`}
+                      >
+                        <div className="flex items-start justify-between gap-4 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-semibold text-gray-900">
+                              {app.colleges?.name || 'Unknown College'}
+                            </h3>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {app.colleges?.location}
+                            </p>
+                          </div>
+                          <span className={`text-xs px-3 py-1 rounded-full font-medium whitespace-nowrap ${STATUS_META[app.status]?.color || 'bg-gray-100 text-gray-600'}`}>
+                            {app.status}
+                          </span>
+                        </div>
+                        {nextActions[status] && (
+                          <p className="text-xs text-gray-600 mt-2 italic">💡 {nextActions[status]}</p>
+                        )}
+                        {app.notes && (
+                          <p className="text-xs text-gray-500 mt-2 truncate">{app.notes}</p>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

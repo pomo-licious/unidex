@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react'
 import { useIsDemo } from '../context/DemoContext'
 import { NewsTicker } from './NewsTicker'
 import { supabase } from '../lib/supabase'
+import { Bell } from 'lucide-react'
 
 // ─── Sidebar navigation items ────────────────────────────────────────────────
 // Each item has a URL path, a display label, and an inline SVG icon.
@@ -78,6 +79,7 @@ export default function Layout({ children }) {
   const location = useLocation()
   const isDemo   = useIsDemo()
   const [user, setUser] = useState(null)
+  const [deadlineCount, setDeadlineCount] = useState(0)
   const [student, setStudent] = useState(null)
   const [notifications, setNotifications] = useState([])
   const [showNotifications, setShowNotifications] = useState(false)
@@ -150,6 +152,44 @@ export default function Layout({ children }) {
     const days = Math.ceil((catDate - today) / (1000 * 60 * 60 * 24))
     setDaysUntilCAT(Math.max(0, days))
   }, [])
+
+  // Count deadlines within 7 days
+  useEffect(() => {
+    if (!student?.id) return
+
+    async function loadDeadlines() {
+      try {
+        const { data: appData } = await supabase
+          .from('applications')
+          .select('*, colleges(deadlines)')
+          .eq('student_id', student.id)
+
+        let count = 0
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const sevenDaysLater = new Date(today)
+        sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
+
+        (appData || []).forEach(app => {
+          if (app.colleges?.deadlines && Array.isArray(app.colleges.deadlines)) {
+            app.colleges.deadlines.forEach(deadline => {
+              const deadlineDate = new Date(deadline.date || deadline)
+              deadlineDate.setHours(0, 0, 0, 0)
+              if (deadlineDate >= today && deadlineDate <= sevenDaysLater) {
+                count++
+              }
+            })
+          }
+        })
+
+        setDeadlineCount(count)
+      } catch (err) {
+        console.error('Failed to load deadlines:', err)
+      }
+    }
+
+    loadDeadlines()
+  }, [student?.id])
 
   // Generate initials from the student's name
   const name = student?.name || 'U'
@@ -294,8 +334,24 @@ export default function Layout({ children }) {
           </div>
         )}
 
-        {/* Live news ticker — visible on all authenticated pages */}
-        <NewsTicker />
+        {/* Header with news ticker and bell icon */}
+        <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
+          <NewsTicker />
+          {user && (
+            <button
+              onClick={() => navigate('/reminders')}
+              className="relative flex items-center justify-center w-9 h-9 rounded-lg hover:bg-gray-100 transition"
+              title="View deadlines"
+            >
+              <Bell className="w-5 h-5 text-gray-600" />
+              {deadlineCount > 0 && (
+                <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {deadlineCount > 9 ? '9+' : deadlineCount}
+                </span>
+              )}
+            </button>
+          )}
+        </div>
         <div className="flex-1">
           {children}
         </div>
