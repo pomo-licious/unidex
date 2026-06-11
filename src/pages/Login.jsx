@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, Clock, BarChart3, Quote } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getAuthErrorMessage } from '../lib/authErrors'
@@ -54,15 +54,17 @@ export default function Login() {
           {/* Top: Logo + branding */}
           <div className="space-y-4">
             {/* Shield icon + logo text */}
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-[#c9a84c] flex items-center justify-center">
-                <span className="text-[#0d1525] text-lg font-bold">U</span>
+            <Link to="/" className="inline-block hover:opacity-80 transition">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg bg-[#c9a84c] flex items-center justify-center">
+                  <span className="text-[#0d1525] text-lg font-bold">U</span>
+                </div>
+                <div>
+                  <h1 className="text-white text-2xl font-bold">UNIDEX</h1>
+                  <p className="text-[#c9a84c] text-xs font-semibold">MBA APPLICATION HUB</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-white text-2xl font-bold">UNIDEX</h1>
-                <p className="text-[#c9a84c] text-xs font-semibold">MBA APPLICATION HUB</p>
-              </div>
-            </div>
+            </Link>
 
             {/* Hero text — large, white, bold */}
             <div className="mt-16">

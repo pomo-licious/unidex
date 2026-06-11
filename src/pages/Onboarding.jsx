@@ -11,7 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, Fragment } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { COLLEGES, TYPE_META, fitLabel } from '../lib/mockData'
 
@@ -117,13 +117,15 @@ export default function Onboarding() {
 
         {/* ── Logo ── */}
         <div className="text-center mb-8">
-          <div className="flex items-center gap-2 justify-center mb-2">
-            <div className="w-8 h-8 bg-[#c9a84c] rounded-lg flex items-center justify-center text-white font-bold text-sm">U</div>
-            <div>
-              <div className="text-sm font-bold text-[#1a2744]">UNIDEX</div>
-              <div className="text-xs text-gray-600">MBA APPLICATION HUB</div>
+          <Link to="/" className="inline-block hover:opacity-80 transition mb-2">
+            <div className="flex items-center gap-2 justify-center">
+              <div className="w-8 h-8 bg-[#c9a84c] rounded-lg flex items-center justify-center text-white font-bold text-sm">U</div>
+              <div>
+                <div className="text-sm font-bold text-[#1a2744]">UNIDEX</div>
+                <div className="text-xs text-gray-600">MBA APPLICATION HUB</div>
+              </div>
             </div>
-          </div>
+          </Link>
           <p className="text-sm text-gray-500 mt-3">Set up your MBA profile — takes 2 minutes</p>
         </div>
 

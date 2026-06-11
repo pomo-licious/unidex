@@ -9,7 +9,7 @@
 // Usage: wrap any page in <Layout>...</Layout> to get the sidebar automatically.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useIsDemo } from '../context/DemoContext'
 import { NewsTicker } from './NewsTicker'
@@ -255,18 +255,18 @@ export default function Layout({ children }) {
       <aside className="w-60 bg-white border-r border-gray-200 flex flex-col fixed inset-y-0 left-0 z-10">
 
         {/* Logo and tagline */}
-        <button
-          onClick={() => navigate('/')}
-          className="w-full text-left px-6 py-5 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+        <Link
+          to="/"
+          className="block px-6 py-5 border-b border-gray-100 hover:bg-gray-50 transition-colors"
         >
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-[#c9a84c] flex items-center justify-center">
               <span className="text-white text-xs font-bold">U</span>
             </div>
-            <span className="text-lg font-bold text-gray-900">Unidex</span>
+            <span className="text-lg font-bold text-[#1a2744]">Unidex</span>
           </div>
-          <p className="text-xs text-gray-400 mt-1 ml-9">MBA Application Hub</p>
-        </button>
+          <p className="text-xs text-gray-600 mt-1 ml-9">MBA Application Hub</p>
+        </Link>
 
         {/* Navigation links — NavLink auto-highlights the active route */}
         <nav className="flex-1 px-3 py-4 space-y-0.5">

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Shield, Users, Calendar, GraduationCap, Play, Mail, Share2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -49,13 +49,13 @@ export default function LandingPage() {
       <nav className={`sticky top-0 z-50 transition-all duration-300 border-b border-gray-200 ${navScrolled ? 'bg-white shadow-sm' : 'bg-white'}`}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition">
             <div className="w-8 h-8 bg-[#c9a84c] rounded-lg flex items-center justify-center text-white font-bold text-sm">U</div>
             <div className="hidden sm:block">
               <div className="text-sm font-bold text-[#1a2744]">UNIDEX</div>
               <div className="text-xs text-gray-600">MBA APPLICATION HUB</div>
             </div>
-          </div>
+          </Link>
 
           {/* Center Links (Desktop) */}
           <div className="hidden md:flex items-center gap-8">
@@ -366,13 +366,13 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-3 gap-8 mb-8 pb-8 border-b border-gray-200">
             {/* Left: Logo */}
-            <div className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition">
               <div className="w-8 h-8 bg-[#c9a84c] rounded-lg flex items-center justify-center text-white font-bold text-sm">U</div>
               <div>
                 <div className="text-sm font-bold text-[#1a2744]">UNIDEX</div>
                 <div className="text-xs text-gray-600">MBA APPLICATION HUB</div>
               </div>
-            </div>
+            </Link>
 
             {/* Center: Links */}
             <div className="flex flex-col sm:flex-row gap-6 sm:justify-center">
