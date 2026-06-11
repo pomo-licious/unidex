@@ -117,13 +117,14 @@ export default function Onboarding() {
 
         {/* ── Logo ── */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">U</span>
+          <div className="flex items-center gap-2 justify-center mb-2">
+            <div className="w-8 h-8 bg-[#c9a84c] rounded-lg flex items-center justify-center text-white font-bold text-sm">U</div>
+            <div>
+              <div className="text-sm font-bold text-[#1a2744]">UNIDEX</div>
+              <div className="text-xs text-gray-600">MBA APPLICATION HUB</div>
             </div>
-            <span className="text-xl font-bold text-gray-900">Unidex</span>
           </div>
-          <p className="text-sm text-gray-500">Set up your MBA profile — takes 2 minutes</p>
+          <p className="text-sm text-gray-500 mt-3">Set up your MBA profile — takes 2 minutes</p>
         </div>
 
         {/* ── Step indicator — shows which step is active/done/upcoming ── */}
@@ -164,8 +165,8 @@ export default function Onboarding() {
           {/* ── STEP 1: Personal details ── */}
           {step === 1 && (
             <div className="space-y-4">
-              <Field label="Full name *"   name="name"  value={form.name}  onChange={set} placeholder="Arjun Sharma" />
-              <Field label="Email *" name="email" type="email" value={form.email} onChange={set} placeholder="arjun@example.com" required />
+              <Field label="Full name *"   name="name"  value={form.name}  onChange={set} placeholder="Example Singh" />
+              <Field label="Email *" name="email" type="email" value={form.email} onChange={set} placeholder="example@unidex.co.in" required />
               <Field label="Phone"         name="phone" value={form.phone} onChange={set} placeholder="+91 98765 43210" />
               <SelectField label="Current city" name="city" value={form.city} onChange={set} options={CITIES} />
             </div>
