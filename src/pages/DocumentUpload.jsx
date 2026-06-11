@@ -14,6 +14,7 @@
 
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
+import DocumentUploadOCR from '../components/DocumentUpload'
 import { supabase } from '../lib/supabase'
 
 const UPLOAD_CONFIG = {
@@ -28,6 +29,7 @@ export default function DocumentUpload() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
   const [dragActive, setDragActive] = useState(null)
+  const [toast, setToast] = useState(null)
 
   // Get current user and load documents
   useEffect(() => {
@@ -289,7 +291,38 @@ export default function DocumentUpload() {
             <p className="text-sm text-gray-600">Uploading…</p>
           </div>
         )}
+
+        {/* OCR Document Upload Section */}
+        <div className="mt-8 pt-8 border-t border-gray-200">
+          <h2 className="text-lg font-bold text-gray-900 mb-6">Academic Documents (OCR Extraction)</h2>
+          <DocumentUploadOCR onExtracted={(type, data) => {
+            setToast({ type: 'success', message: 'Document extracted and saved ✓' })
+            setTimeout(() => setToast(null), 3000)
+          }} />
+        </div>
+
+        {/* AI Form Fill Teaser */}
+        <div className="mt-8 bg-gradient-to-r from-indigo-600 to-indigo-500 rounded-2xl p-6 flex items-center justify-between">
+          <div>
+            <p className="text-white font-semibold text-sm">AI Form Fill — coming soon</p>
+            <p className="text-indigo-200 text-xs mt-1">Claude will auto-fill your SOP and application forms using your profile.</p>
+          </div>
+          <button className="shrink-0 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-semibold transition-colors">
+            Join waitlist
+          </button>
+        </div>
       </div>
+
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+          toast.type === 'success'
+            ? 'bg-green-500 text-white'
+            : 'bg-red-500 text-white'
+        }`}>
+          {toast.message}
+        </div>
+      )}
     </Layout>
   )
 }

@@ -1,24 +1,9 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// src/pages/Profile.jsx — Student profile view
-//
-// Displays everything about the logged-in student in one place:
-// their personal details, academic stats, target colleges with fit scores,
-// a summary of where each application stands, and an AI form-fill teaser.
-//
-// Currently reads from MOCK_STUDENT / MOCK_APPLICATIONS (fake data).
-// When wired up: replace those imports with a Supabase query using the
-// logged-in user's ID to fetch their real student row and applications.
-//
-// Route: /profile
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, BookOpen, Calendar, FileText, ChevronDown, Pencil, Trash2 } from 'lucide-react'
 import Layout from '../components/Layout'
-import DocumentUpload from '../components/DocumentUpload'
 import { supabase } from '../lib/supabase'
-import { MOCK_APPLICATIONS, STATUS_META, STATUSES, COLLEGES, TYPE_META, fitLabel } from '../lib/mockData'
+import { COLLEGES, fitLabel } from '../lib/mockData'
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -26,16 +11,16 @@ export default function Profile() {
   const [user, setUser] = useState(null)
   const [student, setStudent] = useState(null)
   const [applications, setApplications] = useState([])
-  const [savedColleges, setSavedColleges] = useState([])
+  const [collegeDeadlines, setCollegeDeadlines] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [editing, setEditing] = useState(false)
   const [toast, setToast] = useState(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [deleteInput, setDeleteInput] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-  // Listen to auth state changes with proper cleanup
+  // Listen to auth state changes
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => setUser(session?.user ?? null)
@@ -43,7 +28,7 @@ export default function Profile() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Fetch student data when user ID changes
+  // Fetch student data
   useEffect(() => {
     if (!user) {
       setStudent(null)
@@ -77,7 +62,7 @@ export default function Profile() {
     loadStudent()
   }, [user?.id])
 
-  // Fetch applications for the logged-in student
+  // Fetch applications
   useEffect(() => {
     if (!student?.id) return
 
@@ -85,7 +70,7 @@ export default function Profile() {
       try {
         const { data, error: fetchErr } = await supabase
           .from('applications')
-          .select('status')
+          .select('status, college_id')
           .eq('student_id', student.id)
 
         if (fetchErr) throw fetchErr
@@ -99,82 +84,54 @@ export default function Profile() {
     loadApplications()
   }, [student?.id])
 
-  // Fetch saved colleges from student's target_colleges list
+  // Fetch upcoming deadlines for target colleges
   useEffect(() => {
-    if (!student?.id) return
-
-    // Map target_colleges names to full college objects
-    const saved = COLLEGES.filter(c => (student.target_colleges ?? []).includes(c.name))
-    setSavedColleges(saved)
-  }, [student?.id])
-
-  // Handle extracted document data
-  const handleExtracted = async (documentType, extractedData) => {
-    if (!student?.id) return
-
-    try {
-      // Map document type to column name
-      const columnMap = {
-        '10th': 'academic_10th',
-        '12th': 'academic_12th',
-        'graduation': 'academic_graduation',
-        'scorecard': 'exam_scores'
-      }
-
-      const columnName = columnMap[documentType]
-      if (!columnName) throw new Error('Invalid document type')
-
-      // Prepare update data
-      const updateData = {
-        [columnName]: extractedData,
-        documents_uploaded: student.documents_uploaded || []
-      }
-
-      // Add document type to uploaded list if not already there
-      if (!updateData.documents_uploaded.includes(documentType)) {
-        updateData.documents_uploaded = [...updateData.documents_uploaded, documentType]
-      }
-
-      // Upsert to students table
-      const { error: upsertError } = await supabase
-        .from('students')
-        .update(updateData)
-        .eq('id', student.id)
-
-      if (upsertError) throw upsertError
-
-      // Show success toast
-      setToast({ type: 'success', message: 'Profile updated from document ✓' })
-      setTimeout(() => setToast(null), 3000)
-
-      // Reload student data (verify user is still available)
-      if (!user?.id) {
-        setToast({ type: 'error', message: 'Session expired' })
-        setTimeout(() => setToast(null), 3000)
-        return
-      }
-
-      const { data } = await supabase
-        .from('students')
-        .select('*')
-        .eq('user_id', user.id)
-        .single()
-
-      if (data) {
-        setStudent(data)
-      }
-    } catch (err) {
-      console.error('Error updating profile:', err)
-      setToast({ type: 'error', message: 'Failed to update profile' })
-      setTimeout(() => setToast(null), 3000)
+    if (!student?.target_colleges?.length) {
+      setCollegeDeadlines([])
+      return
     }
-  }
+
+    async function loadDeadlines() {
+      try {
+        const { data, error: fetchErr } = await supabase
+          .from('colleges')
+          .select('name, deadlines')
+          .in('name', student.target_colleges)
+
+        if (fetchErr) throw fetchErr
+
+        const upcoming = []
+        (data || []).forEach(college => {
+          const deadlineArray = college.deadlines || []
+          if (Array.isArray(deadlineArray)) {
+            deadlineArray.forEach(deadline => {
+              const dueDate = new Date(deadline)
+              if (dueDate > new Date()) {
+                upcoming.push({
+                  college: college.name,
+                  date: deadline,
+                  daysLeft: Math.ceil((dueDate - new Date()) / (1000 * 60 * 60 * 24))
+                })
+              }
+            })
+          }
+        })
+
+        upcoming.sort((a, b) => new Date(a.date) - new Date(b.date))
+        setCollegeDeadlines(upcoming.slice(0, 3))
+      } catch (err) {
+        console.error('Error fetching deadlines:', err)
+      }
+    }
+
+    loadDeadlines()
+  }, [student?.target_colleges])
 
   // Handle account deletion
   const handleDeleteAccount = async () => {
     if (deleteInput !== 'DELETE') return
-
     setDeleteLoading(true)
+
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error('No active session')
@@ -192,7 +149,6 @@ export default function Profile() {
         throw new Error(error.message || 'Deletion failed')
       }
 
-      // Sign out and redirect
       await supabase.auth.signOut()
       navigate('/')
     } catch (err) {
@@ -209,7 +165,7 @@ export default function Profile() {
         <div className="flex items-center justify-center h-screen">
           <div className="text-center">
             <div className="w-8 h-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin mx-auto" />
-            <p className="text-sm text-gray-400 mt-3">Loading profile…</p>
+            <p className="text-sm text-gray-400 mt-3">Loading dashboard…</p>
           </div>
         </div>
       </Layout>
@@ -228,228 +184,297 @@ export default function Profile() {
     )
   }
 
-  // Shorthand aliases to keep the JSX readable
-  const s  = student
+  const s = student
   const ab = s.academic_background || {}
-
-  // Generate avatar initials from full name
   const initials = s.name?.split(' ').map(n => n[0]).join('') || 'U'
 
-  // ── statusCounts — count how many applications are in each status ──────────
-  // Produces { Researching: 1, Applied: 2, Interview: 1, Offer: 1, Rejected: 1 }
-  const statusCounts = STATUSES.reduce((acc, st) => {
-    acc[st] = applications.filter(a => a.status === st).length
-    return acc
-  }, {})
+  // Compute status counts
+  const statusCounts = {
+    'Applied': applications.filter(a => a.status === 'Applied').length,
+    'Target': (s.target_colleges || []).length,
+    'In Progress': applications.filter(a => a.status === 'Interview').length,
+    'Offers': applications.filter(a => a.status === 'Offer').length,
+  }
 
-  // ── targetCollegeData — look up full college objects for the student's shortlist ──
-  // Matches names from target_colleges array against the full COLLEGES list
-  const targetCollegeData = COLLEGES.filter(c => s.target_colleges.includes(c.name))
+  // Calculate overall progress
+  const overallProgress = statusCounts.Target > 0
+    ? Math.round((statusCounts.Applied / statusCounts.Target) * 100)
+    : 0
+
+  // Get target colleges with fit
+  const targetColleges = COLLEGES.filter(c => s.target_colleges?.includes(c.name))
+    .slice(0, 5)
+    .map(c => {
+      const catPct = parseFloat(ab.cat_percentile) || 0
+      const fit = fitLabel(catPct, c.cutoff)
+      return { ...c, fit }
+    })
+
+  // Get documents info
+  const documentsUploaded = s.documents_uploaded || []
+  const docStats = [
+    { name: '10th Marksheet', status: documentsUploaded.includes('10th') ? 'Verified ✓' : 'Pending ⏳' },
+    { name: '12th Marksheet', status: documentsUploaded.includes('12th') ? 'Verified ✓' : 'Pending ⏳' },
+    { name: 'Graduation Certificate', status: documentsUploaded.includes('graduation') ? 'Verified ✓' : 'Pending ⏳' },
+  ]
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
 
-        {/* ── Profile header card ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-
-              {/* Avatar with initials */}
-              <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center text-2xl font-bold text-white shrink-0">
-                {initials}
-              </div>
-
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">{s.name}</h1>
-                <p className="text-sm text-gray-600 mt-0.5">{ab.role || 'Professional'} · {ab.company || 'Organization'}</p>
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  {ab.grad_year && (
-                    <>
-                      <span className="text-xs bg-indigo-50 text-indigo-600 font-medium px-2 py-0.5 rounded-full">Batch {ab.grad_year}</span>
-                    </>
-                  )}
-                </div>
-              </div>
+        {/* ROW 1: HERO BANNER */}
+        <div className="bg-gradient-to-r from-[#1a2744] to-[#2a3f66] rounded-2xl p-8 flex items-center justify-between border border-[#3a5080]">
+          <div className="flex items-start gap-6">
+            {/* Avatar */}
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#c9a84c] to-[#d4b563] flex items-center justify-center text-white text-3xl font-bold ring-4 ring-[#c9a84c]/20 shrink-0">
+              {initials}
             </div>
 
-            {/* Edit button — navigates back to onboarding to re-fill the form */}
-            <button onClick={() => navigate('/onboarding')}
-              className="shrink-0 px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
-              Edit Profile
-            </button>
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-1">{s.name}</h1>
+              <div className="flex items-center gap-2 mb-2">
+                {ab.grad_year && (
+                  <span className="inline-block px-3 py-1 bg-[#c9a84c] text-[#1a2744] text-sm font-semibold rounded-full">
+                    Batch {ab.grad_year}
+                  </span>
+                )}
+              </div>
+              <p className="text-slate-300 text-sm">
+                {ab.role || 'Professional'} · {ab.company || 'Organization'}
+              </p>
+              <p className="text-slate-400 text-xs mt-2 italic">
+                Stay organized. Meet deadlines. Build your future.
+              </p>
+            </div>
           </div>
+
+          {/* Edit Profile Button */}
+          <button
+            onClick={() => navigate('/onboarding')}
+            className="shrink-0 flex items-center gap-2 px-4 py-2 bg-white/10 border border-[#c9a84c] text-[#c9a84c] rounded-xl hover:bg-white/20 transition-colors font-medium text-sm"
+          >
+            <Pencil className="w-4 h-4" />
+            Edit Profile
+          </button>
         </div>
 
-        {/* ── Stats row — 4 key numbers displayed as cards ── */}
-        <div className="grid grid-cols-4 gap-3">
+        {/* ROW 2: 4 STAT CARDS */}
+        <div className="grid grid-cols-4 gap-4">
           {[
-            { label: 'CAT Percentile', value: `${ab.cat_percentile}`, unit: '%ile' },
-            { label: 'CGPA',           value: `${ab.gpa}`,            unit: '/10'  },
-            { label: 'Work Exp',       value: `${ab.work_exp_yrs}`,   unit: 'yrs'  },
-            { label: 'Batch',          value: `${ab.grad_year}`,      unit: ''     },
-          ].map(({ label, value, unit }) => (
-            <div key={label} className="bg-white rounded-xl border border-gray-200 px-4 py-4 text-center">
-              <p className="text-xl font-bold text-gray-900">
-                {value}<span className="text-xs font-normal text-gray-400 ml-0.5">{unit}</span>
+            { icon: '📊', label: 'CAT Percentile', value: ab.cat_percentile || '-', unit: '%ile' },
+            { icon: '📚', label: 'CGPA', value: ab.cgpa || '-', unit: '/10' },
+            { icon: '💼', label: 'Work Experience', value: ab.work_exp_yrs || '-', unit: 'yrs' },
+            { icon: '🎓', label: 'Batch', value: ab.grad_year || '-', unit: '' },
+          ].map((stat, idx) => (
+            <div key={idx} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="text-3xl mb-2">{stat.icon}</div>
+              <p className="text-3xl font-bold text-gray-900">
+                {stat.value}
+                <span className="text-sm font-normal text-gray-500 ml-1">{stat.unit}</span>
               </p>
-              <p className="text-xs text-gray-500 mt-1">{label}</p>
+              <p className="text-xs text-gray-600 mt-2">{stat.label}</p>
             </div>
           ))}
         </div>
 
-        {/* ── Target Colleges list with fit scores ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-900">Target Colleges</h2>
-            {/* Link to college directory to add more */}
-            <button onClick={() => navigate('/colleges')}
-              className="text-xs text-indigo-600 font-medium hover:underline">
-              + Add colleges
-            </button>
-          </div>
+        {/* ROW 3: TWO-COLUMN GRID */}
+        <div className="grid grid-cols-[1.4fr_1fr] gap-6">
 
-          <div className="space-y-2">
-            {targetCollegeData.map(college => {
-              // Calculate fit based on student's percentile vs college cutoff
-              const fit = fitLabel(ab.cat_percentile, college.cutoff)
-              return (
-                <div key={college.id} className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0">
-                  <div className="flex items-center gap-3">
-                    {/* College type badge */}
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_META[college.type].color}`}>
-                      {college.type}
-                    </span>
-                    <span className="text-sm font-medium text-gray-800">{college.name}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs">
-                    {/* Fit verdict and cutoff percentile on the right */}
-                    <span className={`font-medium ${fit.color}`}>{fit.label}</span>
-                    <span className="text-gray-400">{college.cutoff_label}%ile</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          {/* LEFT COLUMN */}
+          <div className="space-y-6">
 
-          {s.target_colleges.length === 0 && (
-            <div className="text-center py-8">
-              <Plus className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-lg text-slate-500 font-medium">No target colleges yet</p>
-              <button
-                onClick={() => navigate('/colleges')}
-                className="mt-4 text-sm font-medium text-indigo-600 hover:underline"
-              >
-                + Add colleges
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* ── Application overview — count per status ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-900">Application Overview</h2>
-            <button onClick={() => navigate('/tracker')} className="text-xs text-indigo-600 font-medium hover:underline">
-              View tracker →
-            </button>
-          </div>
-
-          {/* 5 status boxes — greyed out if count is 0 */}
-          <div className="grid grid-cols-5 gap-2">
-            {STATUSES.map(status => (
-              <div key={status}
-                className={`rounded-xl border p-3 text-center ${STATUS_META[status].border} ${statusCounts[status] > 0 ? '' : 'opacity-50'}`}>
-                <p className="text-2xl font-bold text-gray-900">{statusCounts[status]}</p>
-                {/* Status label — takes the text colour from STATUS_META */}
-                <p className={`text-xs font-medium mt-1 ${STATUS_META[status].color.split(' ')[1]}`}>{status}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Empty state — shown if no applications exist yet */}
-          {applications.length === 0 && (
-            <div className="text-center py-6">
-              <p className="text-sm text-gray-400">No applications tracked yet.</p>
-              <button onClick={() => navigate('/colleges')} className="mt-2 text-sm text-indigo-600 font-medium hover:underline">
-                Browse colleges →
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* ── Saved Colleges section ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-900">Saved Colleges</h2>
-            <button onClick={() => navigate('/colleges')} className="text-xs text-indigo-600 font-medium hover:underline">
-              + Save more
-            </button>
-          </div>
-
-          {savedColleges.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-3xl mb-2">♡</p>
-              <p className="text-sm font-medium text-gray-700">No saved colleges yet</p>
-              <p className="text-xs text-gray-500 mt-1">Use the heart icon on college cards to save for later</p>
-              <button
-                onClick={() => navigate('/colleges')}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors"
-              >
-                + Browse colleges
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-3">
-              {savedColleges.map(college => (
+            {/* TARGET COLLEGES CARD */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <span className="text-xl">🏛</span> Target Colleges
+                </h2>
                 <button
-                  key={college.id}
-                  onClick={() => navigate(`/college/${college.id}`)}
-                  className="text-left p-3 rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-md transition group"
+                  onClick={() => navigate('/colleges')}
+                  className="flex items-center gap-1 text-xs text-[#c9a84c] font-semibold hover:underline"
                 >
-                  {college.image_url && (
-                    <img
-                      src={college.image_url}
-                      alt={college.name}
-                      className="w-full h-20 object-cover rounded-lg mb-2 group-hover:brightness-110 transition"
-                    />
-                  )}
-                  <p className="text-sm font-semibold text-gray-900 line-clamp-2 group-hover:underline">{college.name}</p>
-                  <p className="text-xs text-gray-500 mt-1">{college.location}</p>
+                  <Plus className="w-3 h-3" />
+                  Add
                 </button>
-              ))}
+              </div>
+
+              {targetColleges.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-sm text-gray-500 mb-3">No target colleges yet</p>
+                  <button
+                    onClick={() => navigate('/colleges')}
+                    className="px-4 py-2 bg-[#c9a84c]/10 text-[#c9a84c] rounded-lg text-sm font-medium hover:bg-[#c9a84c]/20 transition-colors"
+                  >
+                    Browse Colleges
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {targetColleges.map(college => {
+                      const fitColor = college.fit.label === 'Strong match' ? 'bg-green-100 text-green-700' :
+                        college.fit.label === 'Good fit' ? 'bg-amber-100 text-amber-700' :
+                        'bg-blue-100 text-blue-700'
+
+                      return (
+                        <div key={college.id} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-[#c9a84c]/30 transition-colors">
+                          <div className="w-10 h-10 bg-gradient-to-br from-[#c9a84c] to-[#b8942d] rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0">
+                            {college.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{college.name}</p>
+                            <p className="text-xs text-gray-500">{college.location}</p>
+                          </div>
+                          <span className={`text-xs font-semibold px-2 py-1 rounded whitespace-nowrap ${fitColor}`}>
+                            {college.fit.label === 'Strong match' ? 'Safe' :
+                              college.fit.label === 'Good fit' ? 'Reach' : 'Dream'}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {(s.target_colleges?.length || 0) > 5 && (
+                    <button
+                      onClick={() => navigate('/colleges')}
+                      className="text-xs text-[#c9a84c] font-semibold hover:underline"
+                    >
+                      View all {s.target_colleges.length} colleges →
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* APPLICATION OVERVIEW CARD */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <span className="text-xl">📋</span> Application Overview
+                </h2>
+                <button onClick={() => navigate('/tracker')} className="text-xs text-[#c9a84c] font-semibold hover:underline">
+                  View tracker →
+                </button>
+              </div>
+
+              {/* 4 inline stats */}
+              <div className="grid grid-cols-4 gap-2 mb-4">
+                {[
+                  { label: 'Applied', value: statusCounts.Applied, color: 'text-blue-600' },
+                  { label: 'Target', value: statusCounts.Target, color: 'text-indigo-600' },
+                  { label: 'In Progress', value: statusCounts['In Progress'], color: 'text-amber-600' },
+                  { label: 'Offers', value: statusCounts.Offers, color: 'text-green-600' },
+                ].map((stat, idx) => (
+                  <div key={idx} className="bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
+                    <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                    <p className="text-xs text-gray-600 mt-1">{stat.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Progress bar */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-semibold text-gray-600">Overall Progress</p>
+                  <p className="text-xs font-bold text-gray-900">{overallProgress}%</p>
+                </div>
+                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#1a2744] to-green-500 transition-all"
+                    style={{ width: `${overallProgress}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* RIGHT COLUMN */}
+          <div className="space-y-6">
+
+            {/* UPCOMING DEADLINES CARD */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <span className="text-xl">📅</span> Upcoming Deadlines
+                </h2>
+                <button onClick={() => navigate('/reminders')} className="text-xs text-[#c9a84c] font-semibold hover:underline">
+                  View all →
+                </button>
+              </div>
+
+              {collegeDeadlines.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-6">No upcoming deadlines</p>
+              ) : (
+                <div className="space-y-2">
+                  {collegeDeadlines.map((deadline, idx) => {
+                    const urgencyColor = deadline.daysLeft <= 14 ? 'text-red-600' : deadline.daysLeft <= 30 ? 'text-amber-600' : 'text-gray-600'
+                    return (
+                      <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-900">{deadline.college}</p>
+                        </div>
+                        <div className={`text-right text-xs font-semibold ${urgencyColor}`}>
+                          In {deadline.daysLeft} days
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* DOCUMENTS CARD */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <span className="text-xl">📄</span> Documents
+                </h2>
+                <button onClick={() => navigate('/documents')} className="text-xs text-[#c9a84c] font-semibold hover:underline">
+                  View all →
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {docStats.map((doc, idx) => {
+                  const isVerified = doc.status.includes('✓')
+                  const statusColor = isVerified ? 'text-green-600' : 'text-amber-600'
+                  return (
+                    <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="text-sm font-semibold text-gray-900">{doc.name}</p>
+                      <span className={`text-xs font-semibold ${statusColor}`}>{doc.status}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* ACCOUNT SETTINGS ACCORDION (DANGER ZONE) */}
+        <div className="border-t border-gray-200 pt-6">
+          <button
+            onClick={() => setSettingsOpen(!settingsOpen)}
+            className="flex items-center gap-2 text-gray-700 hover:text-gray-900 font-medium text-sm"
+          >
+            <ChevronDown className={`w-4 h-4 transition-transform ${settingsOpen ? 'rotate-180' : ''}`} />
+            Account Settings
+          </button>
+
+          {settingsOpen && (
+            <div className="mt-4 border-2 border-red-200 rounded-2xl p-6 bg-red-50">
+              <h3 className="text-sm font-bold text-red-900 mb-2">Danger Zone</h3>
+              <p className="text-sm text-red-800 mb-4">Permanently delete your account and all data</p>
+              <button
+                onClick={() => { setDeleteModalOpen(true); setDeleteInput('') }}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-semibold border-2 border-red-600 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Delete my account
+              </button>
             </div>
           )}
-        </div>
-
-        {/* ── Documents & OCR section ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <DocumentUpload onExtracted={handleExtracted} />
-        </div>
-
-        {/* ── AI Form Fill teaser banner ── */}
-        {/* This feature (Anthropic API auto-fill) is planned for Month 5 in the roadmap */}
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 rounded-2xl p-6 flex items-center justify-between">
-          <div>
-            <p className="text-white font-semibold text-sm">AI Form Fill — coming soon</p>
-            <p className="text-indigo-200 text-xs mt-1">Claude will auto-fill your SOP and application forms using your profile.</p>
-          </div>
-          <button className="shrink-0 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-semibold transition-colors">
-            Join waitlist
-          </button>
-        </div>
-
-        {/* ── Danger Zone — Delete Account ── */}
-        <div className="border-2 border-red-200 rounded-2xl p-6 bg-red-50">
-          <h2 className="text-sm font-bold text-red-900 mb-3">Danger Zone</h2>
-          <p className="text-sm text-red-800 mb-4">Permanently delete your account and all data</p>
-          <button
-            onClick={() => { setDeleteModalOpen(true); setDeleteInput('') }}
-            disabled={deleteLoading}
-            className="px-4 py-2 text-sm font-semibold border-2 border-red-600 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Delete my account
-          </button>
         </div>
 
       </div>
@@ -457,9 +482,7 @@ export default function Profile() {
       {/* Toast notification */}
       {toast && (
         <div className={`fixed bottom-6 right-6 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-          toast.type === 'success'
-            ? 'bg-green-500 text-white'
-            : 'bg-red-500 text-white'
+          toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
         }`}>
           {toast.message}
         </div>
@@ -507,6 +530,7 @@ export default function Profile() {
           </div>
         </div>
       )}
+
     </Layout>
   )
 }
