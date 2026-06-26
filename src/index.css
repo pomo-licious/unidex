@@ -1,1 +1,48 @@
 @import "tailwindcss";
+
+@layer utilities {
+  /* Fade and rise animation for scroll reveal */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Respect prefers-reduced-motion */
+  @media (prefers-reduced-motion: no-preference) {
+    .motion-safe\:animate-fadeIn {
+      animation: fadeIn 600ms ease-out;
+    }
+
+    .motion-safe\:animate-slideUp {
+      animation: slideUp 600ms ease-out;
+    }
+  }
+
+  /* Reduce all animations when prefers-reduced-motion is set */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
