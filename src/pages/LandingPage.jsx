@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Shield, Users, Calendar, GraduationCap, Play, Mail, Share2, Sparkles, Check } from 'lucide-react'
+import { Shield, Users, Calendar, GraduationCap, Play, Mail, Share2, Sparkles, Check, FolderOpen, CalendarX, FileText } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 // Hook to detect prefers-reduced-motion preference
@@ -69,10 +69,6 @@ export default function LandingPage() {
 
   // B4: CTA pulse state
   const [ctaPulse, setCtaPulse] = useState({})
-
-  // B5: Before/after slider state
-  const [sliderPosition, setSliderPosition] = useState(50)
-  const [mobileSliderTab, setMobileSliderTab] = useState('before')
 
   // Redirect logged-in users to profile
   useEffect(() => {
@@ -367,141 +363,21 @@ export default function LandingPage() {
             Applying is hard. Unidex makes it simple.
           </h2>
 
-          {/* B5: Before/After Slider */}
-          <div className="max-w-4xl mx-auto mb-12">
-            {/* Desktop: Draggable slider */}
-            <div className="hidden md:block relative rounded-2xl overflow-hidden border-2 border-[#1a2744]">
-              {/* Before (Left) */}
-              <div className="bg-white p-8">
-                <div className="space-y-4">
-                  <div className="flex gap-2">
-                    <div className="flex-1 h-16 bg-yellow-200 rounded-lg opacity-70"></div>
-                    <div className="flex-1 h-16 bg-orange-200 rounded-lg opacity-70"></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="h-12 bg-blue-200 rounded-lg opacity-70"></div>
-                    <div className="h-12 bg-pink-200 rounded-lg opacity-70"></div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-                    <div className="h-4 bg-gray-300 rounded w-1/2"></div>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-6 italic">Scattered across spreadsheets, emails, browser tabs...</p>
+          {/* 3-Column Problem Cards */}
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              { icon: FolderOpen, title: 'Scattered information', desc: 'College details, deadlines, and requirements everywhere' },
+              { icon: CalendarX, title: 'Missed deadlines', desc: 'Easy to lose track of important dates' },
+              { icon: FileText, title: 'Repetitive form filling', desc: 'Type the same information over and over' },
+            ].map((item, idx) => (
+              <div key={idx} className={`flex flex-col items-center hover:scale-105 motion-safe:transition-all motion-safe:duration-300 ${isVisible['problem'] ? 'motion-safe:opacity-100 motion-safe:translate-y-0' : 'motion-safe:opacity-0 motion-safe:translate-y-4'}`} style={{ transitionDelay: idx * 100 + 'ms' }}>
+                <div className="w-20 h-20 rounded-full bg-[#faf8f5] flex items-center justify-center mb-6 hover:bg-gray-200 motion-safe:transition-colors motion-safe:duration-300">
+                  <item.icon className="w-10 h-10 text-[#c9a84c]" />
                 </div>
+                <h3 className="font-semibold text-[#1a2744] mb-3 text-lg">{item.title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed text-center">{item.desc}</p>
               </div>
-
-              {/* After (Right) - Clipped version */}
-              <div
-                className="absolute inset-0 bg-[#1a2744] text-white p-8 overflow-hidden"
-                style={{
-                  clipPath: `inset(0 0 0 ${100 - sliderPosition}%)`,
-                  transition: prefersReducedMotion ? 'none' : 'clip-path 150ms ease-out'
-                }}
-              >
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="text-sm font-semibold text-[#c9a84c]">Applications</div>
-                    <div className="flex items-center gap-2 bg-gray-700 p-3 rounded">
-                      <span className="text-sm">ISB Hyderabad</span>
-                      <span className="text-xs bg-green-600 px-2 py-1 rounded">Applied</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 bg-gray-700 p-3 rounded">
-                    <span className="text-sm">SPJIMR Mumbai</span>
-                    <span className="text-xs bg-purple-600 px-2 py-1 rounded">Shortlisted</span>
-                  </div>
-                  <div className="text-sm font-semibold text-[#c9a84c] mt-6">Deadlines</div>
-                  <div className="text-sm text-gray-200">SPJIMR: 15 May</div>
-                </div>
-              </div>
-
-              {/* Slider handle */}
-              {!prefersReducedMotion && (
-                <>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={sliderPosition}
-                    onChange={(e) => setSliderPosition(Number(e.target.value))}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-col-resize z-10"
-                  />
-                  <div
-                    className="absolute inset-y-0 w-1 bg-[#c9a84c] cursor-col-resize pointer-events-none"
-                    style={{ left: `${sliderPosition}%` }}
-                  >
-                    <div className="absolute inset-y-0 -left-4 w-8 flex items-center justify-center">
-                      <div className="text-[#c9a84c]">⟨ ⟩</div>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Labels */}
-              <div className="absolute bottom-4 left-4 text-xs font-bold text-gray-400">BEFORE</div>
-              <div className="absolute bottom-4 right-4 text-xs font-bold text-gray-400">AFTER</div>
-            </div>
-
-            {/* Mobile: Tab toggle */}
-            <div className="md:hidden">
-              <div className="flex gap-2 mb-4">
-                <button
-                  onClick={() => setMobileSliderTab('before')}
-                  className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all ${
-                    mobileSliderTab === 'before'
-                      ? 'bg-[#1a2744] text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  Before
-                </button>
-                <button
-                  onClick={() => setMobileSliderTab('after')}
-                  className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all ${
-                    mobileSliderTab === 'after'
-                      ? 'bg-[#1a2744] text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  After
-                </button>
-              </div>
-              <div className="bg-white rounded-2xl border-2 border-[#1a2744] p-6">
-                {mobileSliderTab === 'before' ? (
-                  <div className="space-y-4">
-                    <div className="flex gap-2">
-                      <div className="flex-1 h-12 bg-yellow-200 rounded-lg opacity-70"></div>
-                      <div className="flex-1 h-12 bg-orange-200 rounded-lg opacity-70"></div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="h-10 bg-blue-200 rounded-lg opacity-70"></div>
-                      <div className="h-10 bg-pink-200 rounded-lg opacity-70"></div>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-4 italic">Scattered everywhere...</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 bg-[#1a2744] text-white p-4 rounded-lg">
-                    <div>
-                      <p className="text-xs font-semibold text-[#c9a84c] mb-2">Applications</p>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span>ISB Hyderabad</span>
-                          <span className="text-xs bg-green-600 px-2 py-1 rounded">Applied</span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span>SPJIMR Mumbai</span>
-                          <span className="text-xs bg-purple-600 px-2 py-1 rounded">Shortlisted</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="pt-3 border-t border-gray-600">
-                      <p className="text-xs font-semibold text-[#c9a84c] mb-1">Deadlines</p>
-                      <p className="text-sm">SPJIMR: 15 May</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
