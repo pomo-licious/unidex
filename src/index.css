@@ -24,6 +24,43 @@
     }
   }
 
+  /* B3: Kinetic hero typography - fade-rise with staggered delays */
+  @keyframes fadeRiseSeq {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* B4: CTA pulse animation (one-time) */
+  @keyframes pulseOnce {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+
+  /* Animation delay utilities */
+  .animation-delay-0 {
+    animation-delay: 0ms;
+  }
+
+  .animation-delay-120 {
+    animation-delay: 120ms;
+  }
+
+  .animation-delay-240 {
+    animation-delay: 240ms;
+  }
+
+  /* Pulse once animation */
+  .animate-pulse-once {
+    animation: pulseOnce 600ms ease-out;
+  }
+
   /* Respect prefers-reduced-motion */
   @media (prefers-reduced-motion: no-preference) {
     .motion-safe\:animate-fadeIn {
@@ -32,6 +69,18 @@
 
     .motion-safe\:animate-slideUp {
       animation: slideUp 600ms ease-out;
+    }
+
+    .motion-safe\:animate-fadeIn.motion-safe\:animation-delay-0 {
+      animation: fadeRiseSeq 300ms ease-out 0ms forwards;
+    }
+
+    .motion-safe\:animate-fadeIn.motion-safe\:animation-delay-120 {
+      animation: fadeRiseSeq 300ms ease-out 120ms forwards;
+    }
+
+    .motion-safe\:animate-fadeIn.motion-safe\:animation-delay-240 {
+      animation: fadeRiseSeq 300ms ease-out 240ms forwards;
     }
   }
 
