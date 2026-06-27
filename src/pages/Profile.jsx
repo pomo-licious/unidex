@@ -220,7 +220,7 @@ export default function Profile() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto px-6 py-4 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+      <div className="max-w-7xl mx-auto px-6 py-4 space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 120px)' }}>
 
         {/* ROW 1: HERO BANNER */}
         <div className="bg-gradient-to-r from-[#1a2744] to-[#2a3f66] rounded-2xl p-4 flex items-center justify-between border border-[#3a5080]">
@@ -259,32 +259,32 @@ export default function Profile() {
         </div>
 
         {/* ROW 2: 4 STAT CARDS */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-3">
           {[
             { icon: '📊', label: 'CAT Percentile', value: ab.cat_percentile || '-', unit: '%ile' },
             { icon: '📚', label: 'CGPA', value: ab.cgpa || '-', unit: '/10' },
             { icon: '💼', label: 'Work Experience', value: ab.work_exp_yrs || '-', unit: 'yrs' },
             { icon: '🎓', label: 'Batch', value: ab.grad_year || '-', unit: '' },
           ].map((stat, idx) => (
-            <div key={idx} className="bg-white rounded-lg border border-gray-200 p-2 shadow-sm hover:shadow-md transition-shadow">
-              <div className="text-2xl mb-1">{stat.icon}</div>
-              <p className="text-2xl font-bold text-gray-900">
+            <div key={idx} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-lg hover:scale-102 motion-safe:transition-all motion-safe:duration-200">
+              <div className="text-3xl mb-3">{stat.icon}</div>
+              <p className="text-3xl font-bold text-gray-900 leading-tight">
                 {stat.value}
-                <span className="text-xs font-normal text-gray-500 ml-0.5">{stat.unit}</span>
+                <span className="text-sm font-normal text-gray-500 ml-1">{stat.unit}</span>
               </p>
-              <p className="text-xs text-gray-600 mt-1">{stat.label}</p>
+              <p className="text-xs font-medium text-gray-600 mt-2 uppercase tracking-wide">{stat.label}</p>
             </div>
           ))}
         </div>
 
         {/* ROW 3: TWO-COLUMN GRID */}
-        <div className="grid grid-cols-[1.4fr_1fr] gap-3">
+        <div className="grid grid-cols-[1.4fr_1fr] gap-4">
 
           {/* LEFT COLUMN */}
-          <div className="space-y-3">
+          <div className="space-y-4">
 
             {/* TARGET COLLEGES CARD */}
-            <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-lg motion-safe:transition-shadow motion-safe:duration-200">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1">
                   <span className="text-lg">🏛</span> Target Colleges
@@ -317,7 +317,7 @@ export default function Profile() {
                         'bg-blue-100 text-blue-700'
 
                       return (
-                        <div key={college.id} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-[#c9a84c]/30 transition-colors">
+                        <div key={college.id} className="flex items-center gap-2 p-3 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-[#c9a84c]/50 hover:scale-102 motion-safe:transition-all motion-safe:duration-200">
                           <div className="w-10 h-10 bg-gradient-to-br from-[#c9a84c] to-[#b8942d] rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0">
                             {college.name.substring(0, 2).toUpperCase()}
                           </div>
@@ -325,7 +325,7 @@ export default function Profile() {
                             <p className="text-sm font-semibold text-gray-900 truncate">{college.name}</p>
                             <p className="text-xs text-gray-500">{college.location}</p>
                           </div>
-                          <span className={`text-xs font-semibold px-2 py-1 rounded whitespace-nowrap ${fitColor}`}>
+                          <span className={`text-xs font-semibold px-2 py-1 rounded-lg whitespace-nowrap ${fitColor}`}>
                             {college.fit.label === 'Strong match' ? 'Safe' :
                               college.fit.label === 'Good fit' ? 'Reach' : 'Dream'}
                           </span>
@@ -346,7 +346,7 @@ export default function Profile() {
             </div>
 
             {/* APPLICATION OVERVIEW CARD */}
-            <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-lg motion-safe:transition-shadow motion-safe:duration-200">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1">
                   <span className="text-lg">📋</span> Application Overview
@@ -389,10 +389,10 @@ export default function Profile() {
           </div>
 
           {/* RIGHT COLUMN */}
-          <div className="space-y-3">
+          <div className="space-y-4">
 
             {/* UPCOMING DEADLINES CARD */}
-            <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-lg motion-safe:transition-shadow motion-safe:duration-200">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1">
                   <span className="text-lg">📅</span> Upcoming Deadlines
@@ -424,7 +424,7 @@ export default function Profile() {
             </div>
 
             {/* DOCUMENTS CARD */}
-            <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-lg motion-safe:transition-shadow motion-safe:duration-200">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1">
                   <span className="text-lg">📄</span> Documents
