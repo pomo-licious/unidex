@@ -64,10 +64,6 @@ export default function LandingPage() {
   // B1: Dashboard animation state
   const [dashboardState, setDashboardState] = useState(0)
 
-  // B3: Rotating word state for hero
-  const [rotatingWordIdx, setRotatingWordIdx] = useState(0)
-  const rotatingWords = ['MBA', 'IIM', 'XLRI', 'ISB']
-
   // B2: Stat counters state
   const [statsCounted, setStatsCounted] = useState(false)
 
@@ -118,15 +114,6 @@ export default function LandingPage() {
     }, 2500)
     return () => clearInterval(interval)
   }, [prefersReducedMotion])
-
-  // B3: Rotating word animation
-  useEffect(() => {
-    if (prefersReducedMotion) return
-    const interval = setInterval(() => {
-      setRotatingWordIdx(prev => (prev + 1) % rotatingWords.length)
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [prefersReducedMotion, rotatingWords.length])
 
   // B2 & B4: Stat counters and CTA pulse observers
   useEffect(() => {
@@ -239,14 +226,9 @@ export default function LandingPage() {
               <div className={`motion-safe:animate-fadeIn motion-safe:animation-delay-0`}>
                 Track all your
               </div>
-              {/* Line 2: "MBA" (rotating) + "applications from" */}
+              {/* Line 2: "MBA" (gold) + "applications from" */}
               <div className={`motion-safe:animate-fadeIn motion-safe:animation-delay-120`}>
-                <span className="inline-block w-24" style={{
-                  opacity: prefersReducedMotion ? 1 : (rotatingWordIdx === (rotatingWordIdx) ? 1 : 0.5),
-                  transition: prefersReducedMotion ? 'none' : 'opacity 300ms ease-in-out'
-                }}>
-                  {rotatingWords[rotatingWordIdx]}
-                </span>
+                <span className="text-[#c9a84c]">MBA</span>
                 {' '}applications from
               </div>
               {/* Line 3: "one place." */}
