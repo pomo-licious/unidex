@@ -201,7 +201,8 @@ export default function Reminders() {
             {upcomingDeadlines.filter(d => d.daysRemaining <= 7).length > 0 && (
               <div>
                 <h2 className="text-sm font-bold text-red-600 mb-3 flex items-center gap-2">
-                  <span className="text-lg">🔴</span> This week
+                  <span className="w-2 h-2 rounded-full bg-red-600" />
+                  This week
                 </h2>
                 <div className="space-y-3">
                   {upcomingDeadlines.filter(d => d.daysRemaining <= 7).map(deadline => (
@@ -215,7 +216,8 @@ export default function Reminders() {
             {upcomingDeadlines.filter(d => d.daysRemaining > 7 && d.daysRemaining <= 30).length > 0 && (
               <div>
                 <h2 className="text-sm font-bold text-amber-600 mb-3 flex items-center gap-2">
-                  <span className="text-lg">🟡</span> This month
+                  <span className="w-2 h-2 rounded-full bg-amber-600" />
+                  This month
                 </h2>
                 <div className="space-y-3">
                   {upcomingDeadlines.filter(d => d.daysRemaining > 7 && d.daysRemaining <= 30).map(deadline => (
@@ -233,7 +235,8 @@ export default function Reminders() {
                   className="w-full flex items-center justify-between text-sm font-bold text-gray-600 hover:text-gray-900 transition mb-3"
                 >
                   <span className="flex items-center gap-2">
-                    <span className="text-lg">⚪</span> Later ({upcomingDeadlines.filter(d => d.daysRemaining > 30).length})
+                    <span className="w-2 h-2 rounded-full bg-gray-400" />
+                    Later ({upcomingDeadlines.filter(d => d.daysRemaining > 30).length})
                   </span>
                   <ChevronDown className={`w-4 h-4 transition ${showLater ? 'rotate-180' : ''}`} />
                 </button>

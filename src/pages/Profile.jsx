@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, BookOpen, Calendar, FileText, ChevronDown, Pencil, Trash2 } from 'lucide-react'
+import { Plus, BookOpen, Calendar, FileText, ChevronDown, Pencil, Trash2, BarChart3, Briefcase, GraduationCap, Building2, Clock, File } from 'lucide-react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { COLLEGES, fitLabel } from '../lib/mockData'
@@ -261,13 +261,15 @@ export default function Profile() {
         {/* ROW 2: 4 STAT CARDS */}
         <div className="grid grid-cols-4 gap-3">
           {[
-            { icon: '📊', label: 'CAT Percentile', value: ab.cat_percentile || '-', unit: '%ile' },
-            { icon: '📚', label: 'CGPA', value: ab.cgpa || '-', unit: '/10' },
-            { icon: '💼', label: 'Work Experience', value: ab.work_exp_yrs || '-', unit: 'yrs' },
-            { icon: '🎓', label: 'Batch', value: ab.grad_year || '-', unit: '' },
+            { Icon: BarChart3, label: 'CAT Percentile', value: ab.cat_percentile || '-', unit: '%ile' },
+            { Icon: BookOpen, label: 'CGPA', value: ab.cgpa || '-', unit: '/10' },
+            { Icon: Briefcase, label: 'Work Experience', value: ab.work_exp_yrs || '-', unit: 'yrs' },
+            { Icon: GraduationCap, label: 'Batch', value: ab.grad_year || '-', unit: '' },
           ].map((stat, idx) => (
             <div key={idx} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-lg hover:scale-102 motion-safe:transition-all motion-safe:duration-200">
-              <div className="text-3xl mb-3">{stat.icon}</div>
+              <div className="w-12 h-12 rounded-full bg-[#1a2744]/10 flex items-center justify-center mb-3">
+                <stat.Icon className="w-6 h-6 text-[#c9a84c]" />
+              </div>
               <p className="text-3xl font-bold text-gray-900 leading-tight">
                 {stat.value}
                 <span className="text-sm font-normal text-gray-500 ml-1">{stat.unit}</span>
@@ -286,8 +288,9 @@ export default function Profile() {
             {/* TARGET COLLEGES CARD */}
             <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-lg motion-safe:transition-shadow motion-safe:duration-200">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1">
-                  <span className="text-lg">🏛</span> Target Colleges
+                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-[#c9a84c]" />
+                  Target Colleges
                 </h2>
                 <button
                   onClick={() => navigate('/colleges')}
@@ -394,8 +397,9 @@ export default function Profile() {
             {/* UPCOMING DEADLINES CARD */}
             <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-lg motion-safe:transition-shadow motion-safe:duration-200">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1">
-                  <span className="text-lg">📅</span> Upcoming Deadlines
+                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-[#c9a84c]" />
+                  Upcoming Deadlines
                 </h2>
                 <button onClick={() => navigate('/reminders')} className="text-xs text-[#c9a84c] font-semibold hover:underline">
                   View all →
@@ -426,8 +430,9 @@ export default function Profile() {
             {/* DOCUMENTS CARD */}
             <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-lg motion-safe:transition-shadow motion-safe:duration-200">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1">
-                  <span className="text-lg">📄</span> Documents
+                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <File className="w-4 h-4 text-[#c9a84c]" />
+                  Documents
                 </h2>
                 <button onClick={() => navigate('/documents')} className="text-xs text-[#c9a84c] font-semibold hover:underline">
                   View all →

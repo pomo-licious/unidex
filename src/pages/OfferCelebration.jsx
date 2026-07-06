@@ -101,9 +101,6 @@ export default function OfferCelebration() {
       {/* Content */}
       <div className="text-center max-w-lg">
         <div className="mb-8">
-          <p className="text-8xl mb-6 animate-bounce" style={{ animationDelay: '0.1s' }}>
-            🎉
-          </p>
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             You got into {collegeName || 'the college'}!
           </h1>

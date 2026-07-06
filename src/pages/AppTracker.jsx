@@ -21,7 +21,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { GraduationCap } from 'lucide-react'
+import { GraduationCap, PartyPopper, Eye, Hourglass, BookMarked } from 'lucide-react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { STATUSES, STATUS_META } from '../lib/mockData'
@@ -309,10 +309,10 @@ export default function AppTracker() {
 
   // Next action hints for each status
   const nextActions = {
-    'Researching': '👀 Study materials',
-    'Applied': '⏳ Await response',
-    'Interview': '📚 Prepare talking points',
-    'Offer': '🎉 Congratulations',
+    'Researching': 'Study materials',
+    'Applied': 'Await response',
+    'Interview': 'Prepare talking points',
+    'Offer': 'Congratulations',
     'Rejected': null
   }
 
@@ -666,7 +666,7 @@ function AppCard({ app, onMove, onDelete, nextActions = {} }) {
 
       {/* Next Action Hint */}
       {nextActions[app.status] && (
-        <p className="text-xs text-gray-600 mt-2 italic">💡 {nextActions[app.status]}</p>
+        <p className="text-xs text-gray-600 mt-2 italic">{nextActions[app.status]}</p>
       )}
 
       {/* Notes — extract text from stored JSON */}

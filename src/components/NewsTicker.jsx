@@ -10,14 +10,14 @@
 import { useState, useEffect } from 'react'
 
 const MOCK_NEWS = [
-  { id: 1, text: '🎓 IIM Ahmedabad opens Round 2 applications — CAT cutoff: 99%ile', timestamp: '2 min ago' },
-  { id: 2, text: '💰 Infosys scholarship program 2026 announced — ₹10 lac awards available', timestamp: '15 min ago' },
-  { id: 3, text: '📅 ISB Hyderabad extends application deadline to Oct 31', timestamp: '1 hour ago' },
-  { id: 4, text: '🏆 XLRI Jamshedpur interviews begin next week — shortlist released', timestamp: '2 hours ago' },
-  { id: 5, text: '💼 McKinsey MBA internship portal now live — 50 seats available', timestamp: '3 hours ago' },
-  { id: 6, text: '✅ IIT Delhi DMS announces interview results for 240 candidates', timestamp: '4 hours ago' },
-  { id: 7, text: '📢 FMS Delhi final round applications close tomorrow — apply now', timestamp: '5 hours ago' },
-  { id: 8, text: '🎯 MDI Gurgaon scholarship round now accepting applications', timestamp: '6 hours ago' },
+  { id: 1, text: 'IIM Ahmedabad opens Round 2 applications — CAT cutoff: 99%ile', timestamp: '2 min ago' },
+  { id: 2, text: 'Infosys scholarship program 2026 announced — ₹10 lac awards available', timestamp: '15 min ago' },
+  { id: 3, text: 'ISB Hyderabad extends application deadline to Oct 31', timestamp: '1 hour ago' },
+  { id: 4, text: 'XLRI Jamshedpur interviews begin next week — shortlist released', timestamp: '2 hours ago' },
+  { id: 5, text: 'McKinsey MBA internship portal now live — 50 seats available', timestamp: '3 hours ago' },
+  { id: 6, text: 'IIT Delhi DMS announces interview results for 240 candidates', timestamp: '4 hours ago' },
+  { id: 7, text: 'FMS Delhi final round applications close tomorrow — apply now', timestamp: '5 hours ago' },
+  { id: 8, text: 'MDI Gurgaon scholarship round now accepting applications', timestamp: '6 hours ago' },
 ]
 
 export function NewsTicker() {

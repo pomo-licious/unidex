@@ -18,9 +18,9 @@ import DocumentUploadOCR from '../components/DocumentUpload'
 import { supabase } from '../lib/supabase'
 
 const UPLOAD_CONFIG = {
-  resume: { accepts: '.pdf', maxSize: 5, label: 'Resume', icon: '📄' },
-  transcript: { accepts: '.pdf', maxSize: 10, label: 'Transcripts', icon: '🎓' },
-  photo: { accepts: '.jpg,.png', maxSize: 2, label: 'Profile Photo', icon: '📸' },
+  resume: { accepts: '.pdf', maxSize: 5, label: 'Resume' },
+  transcript: { accepts: '.pdf', maxSize: 10, label: 'Transcripts' },
+  photo: { accepts: '.jpg,.png', maxSize: 2, label: 'Profile Photo' },
 }
 
 export default function DocumentUpload() {

@@ -444,7 +444,7 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
             {[
               { id: 'relevant', label: 'Most Relevant', icon: '⭐' },
               { id: 'popular', label: 'Most Popular', icon: '🔥' },
-              { id: 'all', label: 'All Colleges', icon: '📚' },
+              { id: 'all', label: 'All Colleges' },
             ].map(tab => (
               <button
                 key={tab.id}

@@ -206,7 +206,6 @@ export default function DeadlineCalendar() {
         ) : deadlines.length === 0 ? (
           /* Empty state */
           <div className="text-center py-20">
-            <p className="text-4xl mb-4">📅</p>
             <p className="text-sm font-semibold text-gray-700">No deadlines found</p>
             <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
               Add colleges to your target list or tracker to see their deadlines here.

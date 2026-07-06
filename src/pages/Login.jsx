@@ -283,7 +283,7 @@ export default function Login() {
               <div className="bg-gray-50 rounded-lg p-4 space-y-4 text-xs">
                 {/* Welcome message */}
                 <div>
-                  <p className="font-semibold text-gray-900">Good morning, Student 👋</p>
+                  <p className="font-semibold text-gray-900">Good morning, Student</p>
                   <p className="text-gray-600 text-xs mt-0.5">Here's what's happening with your applications.</p>
                 </div>
 
