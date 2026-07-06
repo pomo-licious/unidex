@@ -10,7 +10,16 @@ const MATCH_SCORE_THRESHOLDS = {
   3: { strong: 78, moderate: 70 },
 }
 
-const GENERIC_UNIVERSITY_IMAGE = 'https://images.unsplash.com/photo-1562774053-701939374585?w=640&q=80'
+// Generate deterministic hue (0-360) from college name
+function getAccentHueFromName(name) {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    const char = name.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32bit integer
+  }
+  return Math.abs(hash) % 360
+}
 
 export default function CollegeDirectory({ user: propUser, loading: propLoading }) {
   const navigate = useNavigate()
@@ -559,26 +568,42 @@ function CollegeCard({ college, student, user, isTracked, isAdding, isSaved, onN
   }
 
   const matchScore = student && user ? getMatchScore(college, student.academic_background?.cat_percentile) : null
-  const imageUrl = college.image_url || GENERIC_UNIVERSITY_IMAGE
   const initials = college.name.split(' ').map(w => w[0]).join('')
+  const accentHue = getAccentHueFromName(college.name)
 
   return (
     <button
       onClick={onNavigate}
       className="flex-shrink-0 w-56 group text-left">
       <div className="bg-white rounded-xl overflow-hidden border border-slate-200 hover:shadow-lg hover:scale-103 transition-all duration-150 h-72">
-        {/* Image */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 h-32">
-          <img
-            src={imageUrl}
-            alt={college.name}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
-            onError={e => {
-              e.target.src = GENERIC_UNIVERSITY_IMAGE
-            }}
-          />
+        {/* Image or Branded Placeholder */}
+        <div className="relative overflow-hidden h-32">
+          {college.image_url ? (
+            <img
+              src={college.image_url}
+              alt={college.name}
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+            />
+          ) : (
+            <>
+              {/* Branded placeholder: navy header with geometric pattern */}
+              <div className="w-full h-full bg-[#1a2744] relative">
+                {/* CSS-only geometric pattern background */}
+                <div className="absolute inset-0 opacity-10">
+                  <div className="absolute top-0 left-0 w-32 h-32 rounded-full" style={{ backgroundColor: `hsl(${accentHue}, 70%, 50%)` }} />
+                  <div className="absolute bottom-2 right-4 w-24 h-24 rounded-full" style={{ backgroundColor: `hsl(${accentHue}, 60%, 60%)` }} />
+                  <div className="absolute top-1/3 right-1/4 w-16 h-16 rotate-45" style={{ backgroundColor: `hsl(${accentHue}, 65%, 55%)` }} />
+                </div>
 
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                {/* Gold monogram circle */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-full bg-[#c9a84c] flex items-center justify-center">
+                    <span className="text-xl font-bold text-[#1a2744]">{initials}</span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Match badge */}
           <div className="absolute top-2 right-2">
@@ -592,13 +617,6 @@ function CollegeCard({ college, student, user, isTracked, isAdding, isSaved, onN
               </span>
             ) : null}
           </div>
-
-          {/* Initials */}
-          {!college.image_url && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-2xl font-bold text-white opacity-40">{initials}</span>
-            </div>
-          )}
 
           {/* Save heart button */}
           {user && (
