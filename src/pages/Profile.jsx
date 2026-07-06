@@ -6,6 +6,10 @@ import { supabase } from '../lib/supabase'
 import { COLLEGES, fitLabel } from '../lib/mockData'
 
 export default function Profile() {
+  useEffect(() => {
+    document.title = 'Profile · Unidex'
+  }, [])
+
   const navigate = useNavigate()
 
   const [user, setUser] = useState(null)

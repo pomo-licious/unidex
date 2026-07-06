@@ -24,6 +24,10 @@ const UPLOAD_CONFIG = {
 }
 
 export default function DocumentUpload() {
+  useEffect(() => {
+    document.title = 'Documents · Unidex'
+  }, [])
+
   const [user, setUser] = useState(null)
   const [documents, setDocuments] = useState({ resume: null, transcript: null, photo: null })
   const [uploading, setUploading] = useState(false)

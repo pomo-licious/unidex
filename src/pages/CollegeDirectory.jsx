@@ -22,6 +22,10 @@ function getAccentHueFromName(name) {
 }
 
 export default function CollegeDirectory({ user: propUser, loading: propLoading }) {
+  useEffect(() => {
+    document.title = 'Colleges · Unidex'
+  }, [])
+
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -275,7 +279,7 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
             {hasNextPage && (
               <div className="flex-shrink-0 w-1/5 flex items-center justify-center bg-slate-100 rounded-lg border border-dashed border-slate-300 min-h-64 cursor-pointer hover:bg-slate-200 transition" onClick={() => navigate(seeAllLink)}>
                 <div className="text-center">
-                  <p className="text-sm font-semibold text-slate-700">View all</p>
+                  <p className="text-sm font-semibold text-slate-700">View all →</p>
                   <p className="text-xs text-slate-500 mt-1">{rowColleges.length} colleges</p>
                 </div>
               </div>

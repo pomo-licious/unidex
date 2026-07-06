@@ -70,6 +70,11 @@ export default function LandingPage() {
   // B4: CTA pulse state
   const [ctaPulse, setCtaPulse] = useState({})
 
+  // Set page title
+  useEffect(() => {
+    document.title = 'Unidex — Track your MBA applications'
+  }, [])
+
   // Redirect logged-in users to profile
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -583,7 +588,7 @@ export default function LandingPage() {
           </div>
 
           <div className="text-center text-sm text-gray-600">
-            <p>© 2026 Unidex. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} Unidex. All rights reserved.</p>
           </div>
         </div>
       </footer>

@@ -70,6 +70,10 @@ function normaliseApp(row) {
 // AppTracker — main page component
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AppTracker() {
+  useEffect(() => {
+    document.title = 'My Applications · Unidex'
+  }, [])
+
   const navigate = useNavigate()
   const isDemo   = useIsDemo()
 

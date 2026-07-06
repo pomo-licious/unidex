@@ -54,6 +54,10 @@ function toIso(year, month, day) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function DeadlineCalendar() {
+  useEffect(() => {
+    document.title = 'Calendar · Unidex'
+  }, [])
+
   const now = new Date()
 
   // ── View state — which month is showing ───────────────────────────────────
@@ -205,11 +209,16 @@ export default function DeadlineCalendar() {
 
         ) : deadlines.length === 0 ? (
           /* Empty state */
-          <div className="text-center py-20">
-            <p className="text-sm font-semibold text-gray-700">No deadlines found</p>
-            <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
-              Add colleges to your target list or tracker to see their deadlines here.
+          <div className="text-center py-20 space-y-4">
+            <p className="text-sm font-semibold text-gray-700">No deadlines yet</p>
+            <p className="text-xs text-gray-400 max-w-xs mx-auto">
+              Add colleges to your target list to see their deadlines here.
             </p>
+            <button
+              onClick={() => navigate('/colleges')}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors">
+              Browse colleges →
+            </button>
           </div>
 
         ) : (
