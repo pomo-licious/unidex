@@ -307,6 +307,15 @@ export default function AppTracker() {
     return acc
   }, {})
 
+  // Next action hints for each status
+  const nextActions = {
+    'Researching': '👀 Study materials',
+    'Applied': '⏳ Await response',
+    'Interview': '📚 Prepare talking points',
+    'Offer': '🎉 Congratulations',
+    'Rejected': null
+  }
+
   // Colleges the user isn't already tracking — shown in the add modal dropdown
   const trackedIds      = new Set(apps.map(a => a.college_id))
   const addableColleges = allColleges.filter(c => !trackedIds.has(c.id))
@@ -370,6 +379,23 @@ export default function AppTracker() {
               ))}
             </div>
 
+            {/* ── Progress Summary Cards ── */}
+            {apps.length > 0 && (
+              <div className="grid md:grid-cols-4 gap-3 mb-8">
+                {[
+                  { label: 'Applied', count: byStatus['Applied'].length, color: 'bg-blue-100 text-blue-700' },
+                  { label: 'Target', count: apps.length, color: 'bg-indigo-100 text-indigo-700' },
+                  { label: 'In Progress', count: byStatus['Interview'].length, color: 'bg-amber-100 text-amber-700' },
+                  { label: 'Offers', count: byStatus['Offer'].length, color: 'bg-green-100 text-green-700' },
+                ].map((stat, idx) => (
+                  <div key={idx} className={`${stat.color} rounded-lg p-3 text-center border border-current/20`}>
+                    <p className="text-2xl font-bold">{stat.count}</p>
+                    <p className="text-xs font-medium mt-1">{stat.label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* ── Empty state ── */}
             {apps.length === 0 ? (
               <div className="text-center py-32">
@@ -401,7 +427,7 @@ export default function AppTracker() {
                     {/* Dashed drop zone */}
                     <div className={`min-h-[120px] rounded-xl border-2 border-dashed ${STATUS_META[status].border} p-2 space-y-2`}>
                       {byStatus[status].map(app => (
-                        <AppCard key={app.id} app={app} onMove={moveApp} onDelete={deleteApp} />
+                        <AppCard key={app.id} app={app} onMove={moveApp} onDelete={deleteApp} nextActions={nextActions} />
                       ))}
                       {byStatus[status].length === 0 && (
                         <div className="h-16 flex items-center justify-center">
@@ -516,7 +542,7 @@ export default function AppTracker() {
 //   onMove   — (id, newStatus) called when user picks a status from the dropdown
 //   onDelete — (id) called when user confirms deletion
 // ─────────────────────────────────────────────────────────────────────────────
-function AppCard({ app, onMove, onDelete }) {
+function AppCard({ app, onMove, onDelete, nextActions = {} }) {
   const navigate = useNavigate()
   const isDemo   = useIsDemo()
 
@@ -636,6 +662,11 @@ function AppCard({ app, onMove, onDelete }) {
         <span className="inline-block text-xs px-2 py-0.5 rounded-lg font-medium bg-rose-100 text-rose-500">
           Not selected
         </span>
+      )}
+
+      {/* Next Action Hint */}
+      {nextActions[app.status] && (
+        <p className="text-xs text-gray-600 mt-2 italic">💡 {nextActions[app.status]}</p>
       )}
 
       {/* Notes — extract text from stored JSON */}

@@ -21,6 +21,7 @@ import Profile           from './pages/Profile'
 import CollegeDirectory  from './pages/CollegeDirectory'
 import CollegeProfile    from './pages/CollegeProfile'
 import AppTracker        from './pages/AppTracker'
+// Applications.jsx removed — features merged into AppTracker.jsx
 import DeadlineCalendar  from './pages/DeadlineCalendar'
 import DocumentUpload    from './pages/DocumentUpload'
 import OfferCelebration  from './pages/OfferCelebration'
@@ -28,7 +29,6 @@ import ApplyNow          from './pages/ApplyNow'
 import FeedbackSurvey    from './pages/FeedbackSurvey'
 import AdminLogin        from './pages/AdminLogin'
 import AdminDashboard    from './pages/AdminDashboard'
-import Applications      from './pages/Applications'
 import Reminders         from './pages/Reminders'
 import Privacy           from './pages/Privacy'
 import Terms             from './pages/Terms'
@@ -101,7 +101,7 @@ export default function App() {
           {/* Protected routes — require authentication */}
           <Route path="/profile"    element={<ProtectedRoute element={<Profile />} user={user} loading={loading} />} />
           <Route path="/tracker"    element={<ProtectedRoute element={<AppTracker />} user={user} loading={loading} />} />
-          <Route path="/applications" element={<ProtectedRoute element={<Applications />} user={user} loading={loading} />} />
+          <Route path="/applications" element={<Navigate to="/tracker" replace />} />
           <Route path="/reminders"  element={<ProtectedRoute element={<Reminders />} user={user} loading={loading} />} />
           <Route path="/calendar"   element={<ProtectedRoute element={<DeadlineCalendar />} user={user} loading={loading} />} />
           <Route path="/documents"  element={<ProtectedRoute element={<DocumentUpload />} user={user} loading={loading} />} />
