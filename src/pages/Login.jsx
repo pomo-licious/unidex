@@ -111,11 +111,11 @@ export default function Login() {
           <div className="bg-[#0d1525] border border-gray-700 rounded-lg p-6 space-y-4">
             <Quote className="w-6 h-6 text-[#c9a84c]" />
             <p className="text-gray-300 text-sm leading-relaxed">
-              "Unidex kept me organized throughout my application process. It made a complex journey feel simple and achievable."
+              "TODO: Share what one of our beta users discovered during their MBA application journey."
             </p>
             <div>
-              <p className="text-[#c9a84c] font-bold text-sm uppercase">Rishabh M.</p>
-              <p className="text-gray-400 text-xs">Admitted to IIM Ahmedabad</p>
+              <p className="text-[#c9a84c] font-bold text-sm uppercase">— Priya S.</p>
+              <p className="text-gray-400 text-xs">CAT 2025 aspirant</p>
             </div>
           </div>
         </div>

@@ -505,7 +505,30 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SECTION 8: FINAL CTA */}
+      {/* SECTION 8: ABOUT UNIDEX */}
+      <section id="about" ref={el => elementsRef.current['about'] = el} className="bg-white py-20 md:py-28 border-t border-gray-200">
+        <div className={`max-w-4xl mx-auto px-6 motion-safe:transition-all motion-safe:duration-700 ${isVisible['about'] ? 'motion-safe:opacity-100 motion-safe:translate-y-0' : 'motion-safe:opacity-0 motion-safe:translate-y-8'}`}>
+          <h2 className="text-4xl md:text-5xl font-serif font-bold text-[#1a2744] mb-8 text-center">
+            About Unidex
+          </h2>
+
+          <div className="space-y-6 text-lg text-gray-700 leading-relaxed">
+            <p>
+              We built Unidex because we lived through the MBA application chaos. Juggling deadlines across a dozen colleges, managing scattered documents, losing track of which college needed what — it felt like a job on top of the actual work of applications. We realized there was no tool built specifically for this journey, so we built one.
+            </p>
+
+            <p>
+              Today, Unidex is built by people who remember the stress of applications. We're here to help you focus on what matters: your essays, your goals, and choosing the school that's right for you. Everything else — the organization, the deadlines, the documents — we handle that.
+            </p>
+
+            <p>
+              We believe every MBA aspirant deserves tools that make their journey simpler, not more complicated. Through thoughtful design and genuine simplicity, we're building the future of MBA applications in India.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 9: FINAL CTA */}
       <section id="final-cta" ref={el => elementsRef.current['final-cta'] = el} className="bg-[#faf8f5] py-20 md:py-28">
         <div className={`max-w-2xl mx-auto px-6 text-center motion-safe:transition-all motion-safe:duration-700 ${isVisible['final-cta'] ? 'motion-safe:opacity-100 motion-safe:translate-y-0' : 'motion-safe:opacity-0 motion-safe:translate-y-8'}`}>
           <h2 className="text-4xl md:text-5xl font-serif font-bold text-[#1a2744] mb-12 leading-tight">
@@ -523,7 +546,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SECTION 9: FOOTER */}
+      {/* SECTION 10: FOOTER */}
       <footer className="bg-white border-t border-gray-200 py-12">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-3 gap-8 mb-8 pb-8 border-b border-gray-200">
