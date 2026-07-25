@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Shield, Users, Calendar, GraduationCap, Play, Mail, Share2, Sparkles, Check, FolderOpen, CalendarX, FileText } from 'lucide-react'
+import { Shield, Users, Calendar, GraduationCap, Play, Mail, Share2, Sparkles, Check, FolderOpen, CalendarX, FileText, Target, Zap } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 // Hook to detect prefers-reduced-motion preference
@@ -466,12 +466,12 @@ export default function LandingPage() {
 
             <div className="space-y-8">
               {[
-                { icon: '🎯', title: 'Focus on your goals', desc: 'Let Unidex handle the organization so you can focus on your MBA goals.' },
-                { icon: '⚡', title: 'Save time & effort', desc: 'Reduce the stress of managing multiple applications and deadlines.' },
-                { icon: '✨', title: 'Apply with confidence', desc: 'Submit strong, complete applications to every college.' },
+                { Icon: Target, title: 'Focus on your goals', desc: 'Let Unidex handle the organization so you can focus on your MBA goals.' },
+                { Icon: Zap, title: 'Save time & effort', desc: 'Reduce the stress of managing multiple applications and deadlines.' },
+                { Icon: Sparkles, title: 'Apply with confidence', desc: 'Submit strong, complete applications to every college.' },
               ].map((item, idx) => (
                 <div key={idx} className="flex gap-6 hover:translate-x-2 motion-safe:transition-transform motion-safe:duration-300 p-4 rounded-lg hover:bg-white motion-safe:transition-colors motion-safe:duration-300">
-                  <span className="text-4xl flex-shrink-0">{item.icon}</span>
+                  <item.Icon className="w-8 h-8 text-[#c9a84c] flex-shrink-0" />
                   <div className="pt-1">
                     <h3 className="font-semibold text-[#1a2744] mb-2 text-lg">{item.title}</h3>
                     <p className="text-sm text-gray-600 leading-relaxed">{item.desc}</p>

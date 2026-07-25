@@ -3,19 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, BookOpen, Calendar, FileText, ChevronDown, Pencil, Trash2, BarChart3, Briefcase, GraduationCap, Building2, Clock, File } from 'lucide-react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
-import { COLLEGES, fitLabel } from '../lib/mockData'
+import { getCollegeFit, getFitStyle } from '../lib/collegeFit'
 
 export default function Profile() {
-  useEffect(() => {
-    document.title = 'Profile · Unidex'
-  }, [])
-
   const navigate = useNavigate()
 
   const [user, setUser] = useState(null)
   const [student, setStudent] = useState(null)
   const [applications, setApplications] = useState([])
   const [collegeDeadlines, setCollegeDeadlines] = useState([])
+  const [targetCollegeFits, setTargetCollegeFits] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [toast, setToast] = useState(null)
@@ -23,6 +20,11 @@ export default function Profile() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [deleteInput, setDeleteInput] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
+
+  // ── Page title ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    document.title = 'Profile · Unidex'
+  }, [])
 
   // Listen to auth state changes
   useEffect(() => {
@@ -131,6 +133,49 @@ export default function Profile() {
     loadDeadlines()
   }, [student?.target_colleges])
 
+  // Fetch fit data for target colleges — uses the same live college_cutoffs +
+  // getCollegeFit engine as the Colleges directory, so both screens always
+  // agree on a college's fit tier and label instead of running two systems.
+  useEffect(() => {
+    if (!student?.target_colleges?.length) {
+      setTargetCollegeFits([])
+      return
+    }
+
+    async function loadTargetFits() {
+      try {
+        const { data: collegeRows, error: collegeErr } = await supabase
+          .from('colleges')
+          .select('id, name, location, tier')
+          .in('name', student.target_colleges)
+
+        if (collegeErr) throw collegeErr
+
+        const collegeIds = (collegeRows || []).map(c => c.id)
+        const { data: cutoffRows } = collegeIds.length
+          ? await supabase.from('college_cutoffs').select('*').eq('exam_type', 'CAT').in('college_id', collegeIds)
+          : { data: [] }
+
+        const cutoffByCollegeId = {}
+        cutoffRows?.forEach(row => { cutoffByCollegeId[row.college_id] = row })
+
+        const catPercentile = student.exam_scores?.percentile ?? student.academic_background?.cat_percentile ?? null
+
+        const withFit = (collegeRows || []).slice(0, 4).map(c => ({
+          ...c,
+          fit: getCollegeFit(catPercentile, c, cutoffByCollegeId[c.id]),
+        }))
+
+        setTargetCollegeFits(withFit)
+      } catch (err) {
+        console.error('Error loading target college fits:', err)
+        setTargetCollegeFits([])
+      }
+    }
+
+    loadTargetFits()
+  }, [student?.target_colleges, student?.exam_scores?.percentile, student?.academic_background?.cat_percentile])
+
   // Handle account deletion
   const handleDeleteAccount = async () => {
     if (deleteInput !== 'DELETE') return
@@ -204,15 +249,6 @@ export default function Profile() {
   const overallProgress = statusCounts.Target > 0
     ? Math.round((statusCounts.Applied / statusCounts.Target) * 100)
     : 0
-
-  // Get target colleges with fit
-  const targetColleges = COLLEGES.filter(c => s.target_colleges?.includes(c.name))
-    .slice(0, 4)
-    .map(c => {
-      const catPct = parseFloat(ab.cat_percentile) || 0
-      const fit = fitLabel(catPct, c.cutoff)
-      return { ...c, fit }
-    })
 
   // Get documents info
   const documentsUploaded = s.documents_uploaded || []
@@ -305,7 +341,7 @@ export default function Profile() {
                 </button>
               </div>
 
-              {targetColleges.length === 0 ? (
+              {targetCollegeFits.length === 0 ? (
                 <div className="text-center py-6">
                   <p className="text-sm text-gray-500 mb-3">No target colleges yet</p>
                   <button
@@ -318,11 +354,8 @@ export default function Profile() {
               ) : (
                 <>
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {targetColleges.map(college => {
-                      const fitColor = college.fit.label === 'Strong match' ? 'bg-green-100 text-green-700' :
-                        college.fit.label === 'Good fit' ? 'bg-amber-100 text-amber-700' :
-                        'bg-blue-100 text-blue-700'
-
+                    {targetCollegeFits.map(college => {
+                      const fitStyle = getFitStyle(college.fit.tier)
                       return (
                         <div key={college.id} className="flex items-center gap-2 p-3 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-[#c9a84c]/50 hover:scale-102 motion-safe:transition-all motion-safe:duration-200">
                           <div className="w-10 h-10 bg-gradient-to-br from-[#c9a84c] to-[#b8942d] rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0">
@@ -332,15 +365,14 @@ export default function Profile() {
                             <p className="text-sm font-semibold text-gray-900 truncate">{college.name}</p>
                             <p className="text-xs text-gray-500">{college.location}</p>
                           </div>
-                          <span className={`text-xs font-semibold px-2 py-1 rounded-lg whitespace-nowrap ${fitColor}`}>
-                            {college.fit.label === 'Strong match' ? 'Safe' :
-                              college.fit.label === 'Good fit' ? 'Reach' : 'Dream'}
+                          <span className={`text-xs font-semibold px-2 py-1 rounded-lg whitespace-nowrap ${fitStyle.bg} ${fitStyle.text}`}>
+                            {college.fit.label}
                           </span>
                         </div>
                       )
                     })}
                   </div>
-                  {(s.target_colleges?.length || 0) > 5 && (
+                  {(s.target_colleges?.length || 0) > 4 && (
                     <button
                       onClick={() => navigate('/colleges')}
                       className="text-xs text-[#c9a84c] font-semibold hover:underline"

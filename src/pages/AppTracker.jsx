@@ -70,10 +70,6 @@ function normaliseApp(row) {
 // AppTracker — main page component
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AppTracker() {
-  useEffect(() => {
-    document.title = 'My Applications · Unidex'
-  }, [])
-
   const navigate = useNavigate()
   const isDemo   = useIsDemo()
 
@@ -91,6 +87,11 @@ export default function AppTracker() {
   const [saveError, setSaveError] = useState(null)
   const [rejectionCollege, setRejectionCollege] = useState(null)
   const [dismissedRejections, setDismissedRejections] = useState(new Set())
+
+  // ── Page title ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    document.title = 'My Applications · Unidex'
+  }, [])
 
   // Load dismissed rejections from localStorage on mount
   useEffect(() => {

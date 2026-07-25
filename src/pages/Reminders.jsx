@@ -55,16 +55,17 @@ function DeadlineCard({ deadline }) {
 }
 
 export default function Reminders() {
-  useEffect(() => {
-    document.title = 'Reminders · Unidex'
-  }, [])
-
   const [user, setUser] = useState(null)
   const [student, setStudent] = useState(null)
   const [applications, setApplications] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showLater, setShowLater] = useState(false)
+
+  // ── Page title ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    document.title = 'Reminders · Unidex'
+  }, [])
 
   // Get current user via auth listener
   useEffect(() => {

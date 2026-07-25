@@ -2,9 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Heart, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { getCollegeFit } from '../lib/collegeFit'
+import { getCollegeFit, getFitStyle } from '../lib/collegeFit'
 import Layout from '../components/Layout'
-
 
 // Generate deterministic hue (0-360) from college name
 function getAccentHueFromName(name) {
@@ -17,11 +16,7 @@ function getAccentHueFromName(name) {
   return Math.abs(hash) % 360
 }
 
-export default function CollegeDirectory({ user: propUser, loading: propLoading }) {
-  useEffect(() => {
-    document.title = 'Colleges · Unidex'
-  }, [])
-
+export default function CollegeDirectory({ user: propUser }) {
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -37,11 +32,18 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
 
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [searchTimeout, setSearchTimeout] = useState(null)
   const [activeTab, setActiveTab] = useState('relevant')
   const [subFilter, setSubFilter] = useState('All')
   const [rowPages, setRowPages] = useState({})
   const CARDS_PER_PAGE = 5
+
+  // Student's CAT percentile — read once, reused for fit calculation and row-building below.
+  const catPercentile = student?.exam_scores?.percentile ?? student?.academic_background?.cat_percentile ?? null
+
+  // ── Page title ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    document.title = 'Colleges · Unidex'
+  }, [])
 
   // Read URL params on mount
   useEffect(() => {
@@ -147,7 +149,6 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
     loadData()
   }, [])
 
-
   const handleAddToTracker = async (collegeId, e) => {
     e.stopPropagation()
 
@@ -252,9 +253,8 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
               <div key={college.id} className="flex-shrink-0 w-1/5">
                 <CollegeCard
                   college={college}
-                  student={student}
                   user={user}
-                  catPercentile={student?.exam_scores?.percentile ?? student?.academic_background?.cat_percentile}
+                  catPercentile={catPercentile}
                   cutoff={cutoffs[college.id]}
                   isTracked={trackedColleges.has(college.id)}
                   isAdding={adding.has(college.id)}
@@ -329,8 +329,6 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
 
   // Build rows based on active tab
   const buildRows = () => {
-    // Get student CAT percentile from exam_scores.percentile or academic_background.cat_percentile
-    const catPercentile = student?.exam_scores?.percentile ?? student?.academic_background?.cat_percentile ?? null
     const filteredColleges = colleges.filter(c => c.name?.toLowerCase().includes(search.toLowerCase()))
 
     if (activeTab === 'relevant') {
@@ -411,6 +409,7 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
   }
 
   const rows = buildRows()
+  const hasAnyResults = rows.some(r => r.colleges.length > 0)
 
   return (
     <Layout>
@@ -424,11 +423,7 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
                 type="text"
                 placeholder="Search colleges by name or city…"
                 value={search}
-                onChange={e => {
-                  setSearch(e.target.value)
-                  if (searchTimeout) clearTimeout(searchTimeout)
-                  setSearchTimeout(setTimeout(() => {}, 300))
-                }}
+                onChange={e => setSearch(e.target.value)}
                 className="w-full px-4 py-2.5 pr-10 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               {search && (
@@ -498,9 +493,14 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
             <div className="px-6">
               <div className="h-64 bg-slate-200 rounded-xl animate-pulse" />
             </div>
-          ) : rows[0]?.colleges?.length === 0 && !rows.some(r => r.colleges.length > 0) ? (
+          ) : !hasAnyResults && search ? (
+            // Search already found nothing — the search bar's own "No colleges
+            // found" message above covers this; avoid a second, contradictory
+            // empty state stacked underneath it.
+            null
+          ) : !hasAnyResults && activeTab === 'relevant' && catPercentile === null ? (
             <div className="text-center py-16 px-6">
-              <p className="text-lg font-semibold text-slate-900 mb-2">See Your Best Matches</p>
+              <p className="text-lg font-semibold text-slate-900 mb-2">See your best matches</p>
               <p className="text-slate-600 mb-6">Add your CAT score to your profile to discover colleges that fit your profile</p>
               {user && (
                 <button
@@ -509,6 +509,11 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
                   Update Profile
                 </button>
               )}
+            </div>
+          ) : !hasAnyResults ? (
+            <div className="text-center py-16 px-6">
+              <p className="text-lg font-semibold text-slate-900 mb-2">No colleges available yet</p>
+              <p className="text-slate-600">Check back soon — we're adding more colleges.</p>
             </div>
           ) : (
             <>
@@ -564,24 +569,9 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
 }
 
 // Compact card component
-function CollegeCard({ college, student, user, catPercentile, cutoff, isTracked, isAdding, isSaved, onNavigate, onAddClick, onSaveClick }) {
+function CollegeCard({ college, user, catPercentile, cutoff, isTracked, isAdding, isSaved, onNavigate, onAddClick, onSaveClick }) {
   const fit = catPercentile !== null && catPercentile !== undefined ? getCollegeFit(catPercentile, college, cutoff) : null
-
-  // Fit pill styling
-  const getFitStyle = (tier) => {
-    switch (tier) {
-      case 'out_of_reach':
-        return { bg: 'bg-rose-100', text: 'text-rose-700' }
-      case 'within_reach':
-        return { bg: 'bg-amber-100', text: 'text-amber-700' }
-      case 'strong_match':
-        return { bg: 'bg-emerald-100', text: 'text-emerald-700' }
-      case 'safe_bet':
-        return { bg: 'bg-blue-100', text: 'text-blue-700' }
-      default:
-        return { bg: 'bg-slate-100', text: 'text-slate-700' }
-    }
-  }
+  const fitStyle = fit ? getFitStyle(fit.tier) : null
 
   const initials = college.name.split(' ').map(w => w[0]).join('')
   const accentHue = getAccentHueFromName(college.name)
@@ -624,7 +614,7 @@ function CollegeCard({ college, student, user, catPercentile, cutoff, isTracked,
           <div className="absolute top-2 right-2">
             {fit ? (
               <span
-                className={`text-xs px-2 py-1 rounded-full font-semibold ${getFitStyle(fit.tier).bg} ${getFitStyle(fit.tier).text} cursor-help`}
+                className={`text-xs px-2 py-1 rounded-full font-semibold ${fitStyle.bg} ${fitStyle.text} cursor-help`}
                 title={fit.estimated ? `Estimated cutoff (${fit.cutoff}%ile) — verify on college site` : `Based on CAT cutoff ${fit.cutoff}%ile`}
               >
                 {fit.label}{fit.estimated ? ' · est.' : ''}

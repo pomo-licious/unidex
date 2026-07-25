@@ -24,16 +24,17 @@ const UPLOAD_CONFIG = {
 }
 
 export default function DocumentUpload() {
-  useEffect(() => {
-    document.title = 'Documents · Unidex'
-  }, [])
-
   const [user, setUser] = useState(null)
   const [documents, setDocuments] = useState({ resume: null, transcript: null, photo: null })
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
   const [dragActive, setDragActive] = useState(null)
   const [toast, setToast] = useState(null)
+
+  // ── Page title ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    document.title = 'Documents · Unidex'
+  }, [])
 
   // Get current user and load documents
   useEffect(() => {
@@ -215,7 +216,6 @@ export default function DocumentUpload() {
                   <h2 className="text-sm font-semibold text-gray-900">{config.label}</h2>
                   <p className="text-xs text-gray-500 mt-0.5">Max {config.maxSize}MB • {type === 'photo' ? 'JPG/PNG' : 'PDF'}</p>
                 </div>
-                <span className="text-2xl">{config.icon}</span>
               </div>
 
               {documents[type] ? (

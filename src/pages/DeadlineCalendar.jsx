@@ -15,6 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import ExamCalendar from '../components/ExamCalendar'
 import { supabase } from '../lib/supabase'
@@ -54,10 +55,7 @@ function toIso(year, month, day) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function DeadlineCalendar() {
-  useEffect(() => {
-    document.title = 'Calendar · Unidex'
-  }, [])
-
+  const navigate = useNavigate()
   const now = new Date()
 
   // ── View state — which month is showing ───────────────────────────────────
@@ -72,6 +70,11 @@ export default function DeadlineCalendar() {
 
   // ── Selected date — ISO string of the clicked day cell ────────────────────
   const [selected, setSelected] = useState(null)
+
+  // ── Page title ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    document.title = 'Calendar · Unidex'
+  }, [])
 
   // ── loadDeadlines — fetches colleges + unnests their deadline JSONB ────────
   const loadDeadlines = useCallback(async () => {
