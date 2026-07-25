@@ -2,13 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Heart, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { getCollegeFit } from '../lib/collegeFit'
 import Layout from '../components/Layout'
 
-const MATCH_SCORE_THRESHOLDS = {
-  1: { strong: 97, moderate: 93 },
-  2: { strong: 88, moderate: 82 },
-  3: { strong: 78, moderate: 70 },
-}
 
 // Generate deterministic hue (0-360) from college name
 function getAccentHueFromName(name) {
@@ -33,6 +29,7 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
   const [showSignInModal, setShowSignInModal] = useState(false)
   const [student, setStudent] = useState(null)
   const [colleges, setColleges] = useState([])
+  const [cutoffs, setCutoffs] = useState({})
   const [applicationCounts, setApplicationCounts] = useState({})
   const [trackedColleges, setTrackedColleges] = useState(new Set())
   const [savedColleges, setSavedColleges] = useState(new Set())
@@ -107,7 +104,7 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
     loadStudent()
   }, [user?.id])
 
-  // Fetch colleges
+  // Fetch colleges and cutoffs
   useEffect(() => {
     async function loadData() {
       try {
@@ -117,6 +114,18 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
           .order('name', { ascending: true })
 
         setColleges(collegeData || [])
+
+        // Fetch CAT cutoffs
+        const { data: cutoffData } = await supabase
+          .from('college_cutoffs')
+          .select('*')
+          .eq('exam_type', 'CAT')
+
+        const cutoffMap = {}
+        cutoffData?.forEach(row => {
+          cutoffMap[row.college_id] = row
+        })
+        setCutoffs(cutoffMap)
 
         const { data: counts } = await supabase
           .from('applications')
@@ -138,26 +147,6 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
     loadData()
   }, [])
 
-  // Helper functions
-  const getMatchScore = (college, percentile) => {
-    const tier = college.tier || 3
-    const thresholds = MATCH_SCORE_THRESHOLDS[tier]
-    if (!thresholds) return 'Reach'
-
-    if (percentile >= thresholds.strong) {
-      return 'Strong Match'
-    } else if (percentile >= thresholds.moderate) {
-      return 'Moderate'
-    }
-    return 'Reach'
-  }
-
-  const getMatchPriority = (college, percentile) => {
-    const score = getMatchScore(college, percentile)
-    const tier = college.tier || 3
-    const scoreWeight = score === 'Strong Match' ? 0 : score === 'Moderate' ? 1 : 2
-    return (tier * 10) + scoreWeight
-  }
 
   const handleAddToTracker = async (collegeId, e) => {
     e.stopPropagation()
@@ -265,6 +254,8 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
                   college={college}
                   student={student}
                   user={user}
+                  catPercentile={student?.exam_scores?.percentile ?? student?.academic_background?.cat_percentile}
+                  cutoff={cutoffs[college.id]}
                   isTracked={trackedColleges.has(college.id)}
                   isAdding={adding.has(college.id)}
                   isSaved={savedColleges.has(college.id)}
@@ -338,28 +329,44 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
 
   // Build rows based on active tab
   const buildRows = () => {
-    const cat = student?.academic_background?.cat_percentile
+    // Get student CAT percentile from exam_scores.percentile or academic_background.cat_percentile
+    const catPercentile = student?.exam_scores?.percentile ?? student?.academic_background?.cat_percentile ?? null
     const filteredColleges = colleges.filter(c => c.name?.toLowerCase().includes(search.toLowerCase()))
 
     if (activeTab === 'relevant') {
-      if (!cat) {
+      if (catPercentile === null) {
         return [{
-          title: 'See Your Best Matches',
-          colleges: [],
-          subtitle: 'Add your CAT score to your profile'
+          title: 'Complete your profile to see fit',
+          colleges: filteredColleges,
+          showAll: true
         }]
       }
 
-      const strong = filteredColleges.filter(c => getMatchScore(c, cat) === 'Strong Match').sort((a, b) => (a.tier || 3) - (b.tier || 3))
-      const moderate = filteredColleges.filter(c => getMatchScore(c, cat) === 'Moderate').sort((a, b) => (a.tier || 3) - (b.tier || 3))
-      const reachT1 = filteredColleges.filter(c => getMatchScore(c, cat) === 'Reach' && (c.tier || 3) === 1)
-      const safeT23 = filteredColleges.filter(c => getMatchScore(c, cat) === 'Strong Match' && (c.tier || 3) >= 2)
+      // Categorize colleges by fit tier
+      const withinReach = []
+      const strongMatch = []
+      const safeBet = []
+      const outOfReach = []
+      const unknown = []
+
+      filteredColleges.forEach(college => {
+        const fit = getCollegeFit(catPercentile, college, cutoffs[college.id])
+        if (fit.tier === 'within_reach') withinReach.push(college)
+        else if (fit.tier === 'strong_match') strongMatch.push(college)
+        else if (fit.tier === 'safe_bet') safeBet.push(college)
+        else if (fit.tier === 'out_of_reach') outOfReach.push(college)
+        else unknown.push(college)
+      })
+
+      // Sort by tier (preferred first)
+      const sortByTier = (colleges) => colleges.sort((a, b) => (a.tier || 3) - (b.tier || 3))
 
       return [
-        { title: 'Your Best Matches', colleges: strong },
-        { title: 'Worth Considering', colleges: moderate },
-        { title: 'Aspirational Picks', colleges: reachT1 },
-        { title: 'Safe Targets', colleges: safeT23 }
+        { title: 'Within Reach', colleges: sortByTier(withinReach) },
+        { title: 'Strong Match', colleges: sortByTier(strongMatch) },
+        { title: 'Safe Bet', colleges: sortByTier(safeBet) },
+        { title: 'Out of Reach', colleges: sortByTier(outOfReach) },
+        ...(unknown.length > 0 ? [{ title: 'Complete your profile to see fit', colleges: unknown, showAll: true }] : [])
       ]
     }
 
@@ -557,21 +564,25 @@ export default function CollegeDirectory({ user: propUser, loading: propLoading 
 }
 
 // Compact card component
-function CollegeCard({ college, student, user, isTracked, isAdding, isSaved, onNavigate, onAddClick, onSaveClick }) {
-  const getMatchScore = (college, percentile) => {
-    const tier = college.tier || 3
-    const thresholds = MATCH_SCORE_THRESHOLDS[tier]
-    if (!thresholds) return { label: 'Reach', color: 'bg-orange-500', tooltip: 'Your score is below typical cutoff — worth applying' }
+function CollegeCard({ college, student, user, catPercentile, cutoff, isTracked, isAdding, isSaved, onNavigate, onAddClick, onSaveClick }) {
+  const fit = catPercentile !== null && catPercentile !== undefined ? getCollegeFit(catPercentile, college, cutoff) : null
 
-    if (percentile >= thresholds.strong) {
-      return { label: 'Strong Match', color: 'bg-green-500', tooltip: 'Your CAT score is above this college\'s cutoff' }
-    } else if (percentile >= thresholds.moderate) {
-      return { label: 'Moderate', color: 'bg-amber-500', tooltip: 'Your score is near this college\'s cutoff range' }
+  // Fit pill styling
+  const getFitStyle = (tier) => {
+    switch (tier) {
+      case 'out_of_reach':
+        return { bg: 'bg-rose-100', text: 'text-rose-700' }
+      case 'within_reach':
+        return { bg: 'bg-amber-100', text: 'text-amber-700' }
+      case 'strong_match':
+        return { bg: 'bg-emerald-100', text: 'text-emerald-700' }
+      case 'safe_bet':
+        return { bg: 'bg-blue-100', text: 'text-blue-700' }
+      default:
+        return { bg: 'bg-slate-100', text: 'text-slate-700' }
     }
-    return { label: 'Reach', color: 'bg-orange-500', tooltip: 'Your score is below typical cutoff — worth applying' }
   }
 
-  const matchScore = student && user ? getMatchScore(college, student.academic_background?.cat_percentile) : null
   const initials = college.name.split(' ').map(w => w[0]).join('')
   const accentHue = getAccentHueFromName(college.name)
 
@@ -609,11 +620,14 @@ function CollegeCard({ college, student, user, isTracked, isAdding, isSaved, onN
             </>
           )}
 
-          {/* Match badge */}
+          {/* Fit pill */}
           <div className="absolute top-2 right-2">
-            {user && matchScore ? (
-              <span className={`text-xs px-2 py-1 rounded-full font-semibold text-white ${matchScore.color} cursor-help`} title={matchScore.tooltip}>
-                {matchScore.label}
+            {fit ? (
+              <span
+                className={`text-xs px-2 py-1 rounded-full font-semibold ${getFitStyle(fit.tier).bg} ${getFitStyle(fit.tier).text} cursor-help`}
+                title={fit.estimated ? `Estimated cutoff (${fit.cutoff}%ile) — verify on college site` : `Based on CAT cutoff ${fit.cutoff}%ile`}
+              >
+                {fit.label}{fit.estimated ? ' · est.' : ''}
               </span>
             ) : !user ? (
               <span className="text-xs px-2 py-1 rounded-full font-semibold text-white bg-slate-600">
