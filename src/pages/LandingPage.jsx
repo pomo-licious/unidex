@@ -250,9 +250,17 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Right: Mockup Card with Parallax */}
-          <div className="motion-safe:animate-slideUp" style={{ backgroundAttachment: 'fixed' }}>
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden hover:shadow-2xl motion-safe:transition-shadow motion-safe:duration-300">
+          {/* Right: Student visual blended with product mockup */}
+          <div className="relative motion-safe:animate-slideUp lg:pr-16 lg:pb-16">
+            {/* Realistic student image — drop your photo at public/hero-student.png.
+                If the file is missing it hides itself so the layout never breaks. */}
+            <img
+              src="/hero-student.png"
+              alt="MBA applicant tracking applications on Unidex"
+              onError={(e) => { e.currentTarget.style.display = 'none' }}
+              className="hidden lg:block absolute right-0 bottom-0 w-72 h-80 object-cover rounded-2xl shadow-2xl ring-1 ring-black/5 z-0"
+            />
+            <div className="relative z-10 bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden hover:shadow-2xl motion-safe:transition-shadow motion-safe:duration-300">
             <div className="flex h-96 bg-gray-50">
               {/* Sidebar */}
               <div className="w-40 bg-[#1a2744] text-white p-4 space-y-6">
@@ -484,8 +492,8 @@ export default function LandingPage() {
       </section>
 
       {/* SECTION 7: VISION/MISSION */}
-      <section id="for-colleges" ref={el => elementsRef.current['for-colleges'] = el} className="bg-[#1a2744] text-white py-20 md:py-28">
-        <div className={`max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-16 motion-safe:transition-all motion-safe:duration-700 ${isVisible['for-colleges'] ? 'motion-safe:opacity-100 motion-safe:translate-y-0' : 'motion-safe:opacity-0 motion-safe:translate-y-8'}`}>
+      <section id="vision" ref={el => elementsRef.current['vision'] = el} className="bg-[#1a2744] text-white py-20 md:py-28">
+        <div className={`max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-16 motion-safe:transition-all motion-safe:duration-700 ${isVisible['vision'] ? 'motion-safe:opacity-100 motion-safe:translate-y-0' : 'motion-safe:opacity-0 motion-safe:translate-y-8'}`}>
           {/* Vision */}
           <div className="hover:translate-y-2 motion-safe:transition-transform motion-safe:duration-300">
             <h3 className="text-sm font-bold text-[#c9a84c] uppercase tracking-wider mb-4">Our Vision</h3>
@@ -501,12 +509,31 @@ export default function LandingPage() {
           <div className="border-l border-[#c9a84c]/30 pl-12 hover:translate-y-2 motion-safe:transition-transform motion-safe:duration-300">
             <h3 className="text-sm font-bold text-[#c9a84c] uppercase tracking-wider mb-4">Our Mission</h3>
             <p className="text-3xl md:text-4xl font-serif font-bold mb-8 leading-tight">
-              To help students discover, organize, and submit their applications seamlessly.
+              To help students discover, organize, complete, and track their applications from one place.
             </p>
             <p className="text-gray-400 text-lg leading-relaxed">
               Through thoughtful design and smart technology, we're building the future of MBA applications in India.
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* SECTION 7.5: FOR COLLEGES */}
+      <section id="for-colleges" ref={el => elementsRef.current['for-colleges'] = el} className="bg-[#faf8f5] py-20 md:py-28 border-b border-gray-200">
+        <div className={`max-w-4xl mx-auto px-6 text-center motion-safe:transition-all motion-safe:duration-700 ${isVisible['for-colleges'] ? 'motion-safe:opacity-100 motion-safe:translate-y-0' : 'motion-safe:opacity-0 motion-safe:translate-y-8'}`}>
+          <h3 className="text-sm font-bold text-[#c9a84c] uppercase tracking-wider mb-4">For colleges</h3>
+          <h2 className="text-4xl md:text-5xl font-serif font-bold text-[#1a2744] mb-6 leading-tight">
+            Reach serious MBA applicants.
+          </h2>
+          <p className="text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto mb-10">
+            Connect with serious MBA applicants, improve application visibility, and simplify the admissions journey — all through one trusted platform.
+          </p>
+          <a
+            href="mailto:partners@unidex.co.in?subject=Partner%20with%20Unidex"
+            className="inline-flex items-center justify-center px-8 py-3 bg-[#1a2744] text-white rounded-lg font-semibold hover:bg-[#243559] hover:scale-105 motion-safe:transition-all motion-safe:duration-300 active:scale-95"
+          >
+            Partner with Unidex
+          </a>
         </div>
       </section>
 

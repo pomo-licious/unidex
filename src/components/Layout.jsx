@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react'
 import { useIsDemo } from '../context/DemoContext'
 import { NewsTicker } from './NewsTicker'
 import { supabase } from '../lib/supabase'
-import { Bell } from 'lucide-react'
+import { Bell, Calendar } from 'lucide-react'
 
 // ─── Sidebar navigation items ────────────────────────────────────────────────
 // Each item has a URL path, a display label, and an inline SVG icon.
@@ -276,10 +276,10 @@ export default function Layout({ children }) {
               to={to}
               // isActive is true when the current URL matches this link's path
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border-l-2 ${
                   isActive
-                    ? 'bg-indigo-50 text-indigo-700'         // highlighted when on this page
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'  // default + hover state
+                    ? 'bg-[#c9a84c]/10 text-[#1a2744] border-[#c9a84c] font-semibold'  // navy text + gold accent when active
+                    : 'text-gray-600 border-transparent hover:bg-gray-50 hover:text-gray-900'  // default + hover state
                 }`
               }
             >
@@ -392,6 +392,19 @@ export default function Layout({ children }) {
       {/* ── Main content area — everything to the right of the sidebar ── */}
       {/* ml-60 = left margin equal to sidebar width so content doesn't overlap */}
       <main className="ml-60 flex-1 min-h-screen flex flex-col">
+        {/* CAT countdown strip */}
+        <div className="flex items-center justify-center gap-2 px-6 py-1.5 border-b border-gray-100 bg-[#faf8f5] text-xs">
+          <Calendar className="w-3.5 h-3.5 text-[#c9a84c]" />
+          <span className="font-semibold text-[#1a2744]">CAT 2026 — {daysUntilCAT} days away</span>
+          <span className="text-gray-300">·</span>
+          <button
+            onClick={() => navigate('/calendar')}
+            className="font-medium text-[#c9a84c] hover:underline"
+          >
+            View deadline calendar →
+          </button>
+        </div>
+
         {/* Header with news ticker and bell icon */}
         <div className="flex items-center justify-between px-6 py-1 border-b border-gray-200 bg-white">
           <NewsTicker />
