@@ -171,7 +171,7 @@ export default function Layout({ children }) {
         const sevenDaysLater = new Date(today)
         sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
 
-        (appData || []).forEach(app => {
+        ;(appData || []).forEach(app => {
           if (app.colleges?.deadlines && Array.isArray(app.colleges.deadlines)) {
             app.colleges.deadlines.forEach(deadline => {
               const deadlineDate = new Date(deadline.date || deadline)
@@ -210,7 +210,7 @@ export default function Layout({ children }) {
         const today = new Date()
         today.setHours(0, 0, 0, 0)
 
-        (appData || []).forEach(app => {
+        ;(appData || []).forEach(app => {
           if (app.colleges?.deadlines && Array.isArray(app.colleges.deadlines)) {
             app.colleges.deadlines.forEach(deadline => {
               const deadlineDate = new Date(deadline.date || deadline)

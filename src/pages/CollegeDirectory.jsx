@@ -34,11 +34,32 @@ export default function CollegeDirectory({ user: propUser }) {
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState('relevant')
   const [subFilter, setSubFilter] = useState('All')
+  const [region, setRegion] = useState('all')   // 'all' | 'ncr'
   const [rowPages, setRowPages] = useState({})
   const CARDS_PER_PAGE = 5
 
-  // Student's CAT percentile — read once, reused for fit calculation and row-building below.
-  const catPercentile = student?.exam_scores?.percentile ?? student?.academic_background?.cat_percentile ?? null
+  // Student's primary exam + percentile. exam_scores may carry an exam/exam_type;
+  // default to CAT (the app's historical assumption). studentScore is the object
+  // the exam-aware fit engine expects, or null when there's no score yet.
+  const studentExam = student?.exam_scores?.exam || student?.exam_scores?.exam_type || 'CAT'
+  const studentPercentile = student?.exam_scores?.percentile ?? student?.academic_background?.cat_percentile ?? null
+  const studentScore = studentPercentile === null ? null : { exam: studentExam, percentile: studentPercentile }
+
+  // Delhi NCR = these cities, matched on the normalised "City, State" location.
+  const NCR_CITIES = ['delhi', 'new delhi', 'gurgaon', 'gurugram', 'noida', 'greater noida', 'ghaziabad', 'faridabad']
+  const inDelhiNCR = (locationStr) => {
+    if (!locationStr) return false
+    const city = locationStr.split(',')[0].trim().toLowerCase()
+    return NCR_CITIES.includes(city)
+  }
+
+  // Component-scope visible list (search + region). Defined here — not inside
+  // buildRows — so the result count in the header can reference it too.
+  const filteredColleges = colleges.filter(c => {
+    const matchesSearch = c.name?.toLowerCase().includes(search.toLowerCase())
+    const matchesRegion = region === 'all' || (region === 'ncr' && inDelhiNCR(c.location))
+    return matchesSearch && matchesRegion
+  })
 
   // ── Page title ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -117,15 +138,16 @@ export default function CollegeDirectory({ user: propUser }) {
 
         setColleges(collegeData || [])
 
-        // Fetch CAT cutoffs
+        // Fetch cutoffs for ALL exams, grouped per college so the exam-aware
+        // fit engine can pick the row matching each student's exam.
         const { data: cutoffData } = await supabase
           .from('college_cutoffs')
           .select('*')
-          .eq('exam_type', 'CAT')
 
         const cutoffMap = {}
         cutoffData?.forEach(row => {
-          cutoffMap[row.college_id] = row
+          if (!cutoffMap[row.college_id]) cutoffMap[row.college_id] = []
+          cutoffMap[row.college_id].push(row)
         })
         setCutoffs(cutoffMap)
 
@@ -254,8 +276,8 @@ export default function CollegeDirectory({ user: propUser }) {
                 <CollegeCard
                   college={college}
                   user={user}
-                  catPercentile={catPercentile}
-                  cutoff={cutoffs[college.id]}
+                  studentScore={studentScore}
+                  cutoffRows={cutoffs[college.id]}
                   isTracked={trackedColleges.has(college.id)}
                   isAdding={adding.has(college.id)}
                   isSaved={savedColleges.has(college.id)}
@@ -327,12 +349,11 @@ export default function CollegeDirectory({ user: propUser }) {
     })
   }
 
-  // Build rows based on active tab
+  // Build rows based on active tab. Operates on the component-scope
+  // filteredColleges (already narrowed by search + region).
   const buildRows = () => {
-    const filteredColleges = colleges.filter(c => c.name?.toLowerCase().includes(search.toLowerCase()))
-
     if (activeTab === 'relevant') {
-      if (catPercentile === null) {
+      if (studentScore === null) {
         return [{
           title: 'Complete your profile to see fit',
           colleges: filteredColleges,
@@ -348,7 +369,7 @@ export default function CollegeDirectory({ user: propUser }) {
       const unknown = []
 
       filteredColleges.forEach(college => {
-        const fit = getCollegeFit(catPercentile, college, cutoffs[college.id])
+        const fit = getCollegeFit(studentScore, college, cutoffs[college.id])
         if (fit.tier === 'within_reach') withinReach.push(college)
         else if (fit.tier === 'strong_match') strongMatch.push(college)
         else if (fit.tier === 'safe_bet') safeBet.push(college)
@@ -468,6 +489,23 @@ export default function CollegeDirectory({ user: propUser }) {
             ))}
           </div>
 
+          {/* Region filter — narrows every tab by normalised location */}
+          <div className="px-6 pb-3 flex items-center gap-2">
+            <span className="text-xs font-medium text-slate-500">Region:</span>
+            {[{ id: 'all', label: 'All India' }, { id: 'ncr', label: 'Delhi NCR' }].map(r => (
+              <button
+                key={r.id}
+                onClick={() => setRegion(r.id)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                  region === r.id
+                    ? 'bg-[#c9a84c] text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}>
+                {r.label}
+              </button>
+            ))}
+          </div>
+
           {/* Sub-filters for "All Colleges" tab */}
           {activeTab === 'all' && (
             <div className="px-6 pb-3 flex gap-2">
@@ -498,7 +536,7 @@ export default function CollegeDirectory({ user: propUser }) {
             // found" message above covers this; avoid a second, contradictory
             // empty state stacked underneath it.
             null
-          ) : !hasAnyResults && activeTab === 'relevant' && catPercentile === null ? (
+          ) : !hasAnyResults && activeTab === 'relevant' && studentScore === null ? (
             <div className="text-center py-16 px-6">
               <p className="text-lg font-semibold text-slate-900 mb-2">See your best matches</p>
               <p className="text-slate-600 mb-6">Add your CAT score to your profile to discover colleges that fit your profile</p>
@@ -569,8 +607,8 @@ export default function CollegeDirectory({ user: propUser }) {
 }
 
 // Compact card component
-function CollegeCard({ college, user, catPercentile, cutoff, isTracked, isAdding, isSaved, onNavigate, onAddClick, onSaveClick }) {
-  const fit = catPercentile !== null && catPercentile !== undefined ? getCollegeFit(catPercentile, college, cutoff) : null
+function CollegeCard({ college, user, studentScore, cutoffRows, isTracked, isAdding, isSaved, onNavigate, onAddClick, onSaveClick }) {
+  const fit = studentScore ? getCollegeFit(studentScore, college, cutoffRows) : null
   const fitStyle = fit ? getFitStyle(fit.tier) : null
 
   const initials = college.name.split(' ').map(w => w[0]).join('')
@@ -615,7 +653,7 @@ function CollegeCard({ college, user, catPercentile, cutoff, isTracked, isAdding
             {fit ? (
               <span
                 className={`text-xs px-2 py-1 rounded-full font-semibold ${fitStyle.bg} ${fitStyle.text} cursor-help`}
-                title={fit.estimated ? `Estimated cutoff (${fit.cutoff}%ile) — verify on college site` : `Based on CAT cutoff ${fit.cutoff}%ile`}
+                title={fit.estimated ? `Estimated cutoff (${fit.cutoff}%ile) — verify on college site` : `Based on ${fit.exam} cutoff ${fit.cutoff}%ile`}
               >
                 {fit.label}{fit.estimated ? ' · est.' : ''}
               </span>

@@ -106,21 +106,26 @@ export default function Profile() {
 
         if (fetchErr) throw fetchErr
 
+        // Source of truth for deadlines: colleges.deadlines (jsonb) — an array
+        // of { round, date, type }. The separate `deadlines` table is unused.
+        // Leading ';' guards against ASI: without it `const upcoming = []` runs
+        // into `(data || [])` and throws "TypeError: [] is not a function".
+        const now = new Date()
         const upcoming = []
-        (data || []).forEach(college => {
-          const deadlineArray = college.deadlines || []
-          if (Array.isArray(deadlineArray)) {
-            deadlineArray.forEach(deadline => {
-              const dueDate = new Date(deadline)
-              if (dueDate > new Date()) {
-                upcoming.push({
-                  college: college.name,
-                  date: deadline,
-                  daysLeft: Math.ceil((dueDate - new Date()) / (1000 * 60 * 60 * 24))
-                })
-              }
+        ;(data || []).forEach(college => {
+          const entries = Array.isArray(college.deadlines) ? college.deadlines : []
+          entries.forEach(entry => {
+            // Skip result-announcement rows; this widget shows upcoming *deadlines*.
+            if (!entry?.date || entry.type === 'Result') return
+            const dueDate = new Date(entry.date)
+            if (Number.isNaN(dueDate.getTime()) || dueDate <= now) return
+            upcoming.push({
+              college: college.name,
+              date: entry.date,
+              type: entry.type || 'Application',
+              daysLeft: Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24)),
             })
-          }
+          })
         })
 
         upcoming.sort((a, b) => new Date(a.date) - new Date(b.date))
@@ -153,17 +158,24 @@ export default function Profile() {
 
         const collegeIds = (collegeRows || []).map(c => c.id)
         const { data: cutoffRows } = collegeIds.length
-          ? await supabase.from('college_cutoffs').select('*').eq('exam_type', 'CAT').in('college_id', collegeIds)
+          ? await supabase.from('college_cutoffs').select('*').in('college_id', collegeIds)
           : { data: [] }
 
-        const cutoffByCollegeId = {}
-        cutoffRows?.forEach(row => { cutoffByCollegeId[row.college_id] = row })
+        // Group cutoffs per college so the exam-aware engine can pick the row
+        // matching the student's exam.
+        const cutoffsByCollegeId = {}
+        cutoffRows?.forEach(row => {
+          if (!cutoffsByCollegeId[row.college_id]) cutoffsByCollegeId[row.college_id] = []
+          cutoffsByCollegeId[row.college_id].push(row)
+        })
 
-        const catPercentile = student.exam_scores?.percentile ?? student.academic_background?.cat_percentile ?? null
+        const studentExam = student.exam_scores?.exam || student.exam_scores?.exam_type || 'CAT'
+        const studentPercentile = student.exam_scores?.percentile ?? student.academic_background?.cat_percentile ?? null
+        const studentScore = studentPercentile === null ? null : { exam: studentExam, percentile: studentPercentile }
 
         const withFit = (collegeRows || []).slice(0, 4).map(c => ({
           ...c,
-          fit: getCollegeFit(catPercentile, c, cutoffByCollegeId[c.id]),
+          fit: getCollegeFit(studentScore, c, cutoffsByCollegeId[c.id]),
         }))
 
         setTargetCollegeFits(withFit)
