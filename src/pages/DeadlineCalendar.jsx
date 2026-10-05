@@ -350,10 +350,9 @@ export default function DeadlineCalendar() {
           </div>
         )}
 
-        {/* Exam Calendar Section */}
-        <div className="mt-12 pt-8 border-t border-gray-200">
-          <ExamCalendar />
-        </div>
+        {/* Exam Calendar Section — ExamCalendar renders its own divider only when
+            it has data, so nothing shows here when exam_calendar is empty. */}
+        <ExamCalendar />
       </div>
     </Layout>
   )

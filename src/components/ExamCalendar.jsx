@@ -17,42 +17,48 @@ const EXAM_COLORS = {
 export default function ExamCalendar() {
   const { exams, loading } = useExamCalendar()
 
+  // While loading, show a lightweight skeleton (no header — we don't yet know
+  // whether there's any data to show).
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="h-24 bg-slate-100 rounded-xl animate-pulse" />
+        ))}
+      </div>
+    )
+  }
+
+  // Hide the whole section — including the "All dates verified" header — until
+  // exam_calendar actually has rows. An empty table shouldn't claim verified data.
+  if (!exams || exams.length === 0) return null
+
   const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
   const upcoming = exams.filter(e => !e.exam_date || e.exam_date >= today)
   const past     = exams.filter(e => e.exam_date && e.exam_date < today)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mt-12 pt-8 border-t border-slate-200">
       <div>
         <h2 className="text-lg font-bold text-slate-900">Exam Calendar</h2>
         <p className="text-sm text-slate-400 mt-0.5">2026-27 cycle · All dates verified</p>
       </div>
 
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-24 bg-slate-100 rounded-xl animate-pulse" />
-          ))}
-        </div>
-      ) : (
-        <>
-          {/* Upcoming exams */}
-          <section className="space-y-3">
-            {upcoming.map(exam => <ExamCard key={exam.id} exam={exam} />)}
-          </section>
+      {/* Upcoming exams */}
+      <section className="space-y-3">
+        {upcoming.map(exam => <ExamCard key={exam.id} exam={exam} />)}
+      </section>
 
-          {/* Past exams (collapsed) */}
-          {past.length > 0 && (
-            <section>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
-                Past
-              </p>
-              <div className="space-y-2 opacity-50">
-                {past.map(exam => <ExamCard key={exam.id} exam={exam} compact />)}
-              </div>
-            </section>
-          )}
-        </>
+      {/* Past exams (collapsed) */}
+      {past.length > 0 && (
+        <section>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
+            Past
+          </p>
+          <div className="space-y-2 opacity-50">
+            {past.map(exam => <ExamCard key={exam.id} exam={exam} compact />)}
+          </div>
+        </section>
       )}
     </div>
   )

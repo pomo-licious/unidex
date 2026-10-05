@@ -10,7 +10,7 @@
 // Route: /onboarding
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, Fragment } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { COLLEGES, TYPE_META, fitLabel } from '../lib/mockData'
@@ -46,6 +46,53 @@ export default function Onboarding() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
+  // ── Existing student row (when editing an already-created profile) ─────────
+  // Drives prefill and the merge-on-save that protects existing data.
+  const [existing, setExisting] = useState(null)
+  const isEdit = !!existing
+
+  // Prefill the form from the student's current row so "Edit Profile" opens a
+  // populated form instead of a blank wizard.
+  useEffect(() => {
+    let cancelled = false
+    async function loadExisting() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+        const { data } = await supabase
+          .from('students')
+          .select('*')
+          .eq('user_id', user.id)
+          .single()
+        if (cancelled || !data) return
+
+        setExisting(data)
+        const ab = data.academic_background || {}
+        const asStr = (v) => (v !== null && v !== undefined ? String(v) : '')
+        setForm(f => ({
+          ...f,
+          name:  data.name ?? '',
+          email: data.email ?? '',
+          phone: ab.phone ?? '',
+          city:  ab.city ?? '',
+          degree: ab.degree ?? '',
+          grad_year:      asStr(ab.grad_year),
+          gpa:            asStr(ab.cgpa),          // stored canonically as cgpa
+          cat_percentile: asStr(ab.cat_percentile),
+          gmat_score:     asStr(ab.gmat_score),
+          work_exp_yrs:   asStr(ab.work_exp_yrs),
+          company: ab.company ?? '',
+          role:    ab.role ?? '',
+          target_colleges: Array.isArray(data.target_colleges) ? data.target_colleges : [],
+        }))
+      } catch {
+        // No existing profile (first-time onboarding) — leave the form blank.
+      }
+    }
+    loadExisting()
+    return () => { cancelled = true }
+  }, [])
+
   // ── set — generic input handler: updates whichever field was changed ───────
   const set = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
@@ -69,27 +116,42 @@ export default function Onboarding() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      // Upsert into students table
+      // Merge-safe save: a form value is used only when the user actually entered
+      // something; an empty input keeps whatever was already stored. This prevents
+      // the edit form from wiping existing data with blanks.
+      const prev = existing?.academic_background || {}
+      const keepStr = (v, p) => (v != null && String(v).trim() !== '' ? v : (p ?? null))
+      const keepNum = (v, p) => (v != null && String(v).trim() !== '' ? parseFloat(v) : (p ?? null))
+      const keepInt = (v, p) => (v != null && String(v).trim() !== '' ? parseInt(v) : (p ?? null))
+
+      const payload = {
+        user_id: user.id,
+        name:  keepStr(form.name, existing?.name),
+        email: keepStr(form.email, existing?.email),
+        academic_background: {
+          ...prev,
+          phone:          keepStr(form.phone, prev.phone),
+          city:           keepStr(form.city, prev.city),
+          degree:         keepStr(form.degree, prev.degree),
+          grad_year:      keepInt(form.grad_year, prev.grad_year),
+          cgpa:           keepNum(form.gpa, prev.cgpa),
+          cat_percentile: keepNum(form.cat_percentile, prev.cat_percentile),
+          gmat_score:     keepInt(form.gmat_score, prev.gmat_score),
+          work_exp_yrs:   keepNum(form.work_exp_yrs, prev.work_exp_yrs),
+          company:        keepStr(form.company, prev.company),
+          role:           keepStr(form.role, prev.role),
+        },
+      }
+      // Never wipe a non-empty target list with an empty selection.
+      if (form.target_colleges && form.target_colleges.length > 0) {
+        payload.target_colleges = form.target_colleges
+      } else if (existing?.target_colleges) {
+        payload.target_colleges = existing.target_colleges
+      }
+
       const { error: upsertError } = await supabase
         .from('students')
-        .upsert({
-          user_id: user.id,
-          name: form.name,
-          email: form.email,
-          target_colleges: form.target_colleges,
-          academic_background: {
-            phone: form.phone,
-            city: form.city,
-            degree: form.degree,
-            grad_year: form.grad_year ? parseInt(form.grad_year) : null,
-            cgpa: form.gpa ? parseFloat(form.gpa) : null,
-            cat_percentile: form.cat_percentile ? parseFloat(form.cat_percentile) : null,
-            gmat_score: form.gmat_score ? parseInt(form.gmat_score) : null,
-            work_exp_yrs: form.work_exp_yrs ? parseFloat(form.work_exp_yrs) : null,
-            company: form.company,
-            role: form.role,
-          }
-        }, { onConflict: 'user_id' })
+        .upsert(payload, { onConflict: 'user_id' })
 
       if (upsertError) throw upsertError
 
@@ -126,7 +188,7 @@ export default function Onboarding() {
               </div>
             </div>
           </Link>
-          <p className="text-sm text-gray-500 mt-3">Set up your MBA profile — takes 2 minutes</p>
+          <p className="text-sm text-gray-500 mt-3">{isEdit ? 'Edit your MBA profile' : 'Set up your MBA profile — takes 2 minutes'}</p>
         </div>
 
         {/* ── Step indicator — shows which step is active/done/upcoming ── */}
@@ -293,7 +355,7 @@ export default function Onboarding() {
                 onClick={handleStartTracking}
                 disabled={saving}
                 className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                {saving ? 'Saving…' : 'Start Tracking →'}
+                {saving ? 'Saving…' : isEdit ? 'Save changes →' : 'Start Tracking →'}
               </button>
             )}
           </div>
