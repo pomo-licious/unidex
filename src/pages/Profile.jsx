@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, BookOpen, Calendar, FileText, ChevronDown, Pencil, Trash2, BarChart3, Briefcase, GraduationCap, Building2, Clock, File } from 'lucide-react'
+import { Plus, BookOpen, Calendar, FileText, ChevronDown, Pencil, Trash2, BarChart3, Briefcase, GraduationCap, Landmark, ClipboardList, Clock, File } from 'lucide-react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { getCollegeFit, getFitStyle } from '../lib/collegeFit'
@@ -90,9 +90,12 @@ export default function Profile() {
     loadApplications()
   }, [student?.id])
 
-  // Fetch upcoming deadlines for target colleges
+  // Fetch upcoming deadlines from the student's tracked applications — the SAME
+  // source the tracker and Reminders use, so this card can never show "none"
+  // while the tracker shows live countdowns for the same colleges.
+  // Source of truth: colleges.deadlines (jsonb) — [{ round, date, type }, ...].
   useEffect(() => {
-    if (!student?.target_colleges?.length) {
+    if (!student?.id) {
       setCollegeDeadlines([])
       return
     }
@@ -100,38 +103,40 @@ export default function Profile() {
     async function loadDeadlines() {
       try {
         const { data, error: fetchErr } = await supabase
-          .from('colleges')
-          .select('name, deadlines')
-          .in('name', student.target_colleges)
+          .from('applications')
+          .select('colleges(name, deadlines)')
+          .eq('student_id', student.id)
 
         if (fetchErr) throw fetchErr
 
+        const now = new Date()
         const upcoming = []
-        (data || []).forEach(college => {
-          const deadlineArray = college.deadlines || []
-          if (Array.isArray(deadlineArray)) {
-            deadlineArray.forEach(deadline => {
-              const dueDate = new Date(deadline)
-              if (dueDate > new Date()) {
-                upcoming.push({
-                  college: college.name,
-                  date: deadline,
-                  daysLeft: Math.ceil((dueDate - new Date()) / (1000 * 60 * 60 * 24))
-                })
-              }
+        // Leading ';' guards against ASI running `const upcoming = []` into `(data || [])`.
+        ;(data || []).forEach(app => {
+          const entries = Array.isArray(app.colleges?.deadlines) ? app.colleges.deadlines : []
+          entries.forEach(entry => {
+            // jsonb entries are objects; skip result-announcement rows.
+            if (!entry?.date || entry.type === 'Result') return
+            const dueDate = new Date(entry.date)
+            if (Number.isNaN(dueDate.getTime()) || dueDate <= now) return
+            upcoming.push({
+              college: app.colleges.name,
+              date: entry.date,
+              daysLeft: Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24)),
             })
-          }
+          })
         })
 
         upcoming.sort((a, b) => new Date(a.date) - new Date(b.date))
-        setCollegeDeadlines(upcoming.slice(0, 2))
+        setCollegeDeadlines(upcoming.slice(0, 3))
       } catch (err) {
         console.error('Error fetching deadlines:', err)
+        setCollegeDeadlines([])
       }
     }
 
     loadDeadlines()
-  }, [student?.target_colleges])
+  }, [student?.id])
 
   // Fetch fit data for target colleges — uses the same live college_cutoffs +
   // getCollegeFit engine as the Colleges directory, so both screens always
@@ -329,7 +334,7 @@ export default function Profile() {
             <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-lg motion-safe:transition-shadow motion-safe:duration-200">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-[#c9a84c]" />
+                  <Landmark className="w-4 h-4 text-[#c9a84c]" />
                   Target Colleges
                 </h2>
                 <button
@@ -387,8 +392,9 @@ export default function Profile() {
             {/* APPLICATION OVERVIEW CARD */}
             <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-lg motion-safe:transition-shadow motion-safe:duration-200">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1">
-                  <span className="text-lg">📋</span> Application Overview
+                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-[#c9a84c]" />
+                  Application Overview
                 </h2>
                 <button onClick={() => navigate('/tracker')} className="text-xs text-[#c9a84c] font-semibold hover:underline">
                   View →
@@ -430,7 +436,9 @@ export default function Profile() {
           {/* RIGHT COLUMN */}
           <div className="space-y-4">
 
-            {/* UPCOMING DEADLINES CARD */}
+            {/* UPCOMING DEADLINES CARD — hidden entirely when empty, so it never
+                contradicts the tracker's live countdowns for the same colleges. */}
+            {collegeDeadlines.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-lg motion-safe:transition-shadow motion-safe:duration-200">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
@@ -442,10 +450,7 @@ export default function Profile() {
                 </button>
               </div>
 
-              {collegeDeadlines.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-6">No upcoming deadlines</p>
-              ) : (
-                <div className="space-y-2">
+              <div className="space-y-2">
                   {collegeDeadlines.map((deadline, idx) => {
                     const urgencyColor = deadline.daysLeft <= 14 ? 'text-red-600' : deadline.daysLeft <= 30 ? 'text-amber-600' : 'text-gray-600'
                     return (
@@ -460,8 +465,8 @@ export default function Profile() {
                     )
                   })}
                 </div>
-              )}
             </div>
+            )}
 
             {/* DOCUMENTS CARD */}
             <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-lg motion-safe:transition-shadow motion-safe:duration-200">

@@ -26,7 +26,6 @@ import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { STATUSES, STATUS_META } from '../lib/mockData'
 import { useIsDemo } from '../context/DemoContext'
-import { SidebarAds } from '../components/AdBanner'
 import { createDeadlineNotifications } from '../lib/notificationHelpers'
 import RejectionRecoveryModal from '../components/RejectionRecoveryModal'
 
@@ -528,12 +527,6 @@ export default function AppTracker() {
         )}
       </div>
 
-        {/* Right ad sidebar — only visible for demo@unidex.in, hidden on mobile */}
-        {isDemo && (
-          <div className="w-72 shrink-0 px-4 py-8 hidden lg:block">
-            <SidebarAds />
-          </div>
-        )}
       </div>
     </Layout>
   )

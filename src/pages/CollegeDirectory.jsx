@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Heart, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Heart, ChevronLeft, ChevronRight, X, Star, Flame } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getCollegeFit, getFitStyle } from '../lib/collegeFit'
 import Layout from '../components/Layout'
@@ -448,9 +448,9 @@ export default function CollegeDirectory({ user: propUser }) {
           {/* Tabs */}
           <div className="px-6 pb-4 flex gap-6 border-b border-slate-100">
             {[
-              { id: 'relevant', label: 'Most Relevant', icon: '⭐' },
-              { id: 'popular', label: 'Most Popular', icon: '🔥' },
-              { id: 'all', label: 'All Colleges' },
+              { id: 'relevant', label: 'Most Relevant', Icon: Star },
+              { id: 'popular', label: 'Most Popular', Icon: Flame },
+              { id: 'all', label: 'All Colleges', Icon: null },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -458,12 +458,13 @@ export default function CollegeDirectory({ user: propUser }) {
                   setActiveTab(tab.id)
                   setSubFilter('All')
                 }}
-                className={`pb-4 text-sm font-medium transition-colors ${
+                className={`pb-4 text-sm font-medium transition-colors inline-flex items-center gap-1.5 ${
                   activeTab === tab.id
                     ? 'text-indigo-600 border-b-2 border-indigo-600'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}>
-                {tab.icon} {tab.label}
+                {tab.Icon && <tab.Icon className="w-4 h-4" />}
+                {tab.label}
               </button>
             ))}
           </div>
