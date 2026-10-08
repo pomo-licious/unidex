@@ -54,10 +54,11 @@ function nearestDeadline(deadlines) {
 // We flatten this so every component just reads app.college, app.deadline, etc.
 function normaliseApp(row) {
   return {
-    id:         row.id,
-    status:     row.status,
-    notes:      row.notes,
-    college_id: row.college_id,
+    id:              row.id,
+    status:          row.status,
+    notes:           row.notes,
+    checklist_state: row.checklist_state ?? null,
+    college_id:      row.college_id,
     college:    row.colleges?.name     ?? 'Unknown college',
     location:   row.colleges?.location ?? '',
     type:       row.colleges?.type     ?? '',
@@ -141,6 +142,7 @@ export default function AppTracker() {
         id,
         status,
         notes,
+        checklist_state,
         last_updated,
         college_id,
         colleges (
@@ -192,7 +194,7 @@ export default function AppTracker() {
         notes:      newApp.notes || null,
       })
       .select(`
-        id, status, notes, last_updated, college_id,
+        id, status, notes, checklist_state, last_updated, college_id,
         colleges ( name, location, type, deadlines )
       `)
       .single()
@@ -553,15 +555,11 @@ function AppCard({ app, onMove, onDelete, nextActions = {} }) {
   // sopOpen — whether the SOP checklist is expanded
   const [sopOpen, setSopOpen] = useState(false)
 
-  // sopState — the 5-item checklist for SOP steps
+  // sopState — the 5-item checklist for SOP steps.
+  // Lives in the dedicated checklist_state jsonb column, separate from free-text notes.
   const [sopState, setSopState] = useState(() => {
-    // Parse notes to extract SOP checklist if it exists
-    try {
-      const data = JSON.parse(app.notes || '{}')
-      return data.sop || [false, false, false, false, false]
-    } catch {
-      return [false, false, false, false, false]
-    }
+    const sop = app.checklist_state?.sop
+    return Array.isArray(sop) ? sop : [false, false, false, false, false]
   })
 
   const days         = daysFromNow(app.deadline)
@@ -572,23 +570,16 @@ function AppCard({ app, onMove, onDelete, nextActions = {} }) {
   async function saveSop(newSop) {
     setSopState(newSop)
 
-    // Merge with existing notes: parse, update sop, serialize
-    let data = {}
-    try {
-      data = JSON.parse(app.notes || '{}')
-    } catch {
-      data = {}
-    }
-    data.sop = newSop
-    const merged = JSON.stringify(data)
+    // Write the checklist to its own column; free-text notes are never touched.
+    const nextState = { ...(app.checklist_state || {}), sop: newSop }
 
     const { error } = await supabase
       .from('applications')
-      .update({ notes: merged })
+      .update({ checklist_state: nextState })
       .eq('id', app.id)
 
     if (error) {
-      console.error('Failed to save SOP:', error)
+      console.error('Failed to save SOP checklist:', error)
     }
   }
 
@@ -667,16 +658,9 @@ function AppCard({ app, onMove, onDelete, nextActions = {} }) {
         <p className="text-xs text-gray-600 mt-2 italic">{nextActions[app.status]}</p>
       )}
 
-      {/* Notes — extract text from stored JSON */}
-      {(() => {
-        try {
-          const data = JSON.parse(app.notes || '{}')
-          const textNotes = data.text || app.notes
-          return textNotes && <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">{textNotes}</p>
-        } catch {
-          return app.notes && <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">{app.notes}</p>
-        }
-      })()}
+      {/* Free-text notes — a plain string column now (the SOP checklist lives
+          separately in checklist_state, so notes no longer carries JSON). */}
+      {app.notes && <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">{app.notes}</p>}
 
       {/* SOP Checklist */}
       <div className="border-t border-gray-100 pt-2">
