@@ -9,6 +9,9 @@ const TIER_STYLES = {
   3: 'bg-slate-100 text-slate-600 border border-slate-200',
 }
 
+// Format a cutoff percentile cell — "90%ile" when present, "–" when null.
+const pctile = (v) => (v !== null && v !== undefined ? `${v}%ile` : '–')
+
 export default function CollegeProfile({ user: propUser, loading: propLoading }) {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -156,6 +159,10 @@ export default function CollegeProfile({ user: propUser, loading: propLoading })
   }
 
   const c = college
+
+  // Only cutoff rows that actually carry a General overall cutoff are useful;
+  // the rest would render as blank rows.
+  const validCutoffs = cutoffs.filter(cu => cu.overall_gen !== null && cu.overall_gen !== undefined)
 
   return (
     <Layout>
@@ -354,40 +361,43 @@ export default function CollegeProfile({ user: propUser, loading: propLoading })
           )}
         </div>
 
-        {/* CAT/XAT CUTOFFS — Logged-in users only */}
-        {user && (
+        {/* CAT/XAT CUTOFFS — Logged-in users only.
+            Columns map to the real college_cutoffs schema (overall_gen/obc/sc/st
+            + section cutoffs varc_gen/dilr_gen/qa_gen). Rows without a General
+            overall cutoff carry no usable data, so they're filtered out. */}
+        {user && validCutoffs.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h2 className="text-lg font-bold text-slate-900 mb-4">CAT/XAT Cutoffs</h2>
-            {cutoffs.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200">
-                      <th className="text-left py-3 px-4 font-semibold text-slate-900">Exam</th>
-                      <th className="text-left py-3 px-4 font-semibold text-slate-900">Category</th>
-                      <th className="text-left py-3 px-4 font-semibold text-slate-900">Overall</th>
-                      <th className="text-left py-3 px-4 font-semibold text-slate-900">VARC</th>
-                      <th className="text-left py-3 px-4 font-semibold text-slate-900">DILR</th>
-                      <th className="text-left py-3 px-4 font-semibold text-slate-900">QA</th>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left py-3 px-4 font-semibold text-slate-900">Exam</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-900">General</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-900">OBC</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-900">SC</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-900">ST</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-900">VARC</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-900">DILR</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-900">QA</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {validCutoffs.map((cutoff, i) => (
+                    <tr key={i} className="border-b border-slate-100 last:border-0">
+                      <td className="py-3 px-4 text-slate-900 font-medium">{cutoff.exam_type}</td>
+                      <td className="py-3 px-4 text-slate-600">{pctile(cutoff.overall_gen)}</td>
+                      <td className="py-3 px-4 text-slate-600">{pctile(cutoff.overall_obc)}</td>
+                      <td className="py-3 px-4 text-slate-600">{pctile(cutoff.overall_sc)}</td>
+                      <td className="py-3 px-4 text-slate-600">{pctile(cutoff.overall_st)}</td>
+                      <td className="py-3 px-4 text-slate-600">{pctile(cutoff.varc_gen)}</td>
+                      <td className="py-3 px-4 text-slate-600">{pctile(cutoff.dilr_gen)}</td>
+                      <td className="py-3 px-4 text-slate-600">{pctile(cutoff.qa_gen)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {cutoffs.map((cutoff, i) => (
-                      <tr key={i} className="border-b border-slate-100 last:border-0">
-                        <td className="py-3 px-4 text-slate-900 font-medium">{cutoff.exam_type}</td>
-                        <td className="py-3 px-4 text-slate-600">{cutoff.category || 'General'}</td>
-                        <td className="py-3 px-4 text-slate-600">{cutoff.overall_percentile}%ile</td>
-                        <td className="py-3 px-4 text-slate-600">{cutoff.varc_percentile}%ile</td>
-                        <td className="py-3 px-4 text-slate-600">{cutoff.dilr_percentile}%ile</td>
-                        <td className="py-3 px-4 text-slate-600">{cutoff.qa_percentile}%ile</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-slate-500 text-sm">Cutoff data coming soon</p>
-            )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

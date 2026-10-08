@@ -100,7 +100,7 @@ export default function ApplyNow() {
     { label: 'Email', value: student.email },
     { label: 'CAT Percentile', value: `${student.academic_background?.cat_percentile}%ile` },
     { label: 'Work Experience', value: `${student.academic_background?.work_exp_yrs || 0} years` },
-    { label: 'CGPA', value: student.academic_background?.gpa || 'N/A' },
+    { label: 'CGPA', value: student.academic_background?.cgpa || 'N/A' },
     { label: 'Batch Year', value: student.academic_background?.grad_year || 'N/A' },
     { label: 'Target Programme', value: 'MBA (2 year full-time)' },
   ] : []
