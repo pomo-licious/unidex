@@ -12,6 +12,9 @@ const TIER_STYLES = {
 // Format a cutoff percentile cell — "90%ile" when present, "–" when null.
 const pctile = (v) => (v !== null && v !== undefined ? `${v}%ile` : '–')
 
+// Monogram-placeholder background per college tier (used when there's no photo).
+const TIER_PLACEHOLDER_BG = { 1: '#1a2744', 2: '#0f3d2e', 3: '#334155' }
+
 export default function CollegeProfile({ user: propUser, loading: propLoading }) {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -159,6 +162,7 @@ export default function CollegeProfile({ user: propUser, loading: propLoading })
   }
 
   const c = college
+  const initials = (c.name || '').split(' ').map(w => w[0]).join('').slice(0, 4)
 
   // Only cutoff rows that actually carry a General overall cutoff are useful;
   // the rest would render as blank rows.
@@ -182,7 +186,34 @@ export default function CollegeProfile({ user: propUser, loading: propLoading })
           {/* College name overlay */}
           <div className="absolute bottom-0 left-0 right-0 px-6 py-8">
             <h1 className="text-4xl font-bold text-white drop-shadow-lg">{c.name}</h1>
-            <p className="text-white/90 text-lg mt-2">📍 {c.location}</p>
+            <p className="text-white/90 text-lg mt-2">{c.location}</p>
+          </div>
+          {/* Attribution — a licence condition; links to the Commons source file */}
+          {c.image_credit && (
+            <a
+              href={c.image_source_url || undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="absolute top-3 right-3 text-[11px] text-white/90 bg-black/45 hover:bg-black/60 px-2 py-1 rounded transition"
+            >
+              Photo: {c.image_credit}{c.image_license ? ` / ${c.image_license}` : ''}
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Monogram placeholder banner (no photo) — in the college's tier colour.
+          Never a stock photo. */}
+      {!c.image_url && (
+        <div
+          className="relative w-full h-56 overflow-hidden"
+          style={{ backgroundColor: TIER_PLACEHOLDER_BG[c.tier] || TIER_PLACEHOLDER_BG[3] }}
+        >
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-28 h-28 rounded-full bg-[#c9a84c] flex items-center justify-center">
+              <span className="text-4xl font-bold text-[#1a2744]">{initials}</span>
+            </div>
           </div>
         </div>
       )}

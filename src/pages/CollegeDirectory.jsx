@@ -5,6 +5,9 @@ import { supabase } from '../lib/supabase'
 import { getCollegeFit, getFitStyle } from '../lib/collegeFit'
 import Layout from '../components/Layout'
 
+// Monogram-placeholder background per college tier (used when there's no photo).
+const TIER_PLACEHOLDER_BG = { 1: '#1a2744', 2: '#0f3d2e', 3: '#334155' }
+
 // Generate deterministic hue (0-360) from college name
 function getAccentHueFromName(name) {
   let hash = 0
@@ -623,15 +626,24 @@ function CollegeCard({ college, user, studentScore, cutoffRows, isTracked, isAdd
         {/* Image or Branded Placeholder */}
         <div className="relative overflow-hidden h-32">
           {college.image_url ? (
-            <img
-              src={college.image_url}
-              alt={college.name}
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
-            />
+            <>
+              <img
+                src={college.image_url}
+                alt={college.name}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+              />
+              {/* Attribution — a licence condition, shown as text on the card
+                  (the clickable source link is on the college profile page). */}
+              {college.image_credit && (
+                <span className="absolute bottom-0 left-0 max-w-full truncate text-[9px] leading-tight text-white/85 bg-black/45 px-1.5 py-0.5 rounded-tr">
+                  {college.image_credit}{college.image_license ? ` / ${college.image_license}` : ''}
+                </span>
+              )}
+            </>
           ) : (
             <>
-              {/* Branded placeholder: navy header with geometric pattern */}
-              <div className="w-full h-full bg-[#1a2744] relative">
+              {/* Branded monogram placeholder in the college's tier colour */}
+              <div className="w-full h-full relative" style={{ backgroundColor: TIER_PLACEHOLDER_BG[college.tier] || TIER_PLACEHOLDER_BG[3] }}>
                 {/* CSS-only geometric pattern background */}
                 <div className="absolute inset-0 opacity-10">
                   <div className="absolute top-0 left-0 w-32 h-32 rounded-full" style={{ backgroundColor: `hsl(${accentHue}, 70%, 50%)` }} />
