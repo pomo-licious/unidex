@@ -158,17 +158,24 @@ export default function Profile() {
 
         const collegeIds = (collegeRows || []).map(c => c.id)
         const { data: cutoffRows } = collegeIds.length
-          ? await supabase.from('college_cutoffs').select('*').eq('exam_type', 'CAT').in('college_id', collegeIds)
+          ? await supabase.from('college_cutoffs').select('*').in('college_id', collegeIds)
           : { data: [] }
 
-        const cutoffByCollegeId = {}
-        cutoffRows?.forEach(row => { cutoffByCollegeId[row.college_id] = row })
+        // Group cutoffs per college so the exam-aware engine can pick the row
+        // matching the student's exam.
+        const cutoffsByCollegeId = {}
+        cutoffRows?.forEach(row => {
+          if (!cutoffsByCollegeId[row.college_id]) cutoffsByCollegeId[row.college_id] = []
+          cutoffsByCollegeId[row.college_id].push(row)
+        })
 
-        const catPercentile = student.exam_scores?.percentile ?? student.academic_background?.cat_percentile ?? null
+        const studentExam = student.exam_scores?.exam || student.exam_scores?.exam_type || 'CAT'
+        const studentPercentile = student.exam_scores?.percentile ?? student.academic_background?.cat_percentile ?? null
+        const studentScore = studentPercentile === null ? null : { exam: studentExam, percentile: studentPercentile }
 
         const withFit = (collegeRows || []).slice(0, 4).map(c => ({
           ...c,
-          fit: getCollegeFit(catPercentile, c, cutoffByCollegeId[c.id]),
+          fit: getCollegeFit(studentScore, c, cutoffsByCollegeId[c.id]),
         }))
 
         setTargetCollegeFits(withFit)
