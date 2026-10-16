@@ -1,0 +1,763 @@
+[
+  {
+    "ids": [
+      "ncr-fms-delhi"
+    ],
+    "names": [
+      "FMS Delhi",
+      "FMS",
+      "Faculty of Management Studies (University of Delhi)",
+      "Faculty of Management Studies (FMS), University of Delhi"
+    ],
+    "src": "/assets/colleges/fms-delhi.webp",
+    "alt": "Faculty of Management Studies, University of Delhi — red campus building",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:FMS-_The_Red_Building_of_Dreams.JPG",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/2/20/FMS-_The_Red_Building_of_Dreams.JPG",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/20/FMS-_The_Red_Building_of_Dreams.JPG/960px-FMS-_The_Red_Building_of_Dreams.JPG?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20130627191754",
+    "credit": "Mrcell2014",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "sourceDescription": "English: The image shows the isometric view of Faculty of Management Studies Delhi's building.",
+    "sourceDate": "17 July 2010, 15:26:53",
+    "smallSrc": "/assets/colleges/fms-delhi-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 639,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "78603807137c75e19d645766627b2b45eb3bb23de5fd56411d85b16dfd1e4c94",
+    "downloadedWidth": 960,
+    "downloadedHeight": 639
+  },
+  {
+    "ids": [
+      "ncr-iift-delhi"
+    ],
+    "names": [
+      "IIFT Delhi",
+      "Indian Institute of Foreign Trade (IIFT), Delhi",
+      "Indian Institute of Foreign Trade, Delhi"
+    ],
+    "src": "/assets/colleges/iift-delhi.webp",
+    "alt": "Indian Institute of Foreign Trade, Delhi — entrance and campus building",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:IIFT_Delhi.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c0/IIFT_Delhi.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c0/IIFT_Delhi.jpg/960px-IIFT_Delhi.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20240302222142",
+    "credit": "Abhishek Vishnudev Misra",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "sourceDescription": "English: IIFT Delhi campus - its signboard, front entrance gate and main building are visible",
+    "sourceDate": "7 October 2023, 17:34:17",
+    "smallSrc": "/assets/colleges/iift-delhi-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 1280,
+    "height": 828,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "faa47275f052bb7712bf4e8d3c3831ab431e5e1e883e9a36dc1d3ea7439d077a",
+    "downloadedWidth": 3922,
+    "downloadedHeight": 2537
+  },
+  {
+    "ids": [
+      "iim-ahmedabad"
+    ],
+    "names": [
+      "IIM Ahmedabad",
+      "Indian Institute of Management Ahmedabad"
+    ],
+    "src": "/assets/colleges/iim-ahmedabad.webp",
+    "alt": "IIM Ahmedabad — old campus classroom block overlooking Louis Kahn Plaza",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Class_room_block_-_old_campus_-_overlooking_Louis_Kahn_Plaza.JPG",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6e/Class_room_block_-_old_campus_-_overlooking_Louis_Kahn_Plaza.JPG",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6e/Class_room_block_-_old_campus_-_overlooking_Louis_Kahn_Plaza.JPG/960px-Class_room_block_-_old_campus_-_overlooking_Louis_Kahn_Plaza.JPG?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20091024182329",
+    "credit": "Students of IIMA",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+    "sourceDescription": "English: Class room block - old campus - overlooking Louis Kahn Plaza",
+    "sourceDate": "",
+    "smallSrc": "/assets/colleges/iim-ahmedabad-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 1280,
+    "height": 851,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "bccae549ed9c6f384161d4256cd8f705ae75b881bb1f40b7ec99b0d7e1c61594",
+    "downloadedWidth": 3008,
+    "downloadedHeight": 2000
+  },
+  {
+    "ids": [
+      "ncr-iit-delhi-dms"
+    ],
+    "names": [
+      "IIT Delhi DMS",
+      "IIT Delhi",
+      "Department of Management Studies, IIT Delhi"
+    ],
+    "src": "/assets/colleges/iit-delhi.webp",
+    "alt": "Indian Institute of Technology Delhi — campus view",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:IIT_Delhi_campus_wide_view.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/f/ff/IIT_Delhi_campus_wide_view.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/ff/IIT_Delhi_campus_wide_view.jpg/960px-IIT_Delhi_campus_wide_view.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20260217062439",
+    "credit": "Mahi zahidi",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: IIT Delhi campus",
+    "sourceDate": "10 February 2026, 13:50:19",
+    "smallSrc": "/assets/colleges/iit-delhi-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 640,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "bd82ac7fd5fc2caf093d0cb79503587936e2e8c64ec8e7bbb2bf85f3ff809876",
+    "downloadedWidth": 960,
+    "downloadedHeight": 640
+  },
+  {
+    "ids": [
+      "ncr-imt-ghaziabad"
+    ],
+    "names": [
+      "IMT Ghaziabad",
+      "Institute of Management Technology (IMT) Ghaziabad"
+    ],
+    "src": "/assets/colleges/imt-ghaziabad.webp",
+    "alt": "IMT Ghaziabad — academic block and library",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:New_Academic_Block_%26_Library,_IMT_Ghaziabad_(cropped).jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/9/99/New_Academic_Block_%26_Library%2C_IMT_Ghaziabad_%28cropped%29.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/99/New_Academic_Block_%26_Library%2C_IMT_Ghaziabad_%28cropped%29.jpg/960px-New_Academic_Block_%26_Library%2C_IMT_Ghaziabad_%28cropped%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20251028211519",
+    "credit": "Roshan Jain",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: Photograph of IMT Ghaziabad Campus",
+    "sourceDate": "4 October 2014, 17:11:22",
+    "smallSrc": "/assets/colleges/imt-ghaziabad-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 566,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "d99533e9c4ff2dbd80561cf82bd4507e9eec706ef7cd417a80f976c5d97068ad",
+    "downloadedWidth": 960,
+    "downloadedHeight": 566
+  },
+  {
+    "ids": [
+      "ncr-fore-delhi"
+    ],
+    "names": [
+      "FORE School of Management",
+      "FORE School of Management, New Delhi"
+    ],
+    "src": "/assets/colleges/fore-delhi.webp",
+    "alt": "FORE School of Management, New Delhi — graduates at the campus entrance",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:FORE_School_of_Management,_New_Delhi.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/0/00/FORE_School_of_Management%2C_New_Delhi.jpg",
+    "downloadedImageUrl": "https://upload.wikimedia.org/wikipedia/commons/0/00/FORE_School_of_Management%2C_New_Delhi.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail_unscaled&_=20171219073325",
+    "credit": "Nirmalya22",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: Learn to Lead at FORE",
+    "sourceDate": "4 September 2017",
+    "smallSrc": "/assets/colleges/fore-delhi-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 640,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "c658d6b559e54455def1a8f16f61d34584cc77c38e18ae5bcea23d0a03df0a06",
+    "downloadedWidth": 960,
+    "downloadedHeight": 640
+  },
+  {
+    "ids": [
+      "ncr-bimtech-greater-noida"
+    ],
+    "names": [
+      "BIMTECH Greater Noida",
+      "Birla Institute of Management Technology (BIMTECH)"
+    ],
+    "src": "/assets/colleges/bimtech-greater-noida.webp",
+    "alt": "BIMTECH Greater Noida — interior campus atrium",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:BIMTECH_Greater_Noida.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/e/ef/BIMTECH_Greater_Noida.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/BIMTECH_Greater_Noida.jpg/960px-BIMTECH_Greater_Noida.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20230918124725",
+    "credit": "Birla Institute of Management Technology (BIMTECH)",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: Best Management College in India",
+    "sourceDate": "18 October 2022",
+    "smallSrc": "/assets/colleges/bimtech-greater-noida-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 1280,
+    "height": 815,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "a178ef957e52a45741558d0d4b176386f5d5a5b1c71fa1241facbda4f9e4e3ee",
+    "downloadedWidth": 5000,
+    "downloadedHeight": 3183
+  },
+  {
+    "ids": [
+      "ncr-iim-rohtak"
+    ],
+    "names": [
+      "IIM Rohtak",
+      "Indian Institute of Management Rohtak"
+    ],
+    "src": "/assets/colleges/iim-rohtak.webp",
+    "alt": "Indian Institute of Management Rohtak — academic building",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:IIM_Rohtak_academic_building.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d6/IIM_Rohtak_academic_building.jpg",
+    "downloadedImageUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d6/IIM_Rohtak_academic_building.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail_unscaled&_=20120518100204",
+    "credit": "Mmehndiratta",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "sourceDescription": "English: IIM Rohtak academic building",
+    "sourceDate": "10 March 2012",
+    "smallSrc": "/assets/colleges/iim-rohtak-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 640,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "f0923fd66e2711baa3c63339c4463fa6b4ece420197132718b66b258f0fabeaf",
+    "downloadedWidth": 960,
+    "downloadedHeight": 640
+  },
+  {
+    "ids": [
+      "ncr-imi-delhi"
+    ],
+    "names": [
+      "IMI Delhi",
+      "International Management Institute (IMI) Delhi",
+      "International Management Institute, New Delhi"
+    ],
+    "src": "/assets/colleges/imi-delhi.webp",
+    "alt": "International Management Institute, New Delhi — academic block entrance",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:IMI_Acadblock_Entrance.JPG",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e2/IMI_Acadblock_Entrance.JPG",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e2/IMI_Acadblock_Entrance.JPG/960px-IMI_Acadblock_Entrance.JPG?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20141102063846",
+    "credit": "Himarshu",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: Entrance to the Academic Block",
+    "sourceDate": "19 June 2014, 16:38:56",
+    "smallSrc": "/assets/colleges/imi-delhi-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 636,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "950d9f669866c3ee0363fd70459d82d7d3ee65798aa8aca927dec1bdf6501cc2",
+    "downloadedWidth": 960,
+    "downloadedHeight": 636
+  },
+  {
+    "ids": [
+      "ncr-amity-noida-business-school",
+      "ncr-amity-international-business-school",
+      "ncr-rics-school-of-built-environment-amity-university"
+    ],
+    "names": [
+      "Amity Noida",
+      "Amity Business School, Amity University Noida",
+      "Amity International Business School",
+      "RICS School of Built Environment, Amity University"
+    ],
+    "src": "/assets/colleges/amity-noida.webp",
+    "alt": "Amity University, Noida — university campus; shared campus photograph",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Amity_noida.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/cc/Amity_noida.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cc/Amity_noida.jpg/960px-Amity_noida.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20160718100456",
+    "credit": "Deepanshu M.",
+    "license": "Public domain",
+    "licenseUrl": "https://commons.wikimedia.org/wiki/File:Amity_noida.jpg",
+    "sourceDescription": "English: Amity University campus, Noida",
+    "sourceDate": "2 June 2016",
+    "smallSrc": "/assets/colleges/amity-noida-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 1280,
+    "height": 960,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "196ecca3690c4d434e6c7b77bbb9cf1e515fa633102ecc7dcbd7a12ccb9cf28f",
+    "downloadedWidth": 2592,
+    "downloadedHeight": 1944
+  },
+  {
+    "ids": [
+      "ncr-bml-munjal"
+    ],
+    "names": [
+      "BML Munjal University – School of Management",
+      "BML Munjal University"
+    ],
+    "src": "/assets/colleges/bml-munjal.webp",
+    "alt": "BML Munjal University — campus view",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Bml_munjal_university.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Bml_munjal_university.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1e/Bml_munjal_university.jpg/960px-Bml_munjal_university.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20200208091346",
+    "credit": "Dheepak P",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: this university is led by hero group of companies",
+    "sourceDate": "22 July 2019, 09:19:39",
+    "smallSrc": "/assets/colleges/bml-munjal-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 456,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "28715d2c5d1fd67a612e0013267b36370cbd83ed1735c0cc24c421f866906387",
+    "downloadedWidth": 960,
+    "downloadedHeight": 456
+  },
+  {
+    "ids": [
+      "ncr-jamia-millia-islamia"
+    ],
+    "names": [
+      "Jamia Millia Islamia – Department of Management Studies",
+      "Jamia Millia Islamia"
+    ],
+    "src": "/assets/colleges/jamia-millia-islamia.webp",
+    "alt": "Jamia Millia Islamia — university campus",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Jamia_Millia_Islamia_Campus.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/b/bc/Jamia_Millia_Islamia_Campus.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bc/Jamia_Millia_Islamia_Campus.jpg/960px-Jamia_Millia_Islamia_Campus.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20230211074512",
+    "credit": "Wiki1957BOY",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: Jamia Millia Islamia",
+    "sourceDate": "10 February 2023, 15:21:18",
+    "smallSrc": "/assets/colleges/jamia-millia-islamia-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 432,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "7f99aa91259e557c28671a879fae63960c5c7b8c323ab0c4c704bfbe5fd91d04",
+    "downloadedWidth": 960,
+    "downloadedHeight": 432
+  },
+  {
+    "ids": [
+      "ncr-dtu-usme"
+    ],
+    "names": [
+      "University School of Management & Entrepreneurship, DTU"
+    ],
+    "src": "/assets/colleges/dtu-east.webp",
+    "alt": "Delhi Technological University — East Delhi campus, Vivek Vihar",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:DELHI_TECHNOLOGICAL_UNIVERSITY,_(East_Delhi_Campus).jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/5/59/DELHI_TECHNOLOGICAL_UNIVERSITY%2C_%28East_Delhi_Campus%29.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/59/DELHI_TECHNOLOGICAL_UNIVERSITY%2C_%28East_Delhi_Campus%29.jpg/960px-DELHI_TECHNOLOGICAL_UNIVERSITY%2C_%28East_Delhi_Campus%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20240617044528",
+    "credit": "Raunakhgnis",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "sourceDescription": "English: Delhi Technological University of east campus In Vivek Vihar, phase-2, Delhi-110095 offers degree course in Ug and Pg courses. हिन्दी: दिल्ली प्रौद्योगिकी विश्वविद्यालय ऑफ ईस्ट कैंपस विवेक विहार में फेज-2, दिल्ली-110095 यूजी और पीजी कोर्स में डिग्री कोर्स ऑफर करता है।",
+    "sourceDate": "15 June 2024, 06:49:49",
+    "smallSrc": "/assets/colleges/dtu-east-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 629,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "aa16ea5585c800b06ee5317ba19aff6990d145664999c8dee4eb348491154b74",
+    "downloadedWidth": 960,
+    "downloadedHeight": 629
+  },
+  {
+    "ids": [
+      "ncr-nsut-management"
+    ],
+    "names": [
+      "Department of Management Studies, NSUT",
+      "Netaji Subhas University of Technology"
+    ],
+    "src": "/assets/colleges/nsut-delhi.webp",
+    "alt": "Netaji Subhas University of Technology, Delhi — academic and administrative block",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:NSIT_Delhi_-_front_entrance_to_Academic_and_Administrative_Block.JPG",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d7/NSIT_Delhi_-_front_entrance_to_Academic_and_Administrative_Block.JPG",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d7/NSIT_Delhi_-_front_entrance_to_Academic_and_Administrative_Block.JPG/960px-NSIT_Delhi_-_front_entrance_to_Academic_and_Administrative_Block.JPG?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20110102110854",
+    "credit": "Prateek Karandikar",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: Entrance to the Academic and Administrative Block, Netaji Subhas University of Technology, Delhi, India.",
+    "sourceDate": "16 July 2010",
+    "smallSrc": "/assets/colleges/nsut-delhi-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 720,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "777239f024af334d14c77cd53f0c59e7b8d9220212a995229255cd4be5676c98",
+    "downloadedWidth": 960,
+    "downloadedHeight": 720
+  },
+  {
+    "ids": [
+      "ncr-school-of-management-and-entrepreneurship-shiv-nadar-university"
+    ],
+    "names": [
+      "School of Management and Entrepreneurship, Shiv Nadar University",
+      "Shiv Nadar University, Delhi NCR"
+    ],
+    "src": "/assets/colleges/shiv-nadar-ncr.webp",
+    "alt": "Shiv Nadar University, Delhi NCR — campus view",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Shiv_Nadar_University.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b4/Shiv_Nadar_University.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b4/Shiv_Nadar_University.jpg/960px-Shiv_Nadar_University.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20230730022737",
+    "credit": "Dkuthari",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: University",
+    "sourceDate": "29 July 2023 (according to Exif data)",
+    "smallSrc": "/assets/colleges/shiv-nadar-ncr-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 560,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "469c4dd86f903d8951f59569b8d609168783fac444e11be064172d63a8663aca",
+    "downloadedWidth": 960,
+    "downloadedHeight": 560
+  },
+  {
+    "ids": [
+      "ncr-school-of-management-gautam-buddha-university"
+    ],
+    "names": [
+      "School of Management, Gautam Buddha University",
+      "Gautam Buddha University"
+    ],
+    "src": "/assets/colleges/gautam-buddha.webp",
+    "alt": "Gautam Buddha University — Greater Noida campus",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Gautam_Buddha_University,Greater_Noida.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a4/Gautam_Buddha_University%2CGreater_Noida.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a4/Gautam_Buddha_University%2CGreater_Noida.jpg/960px-Gautam_Buddha_University%2CGreater_Noida.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20170723213220",
+    "credit": "Him2586",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "sourceDescription": "GBU,Greater Noida",
+    "sourceDate": "17 September 2011",
+    "smallSrc": "/assets/colleges/gautam-buddha-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 720,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "9472cfafe0630c6005c43aac9f54b8228457f0a4838c88f2333018cc6e79e388",
+    "downloadedWidth": 960,
+    "downloadedHeight": 720
+  },
+  {
+    "ids": [
+      "ncr-school-of-business-galgotias-university"
+    ],
+    "names": [
+      "School of Business, Galgotias University",
+      "Galgotias University"
+    ],
+    "src": "/assets/colleges/galgotias-university.webp",
+    "alt": "Galgotias University — campus entrance",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Entrance_Galgotias_University.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/e/ea/Entrance_Galgotias_University.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ea/Entrance_Galgotias_University.jpg/960px-Entrance_Galgotias_University.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20110709185328",
+    "credit": "Nitish.game",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "sourceDescription": "English: Fountain at the entrance of Galgotias University.",
+    "sourceDate": "9 July 2011",
+    "smallSrc": "/assets/colleges/galgotias-university-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 720,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "879a20ff905872d0ae3d8b8578133aada52405af2d8ce84832d95748a87c5191",
+    "downloadedWidth": 960,
+    "downloadedHeight": 720
+  },
+  {
+    "ids": [
+      "ncr-school-of-management-bennett-university"
+    ],
+    "names": [
+      "School of Management, Bennett University",
+      "Bennett University"
+    ],
+    "src": "/assets/colleges/bennett-university.webp",
+    "alt": "Bennett University — Greater Noida campus",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Bennett_University_.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b0/Bennett_University_.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b0/Bennett_University_.jpg/960px-Bennett_University_.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20170504063949",
+    "credit": "AlkendraSingh 1289",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: Bennett University’s sprawling campus is a modern, user-centric, functional space, enabling an immersive and comprehensive learning experience.",
+    "sourceDate": "4 May 2017",
+    "smallSrc": "/assets/colleges/bennett-university-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 640,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "613809c32a390f7c7f41d5c2b4c35ff5439a9bf6c8362c75a2d09423a85b0ad1",
+    "downloadedWidth": 960,
+    "downloadedHeight": 640
+  },
+  {
+    "ids": [
+      "ncr-sharda-school-of-business-studies"
+    ],
+    "names": [
+      "Sharda School of Business Studies",
+      "Sharda University, Greater Noida"
+    ],
+    "src": "/assets/colleges/sharda-greater-noida.webp",
+    "alt": "Sharda University, Greater Noida — campus view from a hostel",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Sharda_university_view_from_inside_hostel.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Sharda_university_view_from_inside_hostel.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1e/Sharda_university_view_from_inside_hostel.jpg/960px-Sharda_university_view_from_inside_hostel.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20170618122306",
+    "credit": "Shahid aslami",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: the picture is taken during the rain, in sharda university, G.noida, UP",
+    "sourceDate": "18 June 2017, 17:46:38",
+    "smallSrc": "/assets/colleges/sharda-greater-noida-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 720,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "8b98bfaa6b79420de1dbf0d4a4e43da1a9930281b53905f9769beab806845b00",
+    "downloadedWidth": 960,
+    "downloadedHeight": 720
+  },
+  {
+    "ids": [
+      "ncr-ggsipu-usms"
+    ],
+    "names": [
+      "University School of Management Studies (USMS), GGSIPU"
+    ],
+    "src": "/assets/colleges/ggsipu-dwarka.webp",
+    "alt": "Guru Gobind Singh Indraprastha University — Dwarka campus academic block",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:GGSIPU_Campus_Block_C.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4b/GGSIPU_Campus_Block_C.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4b/GGSIPU_Campus_Block_C.jpg/960px-GGSIPU_Campus_Block_C.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20251219051355",
+    "credit": "ThePerfectYellow",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+    "sourceDescription": "English: GGSIPU Campus Block C, Dwarka Campus, New Delhi",
+    "sourceDate": "18 December 2025, 11:41:48",
+    "smallSrc": "/assets/colleges/ggsipu-dwarka-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 720,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "c41174f4433971d5ed7eab8a5b089541d56cfbafa268a75e7033fb059e8c5ebe",
+    "downloadedWidth": 960,
+    "downloadedHeight": 720
+  },
+  {
+    "ids": [
+      "ncr-great-lakes-gurgaon"
+    ],
+    "names": [
+      "Great Lakes Institute of Management, Gurgaon",
+      "Great Lakes Gurgaon"
+    ],
+    "src": "/assets/colleges/great-lakes-gurgaon.webp",
+    "alt": "Great Lakes Institute of Management, Gurgaon — campus building",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Great_Lakes_Gurgaon_Campus.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/4/45/Great_Lakes_Gurgaon_Campus.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/45/Great_Lakes_Gurgaon_Campus.jpg/960px-Great_Lakes_Gurgaon_Campus.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20170607072008",
+    "credit": "Saksham gaur1990",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: Great Lakes Institute of Management Gurgaon Campus",
+    "sourceDate": "7 June 2017",
+    "smallSrc": "/assets/colleges/great-lakes-gurgaon-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 477,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "f08a778ae4f7e795a2b7f72edd866ac11987f4ac74be8ea8bb87d41168c2abf6",
+    "downloadedWidth": 960,
+    "downloadedHeight": 477
+  },
+  {
+    "ids": [
+      "ncr-jaipuria-noida"
+    ],
+    "names": [
+      "Jaipuria Institute of Management, Noida",
+      "Jaipuria Noida"
+    ],
+    "src": "/assets/colleges/jaipuria-noida.webp",
+    "alt": "Jaipuria Institute of Management, Noida — campus building",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:NOIDA_Campus.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/7/70/NOIDA_Campus.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/70/NOIDA_Campus.jpg/960px-NOIDA_Campus.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20200623052259",
+    "credit": "Rohitsingh2020",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: Jaipuria Noida; This state of the art campus in the heart of the corporate hub of the NCR region provides students with wide exposure to number of industries.",
+    "sourceDate": "19 August 2018",
+    "smallSrc": "/assets/colleges/jaipuria-noida-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 453,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "c62d686742ab5197733f2d5f0cb436d81bf4234a22b02562dd8b57fac5bf3592",
+    "downloadedWidth": 960,
+    "downloadedHeight": 453
+  },
+  {
+    "ids": [
+      "ncr-dtu-delhi-school-management"
+    ],
+    "names": [
+      "Delhi School of Management, Delhi Technological University",
+      "Delhi Technological University"
+    ],
+    "src": "/assets/colleges/dtu-main.webp",
+    "alt": "Delhi Technological University — main university campus",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Delhi_Technological_University,_New_Delhi.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/1/19/Delhi_Technological_University.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/19/Delhi_Technological_University.jpg/960px-Delhi_Technological_University.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20230227120140",
+    "credit": "Ayush Anand3310",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: Delhi Technological University (premier government university in New Delhi)",
+    "sourceDate": "27 February 2023 (according to Exif data)",
+    "smallSrc": "/assets/colleges/dtu-main-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 720,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "8a7a40bdaf03e10e858db10974b5ecc7c2a8276d1e6069ba781fc830bb05378b",
+    "downloadedWidth": 960,
+    "downloadedHeight": 720
+  },
+  {
+    "ids": [
+      "ncr-amity-business-school-amity-university-gurugram"
+    ],
+    "names": [
+      "Amity Business School, Amity University Gurugram",
+      "Amity University Gurugram"
+    ],
+    "src": "/assets/colleges/amity-gurugram.webp",
+    "alt": "Amity University Gurugram — university campus",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Amity_University_campus_gurugram,_Hariyana.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/1/14/Amity_University_campus_gurugram%2C_Hariyana.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/14/Amity_University_campus_gurugram%2C_Hariyana.jpg/960px-Amity_University_campus_gurugram%2C_Hariyana.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20170913060115",
+    "credit": "Sidheeq",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "sourceDescription": "Amity University",
+    "sourceDate": "9 September 2017 (according to Exif data)",
+    "smallSrc": "/assets/colleges/amity-gurugram-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 576,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "bced1b7c66851b3ec68354783e20e0cdb9be9cb313b02408285d4013dbf12329",
+    "downloadedWidth": 960,
+    "downloadedHeight": 576
+  },
+  {
+    "ids": [
+      "ncr-abes-business-school"
+    ],
+    "names": [
+      "ABES Business School"
+    ],
+    "src": "/assets/colleges/abes-ghaziabad.webp",
+    "alt": "ABES Ghaziabad — shared campus, Aryabhatta block and front lawn",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:ABES_Main_Building.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/2/27/ABES_Main_Building.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/27/ABES_Main_Building.jpg/960px-ABES_Main_Building.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20160702163040",
+    "credit": "Abhask",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "sourceDescription": "The Aryabhatta block (main building) of ABES Engineering College with the front lawn.",
+    "sourceDate": "3 March 2012",
+    "smallSrc": "/assets/colleges/abes-ghaziabad-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 518,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "30354e266d015884e5b470755a024472287233b4b8b220fcb6056e86ceefa05d",
+    "institutionRelationshipSource": "https://www.abes.ac.in/",
+    "downloadedWidth": 960,
+    "downloadedHeight": 518
+  },
+  {
+    "ids": [
+      "ncr-gl-bajaj-institute-of-technology-and-management-mba"
+    ],
+    "names": [
+      "GL Bajaj Institute of Technology and Management – MBA"
+    ],
+    "src": "/assets/colleges/gl-bajaj-greater-noida.webp",
+    "alt": "GL Bajaj Institute of Technology and Management, Greater Noida — campus building",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:G.L._Bajaj_Institute_of_Technology_and_Management,_Greater_Noida.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5f/G.L._Bajaj_Institute_of_Technology_and_Management%2C_Greater_Noida.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5f/G.L._Bajaj_Institute_of_Technology_and_Management%2C_Greater_Noida.jpg/960px-G.L._Bajaj_Institute_of_Technology_and_Management%2C_Greater_Noida.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20201013104059",
+    "credit": "Ganeshi lal",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "sourceDescription": "English: One of the top engineering colleges in Greater Noida (UP), India, G.L. Bajaj Institute of Technology and Management, was established in 2005. It is affiliated to AKTU University and approved by AICTE. It offers B.Tech, MBA and MCA Programs. It is considered one of the best Engineering, Management colleges of Greater Noida.",
+    "sourceDate": "12 September 2020",
+    "smallSrc": "/assets/colleges/gl-bajaj-greater-noida-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 435,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "c1736207d5039945b4124946a05310629b930cd5231edbcff16176c80af7563e",
+    "downloadedWidth": 960,
+    "downloadedHeight": 435
+  },
+  {
+    "ids": [
+      "ncr-dronacharya-group-of-institutions-mba"
+    ],
+    "names": [
+      "Dronacharya Group of Institutions – MBA"
+    ],
+    "src": "/assets/colleges/dronacharya-greater-noida.webp",
+    "alt": "Dronacharya Group of Institutions — Greater Noida campus",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Dronacharya_Group_of_Institutions,_Greater_Noida.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/1/13/Dronacharya_Group_of_Institutions%2C_Greater_Noida.jpg",
+    "downloadedImageUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/13/Dronacharya_Group_of_Institutions%2C_Greater_Noida.jpg/960px-Dronacharya_Group_of_Institutions%2C_Greater_Noida.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20221124063846",
+    "credit": "Geektaker",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "sourceDescription": "English: Dronacharya Group of Institutions, Greater Noida",
+    "sourceDate": "16 November 2022",
+    "smallSrc": "/assets/colleges/dronacharya-greater-noida-small.webp",
+    "objectPosition": "50% 50%",
+    "width": 960,
+    "height": 540,
+    "changes": "Resized and converted to WebP; website may crop the display using CSS.",
+    "retrievedOn": "2026-10-16",
+    "sha256": "c9a71f3f308164e3b1a940a435c9bf85ee25c07b2b486ffd9b9a8be4c056e47b",
+    "downloadedWidth": 960,
+    "downloadedHeight": 540
+  }
+]

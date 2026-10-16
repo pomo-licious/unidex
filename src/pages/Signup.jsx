@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, Check, Eye, EyeOff, LoaderCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getAuthErrorMessage } from '../lib/authErrors'
+import { startGoogleSignIn } from '../lib/googleAuth'
 import { AuthShell, inputClass, primaryClass } from '../components/Brand'
 
 export default function Signup() {
@@ -38,8 +39,7 @@ export default function Signup() {
   async function handleGoogle() {
     setError(''); setLoading(true)
     try {
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/onboarding` } })
-      if (oauthError) throw oauthError
+      await startGoogleSignIn(supabase, { next: '/onboarding' })
     } catch (err) { setError(getAuthErrorMessage(err) || err.message) }
     finally { setLoading(false) }
   }
