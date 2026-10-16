@@ -1,0 +1,235 @@
+import { supabase } from './supabase'
+
+const BUCKET = 'unidex-admissions-private'
+const MAX_BYTES = 10 * 1024 * 1024
+const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+const attemptIds = new Map()
+
+export class AdmissionsError extends Error {
+  constructor(message, { code = 'ADMISSIONS_ERROR', cause, details } = {}) {
+    super(message)
+    this.name = 'AdmissionsError'
+    this.code = code
+    this.cause = cause
+    this.details = details
+  }
+}
+
+function fail(error, action) {
+  if (error instanceof AdmissionsError) return error
+  const code = error?.code || error?.status || 'ADMISSIONS_ERROR'
+  const missingSetup = ['42P01', '42883', 'PGRST202', 'PGRST205'].includes(String(code))
+  return new AdmissionsError(
+    missingSetup
+      ? 'Admissions storage is not configured yet. Apply the admissions workspace migration before continuing.'
+      : `${action}: ${error?.message || 'The server did not complete the request. Please try again.'}`,
+    { code, cause: error, details: error?.details || error?.hint },
+  )
+}
+
+async function currentUser(expectedUserId) {
+  const { data, error } = await supabase.auth.getUser()
+  if (error || !data?.user) throw new AdmissionsError('Sign in to save your admissions workspace.', { code: 'AUTH_REQUIRED', cause: error })
+  if (expectedUserId && data.user.id !== expectedUserId) throw new AdmissionsError('Your account changed. Reload this page before saving your changes.', { code: 'ACCOUNT_CHANGED' })
+  return data.user
+}
+
+function requireObject(value, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AdmissionsError(`${label} must be an object.`, { code: 'INVALID_INPUT' })
+}
+
+async function ownedDocument(document, expectedUserId) {
+  const user = await currentUser(expectedUserId)
+  if (!document?.id) throw new AdmissionsError('Select an uploaded document first.', { code: 'INVALID_INPUT' })
+  const { data, error } = await supabase.from('student_admissions_documents').select('*').eq('id', document.id).eq('user_id', user.id).single()
+  if (error || !data) throw fail(error || new Error('Document not found.'), 'Could not load document')
+  return data
+}
+
+async function withSignedUrls(documents) {
+  if (!documents.length) return []
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(documents.map(d => d.storage_path), 300)
+  if (error) throw fail(error, 'Could not create private document links')
+  const byPath = new Map((data || []).map(item => [item.path, item]))
+  return documents.map(document => ({ ...document, signed_url: byPath.get(document.storage_path)?.signedUrl || null }))
+}
+
+export async function loadAdmissionsProfileRecord(expectedUserId) {
+  const user = await currentUser(expectedUserId)
+  const { data, error } = await supabase.from('student_admissions_profiles').select('profile,schema_version,revision,updated_at').eq('user_id', user.id).maybeSingle()
+  if (error) throw fail(error, 'Could not load profile')
+  if (data) return { profile: { ...data.profile, schema_version: data.schema_version }, revision: Number(data.revision) }
+  // Read-only continuity for existing accounts. Nothing is migrated until Save.
+  const { data: legacy, error: legacyError } = await supabase.from('students').select('name,email,academic_background,target_colleges,academic_10th,academic_12th,academic_graduation,exam_scores').eq('user_id', user.id).maybeSingle()
+  if (legacyError) throw fail(legacyError, 'Could not load your existing profile')
+  if (!legacy) return { profile: null, revision: 0 }
+  const background = legacy.academic_background && typeof legacy.academic_background === 'object' ? legacy.academic_background : {}
+  const present = value => value !== undefined && value !== null && value !== ''
+  const academic = (direct, fallback) => ({ ...Object.fromEntries(Object.entries(fallback).filter(([, value]) => present(value))), ...(direct && typeof direct === 'object' ? direct : {}) })
+  const profile = {
+    schema_version: 1,
+    full_name: legacy.name || '', email: legacy.email || user.email || '',
+    phone: background.mobile || background.phone || '', current_city: background.city || '',
+    date_of_birth: background.date_of_birth || '', gender: background.gender || '', nationality: background.nationality || '',
+    academic_10th: academic(legacy.academic_10th, {}),
+    academic_12th: academic(legacy.academic_12th, {}),
+    academic_graduation: academic(legacy.academic_graduation, { university: background.university, college: background.college, degree: background.degree, branch: background.major, year_of_passing: background.grad_year, cgpa: background.cgpa ?? background.gpa, cgpa_scale: background.gpa_scale }),
+    exam_scores: [], work_experience: [],
+  }
+  if (Array.isArray(legacy.exam_scores)) profile.exam_scores = legacy.exam_scores
+  else if (legacy.exam_scores && typeof legacy.exam_scores === 'object' && legacy.exam_scores.exam) profile.exam_scores = [legacy.exam_scores]
+  if (!profile.exam_scores.length) {
+    if (present(background.cat_percentile)) profile.exam_scores.push({ exam: 'CAT', year: background.cat_year ?? null, percentile: background.cat_percentile, total_score: null, section_scores: Object.fromEntries(['VARC', 'DILR', 'QA'].map(section => [section, background[`cat_${section.toLowerCase()}`]]).filter(([, value]) => present(value))) })
+    for (const exam of ['GMAT', 'GRE']) if (present(background[`${exam.toLowerCase()}_score`])) profile.exam_scores.push({ exam, total_score: background[`${exam.toLowerCase()}_score`], percentile: null, year: null, section_scores: {} })
+  }
+  if (background.company || background.role) profile.work_experience = [{ company: background.company || '', designation: background.role || '', start_date: null, end_date: null }]
+  if (present(background.work_exp_yrs) && Number.isFinite(Number(background.work_exp_yrs))) profile.total_work_experience_months = Number(background.work_exp_yrs) * 12
+  // Preserve explicitly recorded score scales; never convert GPA or percentiles.
+  return { profile, revision: 0 }
+}
+
+export async function loadAdmissionsProfile(expectedUserId) {
+  return (await loadAdmissionsProfileRecord(expectedUserId)).profile
+}
+
+export async function saveAdmissionsProfile(profile, expectedUserId, expectedRevision) {
+  requireObject(profile, 'Profile')
+  const user = await currentUser(expectedUserId)
+  const row = { user_id: user.id, profile: { ...profile, schema_version: 1 }, schema_version: 1 }
+  if (expectedRevision !== undefined && (!Number.isInteger(expectedRevision) || expectedRevision < 0)) throw new AdmissionsError('Reload the latest profile before saving reviewed details.', { code: 'INVALID_REVISION' })
+  let query
+  if (expectedRevision === 0) query = supabase.from('student_admissions_profiles').insert(row).select('profile').single()
+  else if (expectedRevision > 0) query = supabase.from('student_admissions_profiles').update({ profile: row.profile, schema_version: 1 }).eq('user_id', user.id).eq('revision', expectedRevision).select('profile').maybeSingle()
+  else query = supabase.from('student_admissions_profiles').upsert(row, { onConflict: 'user_id' }).select('profile').single()
+  const { data, error } = await query
+  if (expectedRevision !== undefined && ((expectedRevision === 0 && error?.code === '23505') || (!error && !data))) throw new AdmissionsError('Your profile changed in another tab. Reopen the document review to compare with your latest profile before saving.', { code: 'PROFILE_CHANGED' })
+  if (error) throw fail(error, 'Could not save profile')
+  return data.profile
+}
+
+export async function listAdmissionsDocuments() {
+  const user = await currentUser()
+  const { data, error } = await supabase.from('student_admissions_documents').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+  if (error) throw fail(error, 'Could not load documents')
+  return withSignedUrls(data || [])
+}
+
+export async function uploadAdmissionsDocument(file, documentType, onProgress, expectedUserId) {
+  const user = await currentUser(expectedUserId)
+  if (!file || !ALLOWED_TYPES.includes(file.type)) throw new AdmissionsError('Upload a PDF, JPG, PNG or WebP file.', { code: 'INVALID_FILE_TYPE' })
+  if (!file.size || file.size > MAX_BYTES) throw new AdmissionsError('Documents must be between 1 byte and 10 MB.', { code: 'FILE_TOO_LARGE' })
+  if (!documentType || typeof documentType !== 'string') throw new AdmissionsError('Choose a document category.', { code: 'INVALID_INPUT' })
+  const id = crypto.randomUUID()
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-150) || 'document'
+  const path = `${user.id}/${id}/${safeName}`
+  // Supabase upload exposes no byte progress. These are start/complete signals only.
+  onProgress?.(0)
+  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false })
+  if (uploadError) throw fail(uploadError, 'Could not upload document')
+  const { data, error } = await supabase.from('student_admissions_documents').insert({ id, user_id: user.id, document_type: documentType, file_name: file.name, mime_type: file.type, size_bytes: file.size, storage_bucket: BUCKET, storage_path: path }).select('*').single()
+  if (error) {
+    const { error: cleanupError } = await supabase.storage.from(BUCKET).remove([path])
+    const wrapped = fail(error, 'Could not save document metadata')
+    if (cleanupError) wrapped.details = 'The file uploaded but metadata failed. Contact support to remove the unattached upload.'
+    throw wrapped
+  }
+  onProgress?.(100)
+  const [document] = await withSignedUrls([data])
+  return document
+}
+
+export async function extractAdmissionsDocument(document, expectedUserId, openaiDocumentProcessing = false) {
+  if (openaiDocumentProcessing !== true) throw new AdmissionsError('Confirm that this document may be sent to OpenAI GPT for extraction before continuing.', { code: 'DOCUMENT_PROCESSING_CONSENT_REQUIRED' })
+  const stored = await ownedDocument(document, expectedUserId)
+  const { data, error } = await supabase.functions.invoke('admissions-ocr', { body: { document_id: stored.id, openai_document_processing: true } })
+  if (error) {
+    let message = error.message
+    try { const body = await error.context?.json(); message = body?.error || message } catch { /* Response can be unavailable for network failures. */ }
+    throw fail(new Error(message || 'OCR service unavailable. Configure the authenticated admissions-ocr function.'), 'Could not extract document')
+  }
+  if (!data?.ok || !data?.document) throw fail(new Error(data?.error || 'OCR returned an invalid response.'), 'Could not extract document')
+  return { ...data.document, signed_url: document.signed_url || null }
+}
+
+export async function saveDocumentReview(document, reviewedData, expectedUserId) {
+  requireObject(reviewedData, 'Reviewed data')
+  const stored = await ownedDocument(document, expectedUserId)
+  if (!stored.extracted_data) throw new AdmissionsError('Extract document fields before confirming them.', { code: 'REVIEW_REQUIRED' })
+  const { data, error } = await supabase.from('student_admissions_documents').update({ reviewed_data: reviewedData, reviewed_at: new Date().toISOString(), status: 'reviewed' }).eq('id', stored.id).eq('user_id', stored.user_id).select('*').single()
+  if (error) throw fail(error, 'Could not save reviewed fields')
+  // Profile changes are deliberate UI actions after review; extraction never overwrites it.
+  return { ...data, signed_url: document.signed_url || null }
+}
+
+export async function removeAdmissionsDocument(document, expectedUserId) {
+  const stored = await ownedDocument(document, expectedUserId)
+  const { error: storageError } = await supabase.storage.from(BUCKET).remove([stored.storage_path])
+  if (storageError) throw fail(storageError, 'Could not remove stored document')
+  const { error } = await supabase.from('student_admissions_documents').delete().eq('id', stored.id).eq('user_id', stored.user_id)
+  if (error) throw fail(error, 'File removed, but its metadata could not be removed; retry removal')
+  return { id: stored.id, removed: true }
+}
+
+export async function getAdmissionsDraft() {
+  const user = await currentUser()
+  const { data, error } = await supabase.from('admissions_drafts').select('draft').eq('user_id', user.id).maybeSingle()
+  if (error) throw fail(error, 'Could not load application draft')
+  return data?.draft || null
+}
+
+export async function saveAdmissionsDraft(draft, expectedUserId) {
+  requireObject(draft, 'Draft')
+  const user = await currentUser(expectedUserId)
+  const { data, error } = await supabase.from('admissions_drafts').upsert({ user_id: user.id, schema_version: 1, draft }, { onConflict: 'user_id' }).select('draft').single()
+  if (error) throw fail(error, 'Could not save application draft')
+  return data.draft
+}
+
+export async function listCollegePlans() {
+  const user = await currentUser()
+  const { data, error } = await supabase.from('admissions_college_plans').select('*').eq('user_id', user.id).order('updated_at', { ascending: false })
+  if (error) throw fail(error, 'Could not load saved colleges')
+  return data || []
+}
+
+export async function saveCollegePlan(plan, expectedUserId) {
+  requireObject(plan, 'College plan')
+  const user = await currentUser(expectedUserId)
+  if (!plan.college_id || !plan.college_snapshot) throw new AdmissionsError('A college plan needs its college ID and snapshot.', { code: 'INVALID_INPUT' })
+  const row = { user_id: user.id, college_id: String(plan.college_id), college_snapshot: plan.college_snapshot }
+  for (const key of ['status', 'notes', 'checklist', 'is_bookmarked', 'is_selected']) if (plan[key] !== undefined) row[key] = plan[key]
+  const { data, error } = await supabase.from('admissions_college_plans').upsert(row, { onConflict: 'user_id,college_id' }).select('*').single()
+  if (error) throw fail(error, 'Could not save college plan')
+  return data
+}
+
+export async function removeCollegePlan(id, expectedUserId) {
+  const user = await currentUser(expectedUserId)
+  if (!id) throw new AdmissionsError('Choose a saved college first.', { code: 'INVALID_INPUT' })
+  const { error } = await supabase.from('admissions_college_plans').delete().eq('id', id).eq('user_id', user.id)
+  if (error) throw fail(error, 'Could not remove college plan')
+  return { id, removed: true }
+}
+
+export async function submitAdmissionsApplication({ profile, colleges, collegeAnswers = {}, consents, requestId, expectedUserId }) {
+  requireObject(profile, 'Profile')
+  requireObject(collegeAnswers, 'College answers')
+  requireObject(consents, 'Consents')
+  const user = await currentUser(expectedUserId)
+  if (!Array.isArray(colleges) || !colleges.length) throw new AdmissionsError('Select at least one college.', { code: 'INVALID_INPUT' })
+  if (!consents.accuracy || !consents.privacy || !consents.internal_submission) throw new AdmissionsError('Review and accept every submission declaration.', { code: 'CONSENT_REQUIRED' })
+  const key = JSON.stringify({ user: user.id, profile, colleges, collegeAnswers, consents })
+  if (!requestId && !attemptIds.has(key)) attemptIds.set(key, crypto.randomUUID())
+  const { data, error } = await supabase.rpc('submit_admissions_application', { p_request_id: requestId || attemptIds.get(key), p_profile: profile, p_colleges: colleges, p_college_answers: collegeAnswers, p_consents: consents, p_expected_user_id: user.id })
+  if (error) throw fail(error, 'Could not submit application')
+  if (!data?.receipt || !data?.id) throw new AdmissionsError('The server did not return a submission receipt. Retry using the same request ID.', { code: 'INVALID_RECEIPT' })
+  return data
+}
+
+export async function recoverAdmissionsSubmission(requestId, expectedUserId) {
+  const user = await currentUser(expectedUserId)
+  if (!requestId) throw new AdmissionsError('A saved submission request ID is required to recover your receipt.', { code: 'INVALID_INPUT' })
+  const { data, error } = await supabase.from('admissions_submissions').select('id,request_id,receipt,schema_version,status,profile_snapshot,colleges_snapshot,college_answers_snapshot,consents,submitted_at').eq('request_id', requestId).eq('user_id', user.id).maybeSingle()
+  if (error) throw fail(error, 'Could not check your submission receipt')
+  return data ? { ...data, college_count: data.colleges_snapshot?.length || 0 } : null
+}

@@ -1,136 +1,22 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// src/pages/OfferCelebration.jsx — Full-screen offer celebration
-//
-// Triggered when application status changes to "Offer"
-// Shows confetti celebration with college name and referral CTA
-//
-// Route: /offer/:college_id
-// ─────────────────────────────────────────────────────────────────────────────
-
-import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { ArrowRight, ArrowUpRight, Check, Copy, GraduationCap, Loader2, Sparkles } from 'lucide-react'
+import Layout from '../components/Layout'
+import { useAdmissions } from '../context/AdmissionsContext'
+import { DELHI_NCR_COLLEGES } from '../data/delhiNcrColleges'
 
 export default function OfferCelebration() {
-  const navigate = useNavigate()
   const { college_id } = useParams()
-  const [collegeName, setCollegeName] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState(null)
+  const { plans = [], loading, user, error } = useAdmissions()
   const [copied, setCopied] = useState(false)
-
-  // Get auth user and college name
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        setUser(user)
-
-        if (college_id) {
-          const { data: college } = await supabase
-            .from('colleges')
-            .select('name')
-            .eq('id', college_id)
-            .single()
-
-          if (college) {
-            setCollegeName(college.name)
-          }
-        }
-
-        setLoading(false)
-      } catch (err) {
-        console.error('Failed to load offer data:', err)
-        setLoading(false)
-      }
-    }
-
-    loadData()
-  }, [college_id])
-
-  // Copy referral link to clipboard
-  async function handleCopyReferral() {
-    if (!user) return
-
-    const referralUrl = `${window.location.origin}/signup?ref=${user.id}`
-    try {
-      await navigator.clipboard.writeText(referralUrl)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      console.error('Failed to copy:', err)
-    }
+  const [copyError, setCopyError] = useState('')
+  const college = DELHI_NCR_COLLEGES.find(item => item.id === college_id) || plans.find(plan => plan.college_id === college_id)?.college_snapshot
+  const offer = plans.find(plan => plan.college_id === college_id && plan.status === 'Offer')
+  useEffect(() => { document.title = 'Your next chapter · Unidex' }, [])
+  useEffect(() => { if (!copied) return; const timer = setTimeout(() => setCopied(false), 2500); return () => clearTimeout(timer) }, [copied])
+  async function copyInvitation() {
+    setCopyError('')
+    try { await navigator.clipboard.writeText(`${window.location.origin}/signup${user?.id ? `?ref=${encodeURIComponent(user.id)}` : ''}`); setCopied(true) } catch { setCopyError('Could not copy the invitation. Please try again.') }
   }
-
-  // Confetti animation
-  useEffect(() => {
-    if (loading) return
-
-    // Create simple confetti effect
-    const container = document.getElementById('confetti-container')
-    if (!container) return
-
-    for (let i = 0; i < 50; i++) {
-      const confetti = document.createElement('div')
-      confetti.className = 'absolute animate-bounce'
-      confetti.style.left = Math.random() * 100 + '%'
-      confetti.style.backgroundColor = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][Math.floor(Math.random() * 5)]
-      confetti.style.width = Math.random() * 10 + 5 + 'px'
-      confetti.style.height = confetti.style.width
-      confetti.style.borderRadius = '50%'
-      confetti.style.top = '-10px'
-      confetti.style.animationDuration = Math.random() * 2 + 2 + 's'
-      confetti.style.animationDelay = Math.random() * 0.5 + 's'
-      container.appendChild(confetti)
-    }
-  }, [loading])
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50">
-        <div className="w-8 h-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50 flex items-center justify-center p-4 overflow-hidden">
-      {/* Confetti container */}
-      <div id="confetti-container" className="fixed inset-0 pointer-events-none" />
-
-      {/* Content */}
-      <div className="text-center max-w-lg">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            You got into {collegeName || 'the college'}!
-          </h1>
-          <p className="text-lg text-gray-600">Congratulations on your offer</p>
-        </div>
-
-        <div className="space-y-4 mt-12">
-          {/* Share referral CTA */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <p className="text-sm font-semibold text-gray-900 mb-3">Share with a friend</p>
-            <p className="text-xs text-gray-500 mb-4">
-              Send them your referral link — you both get early access to Unidex Pro
-            </p>
-            <button
-              onClick={handleCopyReferral}
-              className="w-full px-4 py-3 rounded-lg bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-colors"
-            >
-              {copied ? '✓ Copied referral link' : 'Copy referral link'}
-            </button>
-          </div>
-
-          {/* Back to tracker CTA */}
-          <button
-            onClick={() => navigate('/tracker')}
-            className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 text-gray-900 font-semibold text-sm hover:bg-gray-50 transition-colors"
-          >
-            Back to Tracker
-          </button>
-        </div>
-      </div>
-    </div>
-  )
+  return <Layout><div className="mx-auto max-w-4xl px-5 py-10 sm:px-8 sm:py-16">{loading ? <div className="flex justify-center gap-3 py-24 text-sm text-[#7c8ca5]"><Loader2 className="h-5 w-5 animate-spin text-[#225feb]"/>Loading your milestone…</div> : <div className="overflow-hidden rounded-[30px] border border-[#e5ebf4] bg-white"><div className="relative overflow-hidden bg-[#10264c] px-6 py-14 text-center text-white sm:px-14 sm:py-20"><div className="pointer-events-none absolute -left-24 -top-24 h-64 w-64 rounded-full border-[40px] border-white/[.035]"/><div className="pointer-events-none absolute -bottom-36 -right-24 h-96 w-96 rounded-full border-[60px] border-white/[.035]"/><div className="relative"><span className="mx-auto grid h-16 w-16 place-items-center rounded-[20px] border border-white/20 bg-white/[.06]">{offer ? <Sparkles className="h-7 w-7 text-[#ff965d]" strokeWidth={1.3}/> : <GraduationCap className="h-7 w-7 text-[#9dc1ff]" strokeWidth={1.3}/>}</span><p className="mt-8 text-[10px] font-semibold uppercase tracking-[.25em] text-[#92afd9]">Your next chapter</p><h1 className="mx-auto mt-5 max-w-xl text-[38px] font-medium leading-[1.08] tracking-[-.05em] sm:text-[60px]">{offer ? 'A possibility.\nNow a milestone.' : 'Every next chapter\nstarts somewhere.'}</h1><p className="mx-auto mt-6 max-w-lg text-sm leading-7 text-[#afc1df]">{offer ? <>You recorded an offer from <span className="font-semibold text-white">{college?.name || 'your college'}</span>. Take a moment. Then make your next move a considered one.</> : 'Your recorded college offers will appear here. Keep your application plan up to date as decisions arrive.'}</p></div></div><div className="px-6 py-8 sm:px-10 sm:py-10">{error && <p role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-xs text-red-700">{error}</p>}{offer && <div className="mb-8 grid gap-4 sm:grid-cols-3">{[{ number: 1, title: 'Read the offer', desc: 'Review the official letter and any conditions.' }, { number: 2, title: 'Confirm your dates', desc: 'Check the acceptance deadline and deposit.' }, { number: 3, title: 'Consider the fit', desc: 'Compare the programme with your goals.' }].map(item => <div key={item.title} className="rounded-2xl border border-[#e5ebf4] p-5"><p className="text-[10px] font-semibold text-[#225feb]">{item.number}</p><h2 className="mt-4 text-xs font-semibold">{item.title}</h2><p className="mt-2 text-[11px] leading-6 text-[#91a0b6]">{item.desc}</p></div>)}</div>}<div className="flex flex-wrap items-center justify-between gap-5"><Link to="/tracker" className="inline-flex items-center gap-2 rounded-full bg-[#225feb] px-6 py-3.5 text-xs font-semibold text-white">Back to my applications <ArrowRight className="h-4 w-4"/></Link>{college && <Link to={`/college/${college.id}`} className="inline-flex items-center gap-2 text-xs font-semibold text-[#7c8ca5]">View college <ArrowUpRight className="h-4 w-4"/></Link>}</div>{offer && <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-[#edf1f7] pt-7"><div><h2 className="text-xs font-semibold">Know someone starting their MBA journey?</h2><p className="mt-2 text-[11px] leading-5 text-[#91a0b6]">Invite them to discover their possibilities with Unidex.</p></div><button onClick={copyInvitation} className="inline-flex items-center gap-2 rounded-full border border-[#dce4f0] px-4 py-3 text-[11px] font-semibold text-[#627aa0]">{copied ? <Check className="h-3.5 w-3.5"/> : <Copy className="h-3.5 w-3.5"/>}{copied ? 'Invitation copied' : 'Copy invitation'}</button>{copyError && <p role="alert" className="w-full text-xs text-red-700">{copyError}</p>}</div>}<p className="mt-7 text-[10px] leading-5 text-[#a1aec1]">{offer ? 'Offer status is recorded by you. Unidex does not issue or independently verify admissions decisions.' : 'An offer is shown only after you mark a college as “Offer” in your tracker.'}</p></div></div>}</div></Layout>
 }

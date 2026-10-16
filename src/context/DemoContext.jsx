@@ -33,4 +33,6 @@ export function DemoProvider({ children }) {
 }
 
 // useIsDemo — hook to read the flag in any component
+// Context providers and their read hook intentionally share this module.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useIsDemo = () => useContext(DemoContext)

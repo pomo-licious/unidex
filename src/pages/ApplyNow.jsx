@@ -92,7 +92,7 @@ export default function ApplyNow() {
         animationRef.current = null
       }
     }
-  }, [step, student?.id])
+  }, [step, student])
 
   // Compute fields from student data — not state
   const formFields = student ? [

@@ -1,42 +1,9 @@
-import Layout from '../components/Layout'
+import { useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowRight, FileCheck2, GraduationCap, CalendarDays } from 'lucide-react'
+import { PublicHeader, PublicFooter, primaryClass } from '../components/Brand'
 
 export default function About() {
-  return (
-    <Layout>
-      <div className="max-w-3xl mx-auto px-6 py-16">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">About Unidex</h1>
-        <p className="text-gray-600 mb-8">Last updated: June 2026</p>
-
-        <div className="prose prose-lg max-w-none space-y-6">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <p className="text-blue-900 font-semibold">India's MBA Application Hub</p>
-            <p className="text-blue-800 text-sm mt-2">
-              Unidex is dedicated to simplifying the MBA application process for aspiring students across India.
-            </p>
-          </div>
-
-          <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Our Mission</h2>
-            <p className="text-gray-600">
-              To help every MBA aspirant discover, complete, and track their applications with confidence.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Our Vision</h2>
-            <p className="text-gray-600">
-              To become India's trusted application infrastructure for higher education.
-            </p>
-          </section>
-
-          <p className="text-gray-600">
-            For more information, please contact us at{' '}
-            <a href="mailto:hello@unidex.co.in" className="text-indigo-600 hover:underline">
-              hello@unidex.co.in
-            </a>
-          </p>
-        </div>
-      </div>
-    </Layout>
-  )
+  useEffect(() => { document.title = 'About Unidex · A clearer way forward' }, [])
+  return <div className="bg-white text-[#10264c]"><PublicHeader/><main><section className="mx-auto max-w-[1280px] px-6 pb-16 pt-16 sm:px-10 sm:pt-24"><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#8798b2]">Built around your next step.</p><h1 className="mt-7 max-w-4xl text-[clamp(43px,6vw,82px)] font-medium leading-[1.06] tracking-[-.065em]">Big decisions deserve<br/><span className="text-[#9cacc4]">a little more clarity.</span></h1><p className="mt-8 max-w-2xl text-base leading-8 text-[#8193ae]">An MBA can open a new chapter. Unidex helps you bring the applications, documents and decisions along.</p><img src="/assets/campus-life.webp" alt="Students working together in a university library" className="mt-12 aspect-[16/8] w-full rounded-[26px] object-cover sm:mt-16"/></section><section className="mx-auto grid max-w-[1280px] gap-10 px-6 pb-24 pt-8 sm:px-10 md:grid-cols-2 md:gap-24"><div><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#8798b2]">A more considered journey.</p><h2 className="mt-6 text-[clamp(33px,4vw,52px)] font-medium leading-[1.1] tracking-[-.055em]">Less scattered.<br/><span className="text-[#9cacc4]">More connected.</span></h2></div><div className="space-y-5 text-sm leading-8 text-[#8193ae]"><p>College research, academic documents, application requirements and deadlines often live in different places. Unidex brings those parts into one workspace designed for MBA and PGDM applicants in India.</p><p>Our mission is to help every aspirant discover, prepare and track applications with confidence. Our ambition is to become a trusted part of the higher education application journey.</p><p>You stay in control of the important decisions: which colleges to pursue, which information to share, and when your application is ready.</p><Link to="/signup" className={`${primaryClass} mt-3`}>Start your journey <ArrowRight className="h-4 w-4"/></Link></div></section><section className="bg-[#f6f8fc]"><div className="mx-auto grid max-w-[1280px] gap-8 px-6 py-20 sm:px-10 md:grid-cols-3">{[{ Icon: GraduationCap, title: 'Find your direction.', description: 'Explore colleges, programmes and available admissions information.' }, { Icon: FileCheck2, title: 'Bring your story.', description: 'Create your profile. Review your documents. Prepare your details.' }, { Icon: CalendarDays, title: 'See the next step.', description: 'Keep applications and deadlines together as your plans take shape.' }].map(({ Icon, title, description }) => <article key={title} className="border-t border-[#dbe4f1] pt-8"><Icon className="mb-7 h-7 w-7 text-[#225feb]" strokeWidth={1.3}/><h3 className="text-2xl font-medium tracking-[-.04em]">{title}</h3><p className="mt-4 max-w-xs text-sm leading-7 text-[#8798b2]">{description}</p></article>)}</div></section><section className="px-6 py-20 text-center sm:py-28"><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#8798b2]">Let’s make the journey clearer.</p><h2 className="mt-5 text-[clamp(36px,4.5vw,60px)] font-medium leading-[1.1] tracking-[-.06em]">A question. An idea.<br/><span className="text-[#9cacc4]">A new connection.</span></h2><a href="mailto:hello@unidex.co.in" className="mt-8 inline-flex items-center gap-3 text-sm font-semibold text-[#225feb]">hello@unidex.co.in <ArrowRight className="h-4 w-4"/></a></section></main><PublicFooter/></div>
 }

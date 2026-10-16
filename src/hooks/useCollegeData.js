@@ -23,7 +23,7 @@ export function useColleges({ tier, state, search } = {}) {
       if (state)  query = query.ilike('location', `%${state}%`)
       if (search) query = query.ilike('name', `%${search}%`)
 
-      const { data, error, count } = await query
+      const { data, error } = await query
       console.log('useColleges: fetched', data?.length || 0, 'colleges total (unfiltered: 71)', { tier, state, search })
       setColleges(data || [])
       setError(error)

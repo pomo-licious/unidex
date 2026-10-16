@@ -1,5 +1,29 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: Inter;
+  src: url('/assets/inter-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --color-unidex-navy: #10264c;
+  --color-unidex-blue: #225feb;
+  --color-unidex-orange: #ff762e;
+}
+
+@layer base {
+  body { @apply m-0 bg-white font-sans text-[#10264c] antialiased; }
+  button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+  button, select { @apply cursor-pointer; }
+  button:disabled { @apply cursor-not-allowed; }
+  :focus-visible { @apply outline-2 outline-offset-4 outline-[#225feb]; }
+  ::selection { @apply bg-blue-100 text-[#10264c]; }
+}
+
 @layer utilities {
   /* Scale utility for hover effects (2% scale) */
   .hover\:scale-102:hover {

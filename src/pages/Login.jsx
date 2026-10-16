@@ -1,350 +1,115 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, Clock, BarChart3, Quote } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { ArrowRight, Check, Eye, EyeOff, LoaderCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getAuthErrorMessage } from '../lib/authErrors'
+import { AuthShell, inputClass, primaryClass } from '../components/Brand'
 
 export default function Login() {
-  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  // These aliases share a component type; remount the form when the route changes
+  // so a previous reset/login mode and its sensitive inputs cannot carry across.
+  return <LoginForm key={pathname} />
+}
 
+function LoginForm() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const callbackHasError = location.pathname === '/reset-password' &&
+    [new URLSearchParams(location.search), new URLSearchParams(location.hash.replace(/^#/, ''))]
+      .some(params => params.has('error') || params.has('error_code'))
+  const [mode, setMode] = useState(() => location.pathname === '/forgot-password' ? 'request' : location.pathname === '/reset-password' ? 'update' : 'login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState(() => callbackHasError ? 'This reset link is invalid or has expired. Request a new link below.' : '')
+  const [message, setMessage] = useState('')
+  const [recoverySession, setRecoverySession] = useState(false)
 
   useEffect(() => {
-    document.title = 'Sign in · Unidex'
-  }, [])
+    document.title = mode === 'login' ? 'Sign in · Unidex' : 'Reset your password · Unidex'
+  }, [mode])
 
-  async function handleLogin(e) {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+  useEffect(() => {
+    let active = true
+    let recoveryEventReceived = false
+    const invalidLinkMessage = 'This reset link is invalid or has expired. Request a new link below.'
+    const lookupErrorMessage = 'We could not verify this reset link. Check your connection or request a new link below.'
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active || callbackHasError) return
+      if (event === 'PASSWORD_RECOVERY') {
+        recoveryEventReceived = true
+        setMode('update')
+        setRecoverySession(!!session)
+        setError(session ? '' : invalidLinkMessage)
+        setMessage('')
+      }
     })
-
-    if (signInError) {
-      setError(getAuthErrorMessage(signInError))
-      setLoading(false)
-      return
+    if (location.pathname === '/reset-password' && mode === 'update' && !callbackHasError) {
+      supabase.auth.getSession().then(({ data, error: sessionError }) => {
+        // A newer recovery event wins over an earlier in-flight session lookup.
+        if (!active || recoveryEventReceived) return
+        setRecoverySession(!sessionError && !!data?.session)
+        if (sessionError) setError(lookupErrorMessage)
+        else if (!data?.session) setError(invalidLinkMessage)
+      }).catch(() => {
+        if (!active || recoveryEventReceived) return
+        setRecoverySession(false)
+        setError(lookupErrorMessage)
+      })
     }
+    return () => { active = false; subscription.unsubscribe() }
+  }, [location.pathname, callbackHasError, mode])
 
-    navigate('/profile')
+  function changeMode(next) { setMode(next); setError(''); setMessage(''); setPassword(''); setConfirmPassword('') }
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+    setLoading(true)
+    setError('')
+    setMessage('')
+    try {
+      if (mode === 'request') {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` })
+        if (resetError) throw resetError
+        setMessage('If an account exists for this email, a password reset link will arrive shortly. Check your inbox and spam folder.')
+      } else if (mode === 'update') {
+        if (!recoverySession) throw new Error('Open the password reset link from your email to continue. You can request a new link below.')
+        if (password.length < 8) throw new Error('Choose a password with at least 8 characters.')
+        if (password !== confirmPassword) throw new Error('Passwords do not match.')
+        const { error: updateError } = await supabase.auth.updateUser({ password })
+        if (updateError) throw updateError
+        setPassword(''); setConfirmPassword('')
+        setMessage('Your password has been updated. Your workspace is ready.')
+      } else {
+        const { error: loginError } = await supabase.auth.signInWithPassword({ email, password })
+        if (loginError) throw loginError
+        navigate('/profile')
+      }
+    } catch (err) { setError(getAuthErrorMessage(err) || err.message || 'Something went wrong. Please try again.') }
+    finally { setLoading(false) }
   }
 
-  return (
-    <div className="min-h-screen flex bg-white">
-      {/* ═══════════════════════════════════════════════════════════════════════════════
-          LEFT PANEL — 45% width on desktop, hidden on mobile
-          ═══════════════════════════════════════════════════════════════════════════════ */}
-      <div
-        className="hidden lg:flex w-[45%] flex-col justify-between p-12 relative"
-        style={{
-          backgroundImage: 'url(https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1200&q=80)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        }}
-      >
-        {/* Dark navy overlay */}
-        <div className="absolute inset-0 bg-[#0d1525] opacity-70" />
+  async function handleGoogle() {
+    setError(''); setLoading(true)
+    try {
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/profile` } })
+      if (oauthError) throw oauthError
+    } catch (err) { setError(getAuthErrorMessage(err) || err.message) }
+    finally { setLoading(false) }
+  }
 
-        {/* Content inside overlay */}
-        <div className="relative z-10 flex flex-col h-full">
-          {/* Top: Logo + branding */}
-          <div className="space-y-4">
-            {/* Shield icon + logo text */}
-            <Link to="/" className="inline-block hover:opacity-80 transition">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-[#c9a84c] flex items-center justify-center">
-                  <span className="text-[#0d1525] text-lg font-bold">U</span>
-                </div>
-                <div>
-                  <h1 className="text-white text-2xl font-bold">UNIDEX</h1>
-                  <p className="text-[#c9a84c] text-xs font-semibold">MBA APPLICATION HUB</p>
-                </div>
-              </div>
-            </Link>
-
-            {/* Hero text — large, white, bold */}
-            <div className="mt-16">
-              <h2 className="text-white text-5xl font-bold leading-tight mb-4">
-                Your MBA journey,<br />organized and simplified.
-              </h2>
-              <p className="text-gray-300 text-lg">
-                Unidex helps you manage applications,<br />deadlines, and documents — all in one place.
-              </p>
-            </div>
-          </div>
-
-          {/* Middle: Three feature rows */}
-          <div className="space-y-8 my-12">
-            {/* Feature 1: Shield */}
-            <div className="flex gap-4">
-              <Shield className="w-8 h-8 text-[#c9a84c] shrink-0 mt-1" />
-              <div>
-                <h3 className="text-white font-semibold text-lg">Secure & private</h3>
-                <p className="text-gray-400 text-sm mt-1">Your data is encrypted and always protected.</p>
-              </div>
-            </div>
-
-            {/* Feature 2: Clock */}
-            <div className="flex gap-4">
-              <Clock className="w-8 h-8 text-[#c9a84c] shrink-0 mt-1" />
-              <div>
-                <h3 className="text-white font-semibold text-lg">Stay on track</h3>
-                <p className="text-gray-400 text-sm mt-1">Never miss a deadline with smart reminders and timelines.</p>
-              </div>
-            </div>
-
-            {/* Feature 3: Bar chart */}
-            <div className="flex gap-4">
-              <BarChart3 className="w-8 h-8 text-[#c9a84c] shrink-0 mt-1" />
-              <div>
-                <h3 className="text-white font-semibold text-lg">Make informed decisions</h3>
-                <p className="text-gray-400 text-sm mt-1">Compare schools, track progress, and move forward with clarity.</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom: Testimonial card */}
-          <div className="bg-[#0d1525] border border-gray-700 rounded-lg p-6 space-y-4">
-            <Quote className="w-6 h-6 text-[#c9a84c]" />
-            <p className="text-gray-300 text-sm leading-relaxed">
-              Unidex kept me organized throughout my application process. It made a complex journey feel simple and achievable.
-            </p>
-            <div>
-              <p className="text-[#c9a84c] font-bold text-sm uppercase">— Rishabh M.</p>
-              <p className="text-gray-400 text-xs">Admitted to INSEAD</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════════════════════════
-          RIGHT PANEL — 55% width on desktop, full width on mobile
-          ═══════════════════════════════════════════════════════════════════════════════ */}
-      <div className="w-full lg:w-[55%] bg-gray-50 flex flex-col justify-between p-6 lg:p-12 overflow-y-auto">
-        {/* Login form card — vertically centered */}
-        <div className="flex items-center justify-center min-h-screen lg:min-h-0 flex-1">
-          <div className="w-full max-w-[420px] space-y-6">
-            {/* Title + subtitle */}
-            <div className="text-center space-y-3">
-              <h2 className="text-3xl font-bold text-[#0d1525]">Welcome back</h2>
-              <p className="text-gray-600 text-sm">Sign in to continue your MBA journey</p>
-
-              {/* Gold underline accent */}
-              <div className="flex justify-center pt-2">
-                <div className="w-16 h-1 bg-[#c9a84c] rounded-full" />
-              </div>
-            </div>
-
-            {/* Error message */}
-            {error && (
-              <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
-
-            {/* Login form */}
-            <form onSubmit={handleLogin} className="space-y-5">
-              {/* Email input */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-900 mb-2">
-                  Email address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleLogin(e)}
-                    placeholder="you@example.com"
-                    required
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#c9a84c] focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Password input with show/hide */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-900 mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleLogin(e)}
-                    placeholder="••••••••"
-                    required
-                    className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#c9a84c] focus:border-transparent"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Remember me + Forgot password */}
-              <div className="flex items-center justify-between text-xs">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 accent-[#c9a84c]"
-                  />
-                  <span className="text-gray-700 font-medium">Remember me</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => navigate('/forgot-password')}
-                  className="text-[#c9a84c] hover:underline font-medium"
-                >
-                  Forgot password?
-                </button>
-              </div>
-
-              {/* Sign in button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 rounded-lg bg-[#0d1525] text-white font-semibold text-sm hover:bg-[#1a2844] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-              >
-                {loading ? 'Signing in…' : (
-                  <>
-                    Sign in
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-
-              {/* Divider */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-gray-300" />
-                <span className="text-xs text-gray-500 font-medium">or</span>
-                <div className="flex-1 h-px bg-gray-300" />
-              </div>
-
-              {/* Google button */}
-              <button
-                type="button"
-                onClick={async () => {
-                  const { error } = await supabase.auth.signInWithOAuth({
-                    provider: 'google',
-                    options: { redirectTo: window.location.origin + '/profile' }
-                  })
-                  if (error) setError(error.message)
-                }}
-                className="w-full py-2.5 rounded-lg bg-white border-2 border-gray-300 text-gray-900 font-semibold text-sm hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                  <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-                Continue with Google
-              </button>
-            </form>
-
-            {/* Sign up link */}
-            <p className="text-center text-sm text-gray-700">
-              Don't have an account?{' '}
-              <button
-                onClick={() => navigate('/signup')}
-                className="text-[#c9a84c] hover:underline font-semibold"
-              >
-                Sign up
-              </button>
-            </p>
-          </div>
-        </div>
-
-        {/* Dashboard preview card */}
-        <div className="mt-12 lg:mt-0 lg:pb-12">
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-lg max-w-[420px] mx-auto w-full">
-            <div className="space-y-6">
-              {/* Card header */}
-              <div className="space-y-2">
-                <h3 className="text-lg font-bold text-gray-900">Your dashboard at a glance</h3>
-                <p className="text-sm text-gray-600">Everything you need to manage your applications.</p>
-              </div>
-
-              {/* Mock dashboard */}
-              <div className="bg-gray-50 rounded-lg p-4 space-y-4 text-xs">
-                {/* Welcome message */}
-                <div>
-                  <p className="font-semibold text-gray-900">Good morning, Student</p>
-                  <p className="text-gray-600 text-xs mt-0.5">Here's what's happening with your applications.</p>
-                </div>
-
-                {/* Stats grid */}
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-white rounded border border-gray-200 p-2 text-center">
-                    <p className="font-bold text-gray-900">5</p>
-                    <p className="text-gray-600 text-xs">Applications</p>
-                  </div>
-                  <div className="bg-white rounded border border-gray-200 p-2 text-center">
-                    <p className="font-bold text-gray-900">3</p>
-                    <p className="text-gray-600 text-xs">Deadlines</p>
-                  </div>
-                  <div className="bg-white rounded border border-gray-200 p-2 text-center">
-                    <p className="font-bold text-gray-900">2</p>
-                    <p className="text-gray-600 text-xs">Shortlisted</p>
-                  </div>
-                </div>
-
-                {/* Deadlines section */}
-                <div className="border-t border-gray-200 pt-3 space-y-2">
-                  <p className="font-semibold text-gray-900">Upcoming deadlines</p>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-700 font-medium">IIM Ahmedabad</span>
-                      <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-semibold">45d</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-700 font-medium">XLRI Jamshedpur</span>
-                      <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-semibold">62d</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-700 font-medium">ISB Hyderabad</span>
-                      <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-semibold">78d</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer: Security message */}
-        <div className="flex items-center justify-center gap-2 text-xs text-gray-500 mt-8 lg:mt-0">
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
-          </svg>
-          <span>Bank-level security. Your data is safe with us.</span>
-        </div>
-
-        {/* Footer: Legal links */}
-        <div className="flex items-center justify-center gap-6 text-xs text-gray-500 mt-6 lg:mt-4">
-          <button onClick={() => navigate('/privacy')} className="hover:text-gray-400 transition">Privacy</button>
-          <span>•</span>
-          <button onClick={() => navigate('/terms')} className="hover:text-gray-400 transition">Terms</button>
-        </div>
-      </div>
-    </div>
-  )
+  return <AuthShell><p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#225feb]">Your ambition, in one place</p><h2 className="mt-5 text-[44px] font-medium leading-[1.08] tracking-[-.06em] text-[#10264c]">{mode === 'login' ? 'Welcome back.' : mode === 'request' ? 'A fresh start.' : 'Make it yours.'}</h2><p className="mb-9 mt-4 text-sm leading-7 text-[#718098]">{mode === 'login' ? 'Sign in and pick up where you left off.' : mode === 'request' ? 'Enter your email. We’ll send a link to reset your password.' : 'Choose a new password for your Unidex account.'}</p>
+    {error && <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-xs leading-6 text-red-700" role="alert">{error}</div>}
+    {message && <div className="mb-5 flex gap-3 rounded-xl border border-[#d4e2ff] bg-[#f0f5ff] p-4 text-xs leading-6 text-[#225feb]" role="status"><Check className="mt-1 h-4 w-4 shrink-0"/><span>{message}</span></div>}
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {mode !== 'update' && <div><label htmlFor="login-email" className="mb-2.5 block text-xs font-semibold text-[#52637c]">Email address</label><input id="login-email" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass}/></div>}
+      {mode !== 'request' && <div><div className="mb-2.5 flex items-center justify-between"><label htmlFor="login-password" className="block text-xs font-semibold text-[#52637c]">{mode === 'update' ? 'New password' : 'Password'}</label>{mode === 'login' && <button type="button" onClick={() => changeMode('request')} className="text-[11px] font-medium text-[#225feb]">Forgot password?</button>}</div><div className="relative"><input id="login-password" type={showPassword ? 'text' : 'password'} required autoComplete={mode === 'update' ? 'new-password' : 'current-password'} minLength={mode === 'update' ? 8 : undefined} value={password} onChange={e => setPassword(e.target.value)} placeholder={mode === 'update' ? 'At least 8 characters' : 'Your password'} className={`${inputClass} pr-12`}/><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94a3b8]">{showPassword ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}</button></div></div>}
+      {mode === 'update' && <div><label htmlFor="confirm-password" className="mb-2.5 block text-xs font-semibold text-[#52637c]">Confirm password</label><input id="confirm-password" type={showPassword ? 'text' : 'password'} required autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className={inputClass}/></div>}
+      <button type="submit" disabled={loading || (mode === 'update' && !recoverySession)} className={`${primaryClass} w-full`}>{loading ? <LoaderCircle className="h-4 w-4 animate-spin"/> : <>{mode === 'login' ? 'Sign in' : mode === 'request' ? 'Send reset link' : 'Save new password'}<ArrowRight className="h-4 w-4"/></>}</button>
+    </form>
+    {mode === 'login' ? <><div className="my-6 flex items-center gap-4"><span className="h-px flex-1 bg-[#e8edf5]"/><span className="text-[11px] text-[#9aa7bb]">or continue with</span><span className="h-px flex-1 bg-[#e8edf5]"/></div><button type="button" onClick={handleGoogle} disabled={loading} className="flex w-full items-center justify-center gap-3 rounded-full border border-[#dce4f0] bg-white py-3.5 text-sm font-medium text-[#52637c] hover:bg-[#f7f9fc] disabled:opacity-50"><span aria-hidden="true" className="text-base font-bold text-[#225feb]">G</span>Google</button><p className="mt-8 text-center text-xs text-[#718098]">New to Unidex? <Link to="/signup" className="ml-1 font-semibold text-[#225feb]">Create your profile</Link></p></> : <div className="mt-7 flex flex-wrap items-center justify-between gap-4 text-xs"><button type="button" onClick={() => { changeMode('login'); navigate('/login', { replace: true }) }} className="font-semibold text-[#225feb]">Back to sign in</button>{mode === 'update' && <button type="button" onClick={() => changeMode('request')} className="text-[#718098]">Request a new link</button>}{mode === 'update' && message && <Link to="/profile" className="font-semibold text-[#225feb]">Open your workspace →</Link>}</div>}
+  </AuthShell>
 }

@@ -1,735 +1,140 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { Heart, ChevronLeft, ChevronRight, X, Star, Flame } from 'lucide-react'
-import { supabase } from '../lib/supabase'
-import { getCollegeFit, getFitStyle } from '../lib/collegeFit'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { ArrowDownWideNarrow, ArrowRight, ArrowUpRight, Bookmark, Check, CheckCircle2, ChevronDown, CircleHelp, GraduationCap, Info, Loader2, MapPin, Search, SlidersHorizontal, Sparkles, X } from 'lucide-react'
 import Layout from '../components/Layout'
+import { useAdmissions } from '../context/AdmissionsContext'
+import { DELHI_NCR_COLLEGES } from '../data/delhiNcrColleges'
+import { createCollegeSnapshot, matchCollege, profileCompleteness } from '../lib/admissionsMatching'
 
-// Monogram-placeholder background per college tier (used when there's no photo).
-const TIER_PLACEHOLDER_BG = { 1: '#1a2744', 2: '#0f3d2e', 3: '#334155' }
-
-// Generate deterministic hue (0-360) from college name
-function getAccentHueFromName(name) {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    const char = name.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
-    hash = hash & hash // Convert to 32bit integer
-  }
-  return Math.abs(hash) % 360
+const money = value => Number.isFinite(Number(value)) && value !== null ? `₹${(Number(value) / 100000).toLocaleString('en-IN', { maximumFractionDigits: 2 })}L` : 'To be confirmed'
+const initials = name => name.replace(/\([^)]*\)/g, '').split(/\s+/).filter(word => !['of', 'the', 'and', 'for'].includes(word.toLowerCase())).map(word => word[0]).join('').slice(0, 4).toUpperCase()
+const sourceUrl = source => typeof source === 'string' ? source : source?.url
+const safeUrl = value => { try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) ? url.href : null } catch { return null } }
+function programmeCollege(college, programmeId) {
+  const programme = college.programmes?.find(item => item.id === programmeId) || college.programmes?.[0]
+  if (!programme) return college
+  const { name, ...details } = programme
+  return { ...college, ...details, id: college.id, name: college.name, type: college.type, programmeType: programme.type, programme: name, programme_key: programme.id, selected_programme: programme }
 }
 
-export default function CollegeDirectory({ user: propUser }) {
-  const navigate = useNavigate()
+function Dialog({ title, children, onClose, wide = false }) {
+  const dialogRef = useRef(null)
+  useEffect(() => {
+    const prior = document.activeElement
+    const priorOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    dialogRef.current?.focus()
+    const onKey = event => {
+      if (event.key === 'Escape') onClose()
+      if (event.key !== 'Tab') return
+      const elements = dialogRef.current?.querySelectorAll('a[href],button:not([disabled]),input,select,textarea,[tabindex="0"]')
+      if (!elements?.length) { event.preventDefault(); return }
+      const first = elements[0], last = elements[elements.length - 1]
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { event.preventDefault(); last.focus() }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = priorOverflow; prior?.focus?.() }
+  }, [onClose])
+  return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#10264c]/45 p-4 backdrop-blur-sm" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}><section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="college-dialog-title" tabIndex={-1} className={`max-h-[90dvh] w-full ${wide ? 'max-w-4xl' : 'max-w-xl'} overflow-y-auto rounded-[28px] bg-white p-6 shadow-2xl outline-none sm:p-8`}><div className="mb-6 flex items-start justify-between gap-5"><h2 id="college-dialog-title" className="text-xl font-semibold tracking-tight text-[#10264c]">{title}</h2><button onClick={onClose} type="button" aria-label="Close dialog" className="rounded-full bg-[#f2f5fa] p-2 text-[#60738e] hover:bg-[#e6edfa]"><X className="h-4 w-4"/></button></div>{children}</section></div>
+}
+
+export function MatchExplanation({ match, collegeName }) {
+  return <div><div className="flex items-center justify-between gap-4 rounded-2xl bg-[#f1f5ff] p-5"><div><p className="text-xs text-[#657c9e]">Profile alignment · {collegeName}</p><p className="mt-2 font-semibold text-[#10264c]">{match.label}</p></div><span className="text-4xl font-semibold tracking-tight text-[#225feb]">{match.score === null ? '—' : `${match.score}%`}</span></div><p className="mt-4 text-xs leading-6 text-[#718098]">A transparent comparison with known requirements and your preferences. This is not an admission probability. An unverified or missing fact contributes no score.</p><div className="mt-5 space-y-4">{match.reasons.map(reason => <div key={reason.key} className="border-b border-[#edf0f6] pb-4"><div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-[#10264c]">{reason.label}</p><span className={`rounded-full px-2.5 py-1 text-[10px] font-medium ${reason.status === 'met' ? 'bg-[#edf3ff] text-[#225feb]' : reason.status === 'review' ? 'bg-orange-50 text-orange-700' : 'bg-[#f3f5f9] text-[#718098]'}`}>{reason.status === 'met' ? 'Aligned' : reason.status === 'review' ? 'Review' : reason.status === 'partial' ? 'Partially known' : 'Not assessed'}</span></div><p className="mt-1.5 text-xs leading-5 text-[#718098]">{reason.detail}</p><p className="mt-1.5 text-[10px] text-[#92a1b8]">{reason.weight === 0 ? 'Additional eligibility check · outside numeric score' : reason.assessed ? `${reason.weight}% framework weight · ${Math.round(reason.value * 100)}% alignment` : `${reason.weight}% framework weight excluded`}</p></div>)}</div><div className="mt-5 rounded-xl border border-[#e2e9f5] p-4"><p className="text-xs font-semibold text-[#10264c]">{match.confidence.label} · {match.confidence.percentage}% of framework assessed</p><p className="mt-2 text-[11px] leading-5 text-[#718098]">Score = weighted alignment across assessed criteria ÷ assessed weight. Graduation 30%, exams 40%, fee budget 15%, location 10%, study mode 5%.</p><p className="mt-2 text-[11px] leading-5 text-[#718098]">Additional published eligibility checks can flag a review without changing the numeric framework. Last drawn CTC is optional career context; it does not raise or lower your score.</p></div>{match.warnings.map(warning => <p key={warning} className="mt-3 flex gap-2 text-[11px] leading-5 text-[#8b6b43]"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0"/>{warning}</p>)}</div>
+}
+
+export default function CollegeDirectory() {
+  const { user, profile, plans = [], loading, error: contextError, toggleBookmark, toggleSelection, updatePlan } = useAdmissions()
   const location = useLocation()
-
-  const [user, setUser] = useState(propUser || null)
-  const [showSignInModal, setShowSignInModal] = useState(false)
-  const [student, setStudent] = useState(null)
-  const [colleges, setColleges] = useState([])
-  const [cutoffs, setCutoffs] = useState({})
-  const [applicationCounts, setApplicationCounts] = useState({})
-  const [trackedColleges, setTrackedColleges] = useState(new Set())
-  const [savedColleges, setSavedColleges] = useState(new Set())
-  const [adding, setAdding] = useState(new Set())
-
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [activeTab, setActiveTab] = useState('relevant')
-  const [subFilter, setSubFilter] = useState('All')
-  const [region, setRegion] = useState('all')   // 'all' | 'ncr'
-  const [rowPages, setRowPages] = useState({})
-  const CARDS_PER_PAGE = 5
-
-  // Student's primary exam + percentile. exam_scores may carry an exam/exam_type;
-  // default to CAT (the app's historical assumption). studentScore is the object
-  // the exam-aware fit engine expects, or null when there's no score yet.
-  const studentExam = student?.exam_scores?.exam || student?.exam_scores?.exam_type || 'CAT'
-  const studentPercentile = student?.exam_scores?.percentile ?? student?.academic_background?.cat_percentile ?? null
-  const studentScore = studentPercentile === null ? null : { exam: studentExam, percentile: studentPercentile }
-
-  // Delhi NCR = these cities, matched on the normalised "City, State" location.
-  const NCR_CITIES = ['delhi', 'new delhi', 'gurgaon', 'gurugram', 'noida', 'greater noida', 'ghaziabad', 'faridabad']
-  const inDelhiNCR = (locationStr) => {
-    if (!locationStr) return false
-    const city = locationStr.split(',')[0].trim().toLowerCase()
-    return NCR_CITIES.includes(city)
-  }
-
-  // Component-scope visible list (search + region). Defined here — not inside
-  // buildRows — so the result count in the header can reference it too.
-  const filteredColleges = colleges.filter(c => {
-    const matchesSearch = c.name?.toLowerCase().includes(search.toLowerCase())
-    const matchesRegion = region === 'all' || (region === 'ncr' && inDelhiNCR(c.location))
-    return matchesSearch && matchesRegion
-  })
-
-  // ── Page title ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    document.title = 'Colleges · Unidex'
-  }, [])
-
-  // Read URL params on mount
-  useEffect(() => {
-    const params = new URLSearchParams(location.search)
-    const defaultTab = params.get('tab') || 'relevant'
-    setActiveTab(defaultTab)
-  }, [location.search])
-
-  // Auth listener - use propUser if provided, otherwise rely on auth listener
-  useEffect(() => {
-    if (propUser !== undefined && propUser !== null) {
-      setUser(propUser)
-      return
-    }
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_, session) => setUser(session?.user ?? null)
-    )
-    return () => subscription.unsubscribe()
-  }, [propUser])
-
-  // Fetch student data
-  useEffect(() => {
-    if (!user?.id) return
-
-    async function loadStudent() {
-      try {
-        const { data } = await supabase
-          .from('students')
-          .select('*')
-          .eq('user_id', user.id)
-          .single()
-
-        setStudent(data)
-
-        if (data?.id) {
-          const { data: appData } = await supabase
-            .from('applications')
-            .select('college_id')
-            .eq('student_id', data.id)
-
-          if (appData) {
-            setTrackedColleges(new Set(appData.map(a => a.college_id)))
-          }
-
-          // Load saved colleges
-          const { data: savedData } = await supabase
-            .from('saved_colleges')
-            .select('college_id')
-            .eq('student_id', data.id)
-
-          if (savedData) {
-            setSavedColleges(new Set(savedData.map(s => s.college_id)))
-          }
-        }
-      } catch (err) {
-        console.error('Error loading student:', err)
-      }
-    }
-
-    loadStudent()
-  }, [user?.id])
-
-  // Fetch colleges and cutoffs
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const { data: collegeData } = await supabase
-          .from('colleges')
-          .select('*')
-          .order('name', { ascending: true })
-
-        setColleges(collegeData || [])
-
-        // Fetch cutoffs for ALL exams, grouped per college so the exam-aware
-        // fit engine can pick the row matching each student's exam.
-        const { data: cutoffData } = await supabase
-          .from('college_cutoffs')
-          .select('*')
-
-        const cutoffMap = {}
-        cutoffData?.forEach(row => {
-          if (!cutoffMap[row.college_id]) cutoffMap[row.college_id] = []
-          cutoffMap[row.college_id].push(row)
-        })
-        setCutoffs(cutoffMap)
-
-        const { data: counts } = await supabase
-          .from('applications')
-          .select('college_id')
-
-        const countMap = {}
-        counts?.forEach(({ college_id }) => {
-          countMap[college_id] = (countMap[college_id] || 0) + 1
-        })
-        setApplicationCounts(countMap)
-
-        setLoading(false)
-      } catch (err) {
-        console.error('Error loading colleges:', err)
-        setLoading(false)
-      }
-    }
-
-    loadData()
-  }, [])
-
-  const handleAddToTracker = async (collegeId, e) => {
-    e.stopPropagation()
-
-    if (!user) {
-      setShowSignInModal(true)
-      return
-    }
-    if (!student) return
-
-    if (trackedColleges.has(collegeId)) return
-
-    setAdding(prev => new Set([...prev, collegeId]))
-    try {
-      const { error } = await supabase
-        .from('applications')
-        .insert({
-          student_id: student.id,
-          college_id: collegeId,
-          status: 'Researching'
-        })
-
-      if (error) throw error
-      setTrackedColleges(prev => new Set([...prev, collegeId]))
-    } catch (err) {
-      console.error('Error adding to tracker:', err)
-    } finally {
-      setAdding(prev => {
-        const next = new Set(prev)
-        next.delete(collegeId)
-        return next
-      })
-    }
-  }
-
-  const handleSaveCollege = async (collegeId, e) => {
-    e.stopPropagation()
-
-    if (!user) {
-      setShowSignInModal(true)
-      return
-    }
-    if (!student) return
-
-    const isSaved = savedColleges.has(collegeId)
-
-    try {
-      if (isSaved) {
-        // Remove from saved
-        const { error } = await supabase
-          .from('saved_colleges')
-          .delete()
-          .eq('student_id', student.id)
-          .eq('college_id', collegeId)
-
-        if (error) throw error
-        setSavedColleges(prev => {
-          const next = new Set(prev)
-          next.delete(collegeId)
-          return next
-        })
-      } else {
-        // Add to saved
-        const { error } = await supabase
-          .from('saved_colleges')
-          .insert({
-            student_id: student.id,
-            college_id: collegeId
-          })
-
-        if (error && error.code !== '23505') throw error // 23505 = unique constraint
-        setSavedColleges(prev => new Set([...prev, collegeId]))
-      }
-    } catch (err) {
-      console.error('Error toggling saved college:', err)
-    }
-  }
-
-  // Row component with Netflix-style pagination
-  function ScrollRow({ title, colleges: rowColleges, seeAllLink }) {
-    const rowId = title.replace(/\s+/g, '-')
-    const currentPage = rowPages[rowId] || 0
-    const totalPages = Math.ceil(rowColleges.length / CARDS_PER_PAGE)
-    const startIdx = currentPage * CARDS_PER_PAGE
-    const endIdx = startIdx + CARDS_PER_PAGE
-    const displayedColleges = rowColleges.slice(startIdx, endIdx)
-    const hasNextPage = currentPage < totalPages - 1
-
-    const goToPage = (page) => {
-      setRowPages(prev => ({ ...prev, [rowId]: Math.max(0, Math.min(page, totalPages - 1)) }))
-    }
-
-    return (
-      <div className="mb-12">
-        <div className="flex items-center justify-between mb-4 px-6">
-          <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-        </div>
-
-        <div className="relative group px-6">
-          {/* Cards Container */}
-          <div className="flex gap-4 scroll-smooth scrollbar-hide overflow-hidden">
-            {displayedColleges.map(college => (
-              <div key={college.id} className="flex-shrink-0 w-1/5">
-                <CollegeCard
-                  college={college}
-                  user={user}
-                  studentScore={studentScore}
-                  cutoffRows={cutoffs[college.id]}
-                  isTracked={trackedColleges.has(college.id)}
-                  isAdding={adding.has(college.id)}
-                  isSaved={savedColleges.has(college.id)}
-                  onNavigate={() => navigate(`/college/${college.id}`)}
-                  onAddClick={(e) => handleAddToTracker(college.id, e)}
-                  onSaveClick={(e) => handleSaveCollege(college.id, e)}
-                />
-              </div>
-            ))}
-
-            {/* View All Card at End */}
-            {hasNextPage && (
-              <div className="flex-shrink-0 w-1/5 flex items-center justify-center bg-slate-100 rounded-lg border border-dashed border-slate-300 min-h-64 cursor-pointer hover:bg-slate-200 transition" onClick={() => navigate(seeAllLink)}>
-                <div className="text-center">
-                  <p className="text-sm font-semibold text-slate-700">View all →</p>
-                  <p className="text-xs text-slate-500 mt-1">{rowColleges.length} colleges</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Chevron Buttons */}
-          {currentPage > 0 && (
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-50 transition">
-              <ChevronLeft className="w-5 h-5 text-[#c9a84c]" />
-            </button>
-          )}
-          {hasNextPage && (
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-50 transition">
-              <ChevronRight className="w-5 h-5 text-[#c9a84c]" />
-            </button>
-          )}
-        </div>
-
-        {/* Page Dots */}
-        {totalPages > 1 && (
-          <div className="flex gap-1.5 justify-center mt-4">
-            {Array.from({ length: totalPages }).map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => goToPage(idx)}
-                className={`w-2 h-2 rounded-full transition ${idx === currentPage ? 'bg-[#c9a84c]' : 'bg-slate-300'}`}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // Helper: filter colleges by type
-  const filterByType = (colleges, type) => {
-    if (type === 'All') return colleges
-    if (type === 'Private') return colleges.filter(c => c.type === 'Private')
-    return colleges.filter(c => ['IIM', 'IIT', 'Government'].includes(c.type))
-  }
-
-  // Helper: sort colleges by property
-  const sortByProperty = (colleges, prop, reverse = false) => {
-    return [...colleges].sort((a, b) => {
-      const aVal = a[prop] || (prop === 'name' ? '' : 999)
-      const bVal = b[prop] || (prop === 'name' ? '' : 999)
-      if (typeof aVal === 'string') return reverse ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal)
-      return reverse ? bVal - aVal : aVal - bVal
+  const [city, setCity] = useState('all')
+  const [type, setType] = useState('all')
+  const [exam, setExam] = useState('all')
+  const [budget, setBudget] = useState('all')
+  const [unknownFees, setUnknownFees] = useState(true)
+  const [view, setView] = useState(() => { const tab = new URLSearchParams(location.search).get('tab'); return tab === 'saved' || tab === 'bookmarked' ? 'bookmarked' : tab === 'selected' ? 'selected' : 'all' })
+  const [sort, setSort] = useState('match')
+  const [expanded, setExpanded] = useState(false)
+  const [programmeChoices, setProgrammeChoices] = useState({})
+  const [busy, setBusy] = useState({})
+  const [notice, setNotice] = useState('')
+  const [compareIds, setCompareIds] = useState([])
+  const [actionError, setActionError] = useState('')
+  const [dialog, setDialog] = useState(null)
+  const [page, setPage] = useState(1)
+  const criteriaKey = [search, city, type, exam, budget, unknownFees, view, sort].join('|')
+  const [pageCriteria, setPageCriteria] = useState(criteriaKey)
+  const currentPage = criteriaKey === pageCriteria ? page : 1
+  const closeDialog = useCallback(() => setDialog(null), [])
+  useEffect(() => { document.title = 'Explore Delhi NCR colleges · Unidex' }, [])
+  const plansByCollege = useMemo(() => new Map(plans.map(plan => [plan.college_id, plan])), [plans])
+  const selectedCount = plans.filter(plan => plan.is_selected).length
+  const bookmarkedCount = plans.filter(plan => plan.is_bookmarked).length
+  const cities = useMemo(() => [...new Set(DELHI_NCR_COLLEGES.map(college => college.city).filter(Boolean))].sort(), [])
+  const types = useMemo(() => [...new Set(DELHI_NCR_COLLEGES.map(college => college.type).filter(Boolean))].sort(), [])
+  const exams = useMemo(() => [...new Set(DELHI_NCR_COLLEGES.flatMap(college => college.allAcceptedExams || college.acceptedExams || []).filter(item => typeof item === 'string'))].sort(), [])
+  const colleges = useMemo(() => DELHI_NCR_COLLEGES.map(college => {
+    const selected = programmeCollege(college, programmeChoices[college.id] || plansByCollege.get(college.id)?.college_snapshot?.programme_key)
+    return { ...selected, match: matchCollege(profile, selected) }
+  }), [profile, programmeChoices, plansByCollege])
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    return colleges.filter(college => {
+      const plan = plansByCollege.get(college.id)
+      if (query && ![college.name, college.city, ...(college.programmeNames || []), college.programme].join(' ').toLowerCase().includes(query)) return false
+      if (city !== 'all' && college.city !== city) return false
+      if (type !== 'all' && college.type !== type) return false
+      if (exam !== 'all' && !(college.allAcceptedExams || college.acceptedExams || []).includes(exam)) return false
+      if (budget !== 'all' && (college.feesInr === null || college.feesInr === undefined ? !unknownFees : college.feesInr > Number(budget))) return false
+      if (view === 'bookmarked' && !plan?.is_bookmarked) return false
+      if (view === 'selected' && !plan?.is_selected) return false
+      return true
+    }).sort((a, b) => {
+      if (sort === 'match') return (b.match.score ?? -1) - (a.match.score ?? -1) || b.match.confidence.percentage - a.match.confidence.percentage || a.name.localeCompare(b.name)
+      if (sort === 'fees') return (a.feesInr ?? Infinity) - (b.feesInr ?? Infinity) || a.name.localeCompare(b.name)
+      if (sort === 'city') return a.city.localeCompare(b.city) || a.name.localeCompare(b.name)
+      return a.name.localeCompare(b.name)
     })
+  }, [colleges, search, city, type, exam, budget, unknownFees, view, plansByCollege, sort])
+  const visible = filtered.slice(0, currentPage * 12)
+  const complete = profileCompleteness(profile)
+  const comparison = colleges.filter(college => compareIds.includes(college.id))
+  function toggleCompare(college) {
+    if (compareIds.includes(college.id)) setCompareIds(current => current.filter(id => id !== college.id))
+    else if (compareIds.length < 3) setCompareIds(current => [...current, college.id])
+    else setNotice('Compare up to three colleges at a time. Remove one to add another.')
   }
-
-  // Build rows based on active tab. Operates on the component-scope
-  // filteredColleges (already narrowed by search + region).
-  const buildRows = () => {
-    if (activeTab === 'relevant') {
-      if (studentScore === null) {
-        return [{
-          title: 'Complete your profile to see fit',
-          colleges: filteredColleges,
-          showAll: true
-        }]
-      }
-
-      // Categorize colleges by fit tier
-      const withinReach = []
-      const strongMatch = []
-      const safeBet = []
-      const outOfReach = []
-      const unknown = []
-
-      filteredColleges.forEach(college => {
-        const fit = getCollegeFit(studentScore, college, cutoffs[college.id])
-        if (fit.tier === 'within_reach') withinReach.push(college)
-        else if (fit.tier === 'strong_match') strongMatch.push(college)
-        else if (fit.tier === 'safe_bet') safeBet.push(college)
-        else if (fit.tier === 'out_of_reach') outOfReach.push(college)
-        else unknown.push(college)
-      })
-
-      // Sort by tier (preferred first)
-      const sortByTier = (colleges) => colleges.sort((a, b) => (a.tier || 3) - (b.tier || 3))
-
-      return [
-        { title: 'Within Reach', colleges: sortByTier(withinReach) },
-        { title: 'Strong Match', colleges: sortByTier(strongMatch) },
-        { title: 'Safe Bet', colleges: sortByTier(safeBet) },
-        { title: 'Out of Reach', colleges: sortByTier(outOfReach) },
-        ...(unknown.length > 0 ? [{ title: 'Complete your profile to see fit', colleges: unknown, showAll: true }] : [])
-      ]
-    }
-
-    if (activeTab === 'popular') {
-      const trending = filteredColleges
-        .slice()
-        .sort((a, b) => (applicationCounts[b.id] || 0) - (applicationCounts[a.id] || 0))
-        .slice(0, 20)
-
-      const govColleges = filteredColleges
-        .filter(c => ['IIM', 'IIT', 'Government'].includes(c.type))
-        .sort((a, b) => (a.nirf_rank || 999) - (b.nirf_rank || 999))
-
-      const privateColleges = filteredColleges
-        .filter(c => c.type === 'Private')
-        .sort((a, b) => (b.placement_avg_lpa || 0) - (a.placement_avg_lpa || 0))
-
-      return [
-        { title: 'Trending This Season', colleges: trending },
-        { title: 'Government Colleges', colleges: govColleges },
-        { title: 'Private Colleges', colleges: privateColleges }
-      ]
-    }
-
-    if (activeTab === 'all') {
-      const filtered = filterByType(filteredColleges, subFilter)
-
-      const iims = sortByProperty(filtered.filter(c => c.type === 'IIM'), 'name')
-      const iits = sortByProperty(filtered.filter(c => c.type === 'IIT'), 'name')
-      const privates = sortByProperty(filtered.filter(c => c.type === 'Private'), 'name')
-      const govOther = sortByProperty(filtered.filter(c => c.type === 'Government' && !['IIM', 'IIT'].includes(c.type)), 'name')
-
-      return [
-        { title: 'IIMs', colleges: iims },
-        { title: 'IITs', colleges: iits },
-        { title: 'Private B-Schools', colleges: privates },
-        { title: 'Government B-Schools', colleges: govOther }
-      ]
-    }
-
-    return []
+  async function handleAction(action, college) {
+    if (!user) { setDialog({ kind: 'signin' }); return }
+    if (busy[college.id]) return
+    setBusy(previous => ({ ...previous, [college.id]: true }))
+    setActionError(''); setNotice('')
+    try {
+      const plan = plansByCollege.get(college.id)
+      if (action === 'bookmark') await toggleBookmark(createCollegeSnapshot(plan?.is_selected && plan?.college_snapshot ? plan.college_snapshot : college))
+      else if (plan?.is_selected && college.programme_key && plan.college_snapshot?.programme_key !== college.programme_key) {
+        await updatePlan({ ...plan, college_snapshot: createCollegeSnapshot(college) })
+        setNotice('Your selected programme has been updated.'); return
+      } else await toggleSelection(createCollegeSnapshot(college))
+      setNotice(action === 'bookmark' ? (plan?.is_bookmarked ? 'College removed from bookmarks.' : 'College saved to your bookmarks.') : (plan?.is_selected ? 'College removed from your application selection.' : 'College added to your application selection.'))
+    } catch (err) { setActionError(err.message || 'This change could not be saved. Please try again.') }
+    finally { setBusy(previous => ({ ...previous, [college.id]: false })) }
   }
+  function clearFilters() { setSearch(''); setCity('all'); setType('all'); setExam('all'); setBudget('all'); setUnknownFees(true) }
+  const filterClass = 'w-full appearance-none rounded-xl border border-[#e4eaf3] bg-white px-3.5 py-3 pr-8 text-xs text-[#526982] outline-none transition focus:border-[#225feb] focus:ring-2 focus:ring-[#225feb]/10'
 
-  const rows = buildRows()
-  const hasAnyResults = rows.some(r => r.colleges.length > 0)
-
-  return (
-    <Layout>
-      <div className="min-h-screen bg-slate-50">
-        {/* Sticky header */}
-        <div className="sticky top-0 z-30 bg-white border-b border-slate-200">
-          {/* Search bar */}
-          <div className="px-6 py-4 space-y-2">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search colleges by name or city…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full px-4 py-2.5 pr-10 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            {search && (
-              <p className="text-xs text-slate-500 px-1">
-                {filteredColleges.length} result{filteredColleges.length !== 1 ? 's' : ''} for "{search}"
-              </p>
-            )}
-            {search && filteredColleges.length === 0 && (
-              <p className="text-sm text-slate-600 px-1">No colleges found — try a different name or city</p>
-            )}
-          </div>
-
-          {/* Tabs */}
-          <div className="px-6 pb-4 flex gap-6 border-b border-slate-100">
-            {[
-              { id: 'relevant', label: 'Most Relevant', Icon: Star },
-              { id: 'popular', label: 'Most Popular', Icon: Flame },
-              { id: 'all', label: 'All Colleges', Icon: null },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id)
-                  setSubFilter('All')
-                }}
-                className={`pb-4 text-sm font-medium transition-colors inline-flex items-center gap-1.5 ${
-                  activeTab === tab.id
-                    ? 'text-indigo-600 border-b-2 border-indigo-600'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}>
-                {tab.Icon && <tab.Icon className="w-4 h-4" />}
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Region filter — narrows every tab by normalised location */}
-          <div className="px-6 pb-3 flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-500">Region:</span>
-            {[{ id: 'all', label: 'All India' }, { id: 'ncr', label: 'Delhi NCR' }].map(r => (
-              <button
-                key={r.id}
-                onClick={() => setRegion(r.id)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                  region === r.id
-                    ? 'bg-[#c9a84c] text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}>
-                {r.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Sub-filters for "All Colleges" tab */}
-          {activeTab === 'all' && (
-            <div className="px-6 pb-3 flex gap-2">
-              {['All', 'Private', 'Government'].map(filter => (
-                <button
-                  key={filter}
-                  onClick={() => setSubFilter(filter)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                    subFilter === filter
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}>
-                  {filter}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="py-8">
-          {loading ? (
-            <div className="px-6">
-              <div className="h-64 bg-slate-200 rounded-xl animate-pulse" />
-            </div>
-          ) : !hasAnyResults && search ? (
-            // Search already found nothing — the search bar's own "No colleges
-            // found" message above covers this; avoid a second, contradictory
-            // empty state stacked underneath it.
-            null
-          ) : !hasAnyResults && activeTab === 'relevant' && studentScore === null ? (
-            <div className="text-center py-16 px-6">
-              <p className="text-lg font-semibold text-slate-900 mb-2">See your best matches</p>
-              <p className="text-slate-600 mb-6">Add your CAT score to your profile to discover colleges that fit your profile</p>
-              {user && (
-                <button
-                  onClick={() => navigate('/profile')}
-                  className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
-                  Update Profile
-                </button>
-              )}
-            </div>
-          ) : !hasAnyResults ? (
-            <div className="text-center py-16 px-6">
-              <p className="text-lg font-semibold text-slate-900 mb-2">No colleges available yet</p>
-              <p className="text-slate-600">Check back soon — we're adding more colleges.</p>
-            </div>
-          ) : (
-            <>
-              {rows.map((row, i) => (
-                row.colleges.length > 0 && (
-                  <ScrollRow
-                    key={i}
-                    title={row.title}
-                    colleges={row.colleges}
-                    seeAllLink={null}
-                  />
-                )
-              ))}
-            </>
-          )}
-        </div>
-
-        {/* Sign-in modal */}
-        {showSignInModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-8 max-w-sm w-full mx-4 space-y-6">
-              <h2 className="text-2xl font-bold text-slate-900">Sign in to track this college</h2>
-              <p className="text-slate-600">Create an account or sign in to start tracking your MBA applications.</p>
-              <div className="space-y-3">
-                <button
-                  onClick={() => {
-                    setShowSignInModal(false)
-                    navigate('/login')
-                  }}
-                  className="w-full px-4 py-3 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition">
-                  Sign in
-                </button>
-                <button
-                  onClick={() => {
-                    setShowSignInModal(false)
-                    navigate('/signup')
-                  }}
-                  className="w-full px-4 py-3 rounded-lg border-2 border-indigo-600 text-indigo-600 font-semibold hover:bg-indigo-50 transition">
-                  Sign up
-                </button>
-              </div>
-              <button
-                onClick={() => setShowSignInModal(false)}
-                className="w-full text-center text-slate-500 hover:text-slate-700">
-                Continue browsing
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </Layout>
-  )
-}
-
-// Compact card component
-function CollegeCard({ college, user, studentScore, cutoffRows, isTracked, isAdding, isSaved, onNavigate, onAddClick, onSaveClick }) {
-  const fit = studentScore ? getCollegeFit(studentScore, college, cutoffRows) : null
-  const fitStyle = fit ? getFitStyle(fit.tier) : null
-
-  const initials = college.name.split(' ').map(w => w[0]).join('')
-  const accentHue = getAccentHueFromName(college.name)
-
-  return (
-    <button
-      onClick={onNavigate}
-      className="flex-shrink-0 w-56 group text-left">
-      <div className="bg-white rounded-xl overflow-hidden border border-slate-200 hover:shadow-lg hover:scale-103 transition-all duration-150 h-72">
-        {/* Image or Branded Placeholder */}
-        <div className="relative overflow-hidden h-32">
-          {college.image_url ? (
-            <>
-              <img
-                src={college.image_url}
-                alt={college.name}
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
-              />
-              {/* Attribution — a licence condition, shown as text on the card
-                  (the clickable source link is on the college profile page). */}
-              {college.image_credit && (
-                <span className="absolute bottom-0 left-0 max-w-full truncate text-[9px] leading-tight text-white/85 bg-black/45 px-1.5 py-0.5 rounded-tr">
-                  {college.image_credit}{college.image_license ? ` / ${college.image_license}` : ''}
-                </span>
-              )}
-            </>
-          ) : (
-            <>
-              {/* Branded monogram placeholder in the college's tier colour */}
-              <div className="w-full h-full relative" style={{ backgroundColor: TIER_PLACEHOLDER_BG[college.tier] || TIER_PLACEHOLDER_BG[3] }}>
-                {/* CSS-only geometric pattern background */}
-                <div className="absolute inset-0 opacity-10">
-                  <div className="absolute top-0 left-0 w-32 h-32 rounded-full" style={{ backgroundColor: `hsl(${accentHue}, 70%, 50%)` }} />
-                  <div className="absolute bottom-2 right-4 w-24 h-24 rounded-full" style={{ backgroundColor: `hsl(${accentHue}, 60%, 60%)` }} />
-                  <div className="absolute top-1/3 right-1/4 w-16 h-16 rotate-45" style={{ backgroundColor: `hsl(${accentHue}, 65%, 55%)` }} />
-                </div>
-
-                {/* Gold monogram circle */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-16 h-16 rounded-full bg-[#c9a84c] flex items-center justify-center">
-                    <span className="text-xl font-bold text-[#1a2744]">{initials}</span>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Fit pill */}
-          <div className="absolute top-2 right-2">
-            {fit ? (
-              <span
-                className={`text-xs px-2 py-1 rounded-full font-semibold ${fitStyle.bg} ${fitStyle.text} cursor-help`}
-                title={fit.estimated ? `Estimated cutoff (${fit.cutoff}%ile) — verify on college site` : `Based on ${fit.exam} cutoff ${fit.cutoff}%ile`}
-              >
-                {fit.label}{fit.estimated ? ' · est.' : ''}
-              </span>
-            ) : !user ? (
-              <span className="text-xs px-2 py-1 rounded-full font-semibold text-white bg-slate-600">
-                Sign in
-              </span>
-            ) : null}
-          </div>
-
-          {/* Save heart button */}
-          {user && (
-            <button
-              onClick={onSaveClick}
-              className="absolute top-2 left-2 z-20 transition hover:scale-110"
-              title={isSaved ? 'Remove from saved' : 'Save for later'}
-            >
-              <Heart
-                className={`w-6 h-6 transition ${
-                  isSaved
-                    ? 'fill-red-400 stroke-red-400'
-                    : 'stroke-white opacity-70 hover:opacity-100'
-                }`}
-              />
-            </button>
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="p-3 space-y-2 flex flex-col flex-1">
-          <div>
-            <h3 className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:underline">
-              {college.name}
-            </h3>
-            <p className="text-xs text-slate-500">{college.location}</p>
-          </div>
-
-          {/* Stats */}
-          <div className="text-xs text-slate-600 space-y-0.5">
-            <div className="flex flex-wrap gap-1">
-              {college.avg_fees && <span>₹{(college.avg_fees / 100000).toFixed(0)}L</span>}
-              {user && college.placement_avg_lpa && <span>·</span>}
-              {user && college.placement_avg_lpa && <span>₹{college.placement_avg_lpa}L avg</span>}
-              {college.nirf_rank && user && <span>·</span>}
-              {college.nirf_rank && user && <span>#{college.nirf_rank}</span>}
-            </div>
-          </div>
-
-          {/* Button */}
-          <button
-            onClick={(e) => onAddClick(e)}
-            disabled={isTracked || isAdding}
-            className={`w-full py-2 rounded-lg text-xs font-semibold transition-colors mt-auto ${
-              isTracked
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
-                : user
-                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
-                : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'
-            }`}>
-            {isTracked ? '✓ In Tracker' : isAdding ? 'Adding…' : '+ Add'}
-          </button>
-        </div>
-      </div>
-    </button>
-  )
+  return <Layout><div className="mx-auto max-w-[1440px] px-5 pt-8 sm:px-8 lg:px-10 lg:pt-12">
+    <div className="relative overflow-hidden rounded-[28px] bg-[#10264c] px-6 py-8 text-white sm:px-9 sm:py-10"><div aria-hidden="true" className="absolute -right-20 -top-36 h-[380px] w-[380px] rounded-full border-[65px] border-white/[.035]"/><div aria-hidden="true" className="absolute -bottom-40 right-16 h-[300px] w-[300px] rounded-full border border-white/[.07]"/><div className="relative max-w-2xl"><p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.2em] text-[#a0bbef]"><span className="h-1.5 w-1.5 rounded-full bg-[#ff762e]"/>Your possibilities, in perspective</p><h1 className="mt-5 text-3xl font-semibold leading-tight tracking-[-.045em] sm:text-[42px]">Find a college.<br/><span className="text-[#a9c3ff]">See where it could take you.</span></h1><p className="mt-5 max-w-lg text-xs leading-6 text-[#b0c2df] sm:text-sm">Explore MBA and management programmes across Delhi NCR. Build a considered shortlist, then bring your applications together.</p><div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3 text-[11px] text-[#b9cae4]"><span className="flex items-center gap-2"><GraduationCap className="h-4 w-4"/>{DELHI_NCR_COLLEGES.length} institutions</span><span className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5"/>Delhi & the wider NCR</span><span className="flex items-center gap-2"><Bookmark className="h-3.5 w-3.5"/>{bookmarkedCount} bookmarked</span></div></div></div>
+    <div className="mt-6 flex flex-col justify-between gap-4 rounded-2xl border border-[#e4eaf5] bg-white p-5 sm:flex-row sm:items-center"><div className="flex items-start gap-3"><div className="rounded-xl bg-[#edf3ff] p-2.5 text-[#225feb]"><Sparkles className="h-4 w-4"/></div><div><p className="text-xs font-semibold text-[#10264c]">{user ? 'A clearer picture starts with your profile.' : 'Your next step can be more personal.'}</p><p className="mt-1.5 text-[11px] leading-5 text-[#7b8ba3]">{user ? `${complete.percentage}% profile complete. Scores explain alignment with verified criteria, never admission chances.` : 'Sign in and add your academics, entrance tests and preferences for an explained profile match.'}</p></div></div><Link to={user ? '/profile/edit' : '/login'} className="inline-flex shrink-0 items-center gap-2 text-xs font-semibold text-[#225feb]">{user ? 'Complete my profile' : 'Build my profile'}<ArrowUpRight className="h-3.5 w-3.5"/></Link></div>
+    {(actionError || contextError) && <div role="alert" className="mt-4 rounded-xl border border-red-100 bg-red-50 p-4 text-xs leading-5 text-red-700">{actionError || contextError}</div>}
+    {notice && <div role="status" className="mt-4 flex items-center justify-between rounded-xl bg-[#edf3ff] p-4 text-xs text-[#225feb]"><span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4"/>{notice}</span><button onClick={() => setNotice('')} aria-label="Dismiss notification"><X className="h-4 w-4"/></button></div>}
+    <div className="mb-6 mt-9 flex flex-wrap items-center justify-between gap-4"><div className="flex gap-1 rounded-full border border-[#e5eaf3] bg-white p-1">{[['all', 'All colleges'], ['bookmarked', `Saved${bookmarkedCount ? ` · ${bookmarkedCount}` : ''}`], ['selected', `Selected${selectedCount ? ` · ${selectedCount}` : ''}`]].map(([key, label]) => <button key={key} onClick={() => setView(key)} className={`rounded-full px-4 py-2.5 text-[11px] font-semibold transition ${view === key ? 'bg-[#10264c] text-white' : 'text-[#7d8ca4] hover:text-[#225feb]'}`}>{label}</button>)}</div>{selectedCount > 0 && <Link to="/application-builder" className="inline-flex items-center gap-2 rounded-full bg-[#225feb] px-5 py-3 text-xs font-semibold text-white shadow-md shadow-[#225feb]/10">Prepare {selectedCount} application{selectedCount === 1 ? '' : 's'}<ArrowRight className="h-3.5 w-3.5"/></Link>}</div>
+    <div className="rounded-2xl border border-[#e4eaf3] bg-white p-4"><div className="flex gap-3"><div className="relative flex-1"><Search className="absolute left-4 top-3.5 h-4 w-4 text-[#a0aec2]"/><input value={search} onChange={event => setSearch(event.target.value)} aria-label="Search colleges, cities or programmes" placeholder="Search a college, city or programme" className="w-full rounded-xl bg-[#f5f7fb] py-3.5 pl-11 pr-4 text-xs text-[#10264c] outline-none placeholder:text-[#a0aec2] focus:ring-2 focus:ring-[#225feb]/20"/></div><button onClick={() => setExpanded(!expanded)} aria-expanded={expanded} className={`flex items-center gap-2 rounded-xl border px-4 text-xs font-semibold transition ${expanded ? 'border-[#225feb] bg-[#edf3ff] text-[#225feb]' : 'border-[#e5eaf3] text-[#60738e]'}`}><SlidersHorizontal className="h-4 w-4"/><span className="hidden sm:block">Filters</span></button></div>{expanded && <div className="mt-4 border-t border-[#edf0f6] pt-4"><div className="grid grid-cols-2 gap-3 md:grid-cols-4">{[['City', city, setCity, cities, 'All cities'], ['Institution type', type, setType, types, 'All types'], ['Entrance test', exam, setExam, exams, 'Any test']].map(([label, value, setter, options, placeholder]) => <label key={label} className="text-[10px] font-medium text-[#8190a6]">{label}<span className="relative mt-2 block"><select value={value} onChange={event => setter(event.target.value)} className={filterClass}><option value="all">{placeholder}</option>{options.map(option => <option key={option} value={option}>{option}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-3.5 h-3.5 w-3.5"/></span></label>)}<label className="text-[10px] font-medium text-[#8190a6]">Reported fee budget<span className="relative mt-2 block"><select value={budget} onChange={event => setBudget(event.target.value)} className={filterClass}><option value="all">Any budget</option>{[300000, 500000, 1000000, 1500000, 2500000].map(value => <option key={value} value={value}>Up to {money(value)}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-3.5 h-3.5 w-3.5"/></span></label></div><div className="mt-4 flex flex-wrap items-center justify-between gap-3">{budget !== 'all' ? <label className="flex items-center gap-2 text-[11px] text-[#718098]"><input type="checkbox" checked={unknownFees} onChange={event => setUnknownFees(event.target.checked)} className="accent-[#225feb]"/>Include colleges whose fee needs confirmation</label> : <p className="text-[11px] text-[#8c9bb0]">Broader NCR locations are identified on each college card.</p>}<button onClick={clearFilters} className="text-[11px] font-semibold text-[#225feb]">Reset filters</button></div></div>}</div>
+    <div className="my-5 flex items-center justify-between gap-3"><p className="text-[11px] text-[#8290a6]"><strong className="font-semibold text-[#10264c]">{filtered.length}</strong> institution{filtered.length === 1 ? '' : 's'}{view !== 'all' ? ` ${view === 'bookmarked' ? 'saved' : 'selected'}` : ' to explore'}</p><label className="flex items-center gap-2 text-[11px] text-[#7b8ba3]"><ArrowDownWideNarrow className="h-3.5 w-3.5"/><span className="sr-only">Sort colleges</span><select value={sort} onChange={event => setSort(event.target.value)} className="max-w-[155px] bg-transparent text-xs font-medium text-[#526982] outline-none"><option value="match">Profile alignment</option><option value="name">College name</option><option value="fees">Fee: low to high</option><option value="city">City</option></select></label></div>
+    {loading && user && <p className="mb-4 flex items-center gap-2 text-xs text-[#718098]" role="status"><Loader2 className="h-3.5 w-3.5 animate-spin"/>Loading your saved colleges…</p>}
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3">{visible.map(college => { const plan = plansByCollege.get(college.id); const differentProgramme = Boolean(plan?.is_selected && college.programme_key && plan.college_snapshot?.programme_key !== college.programme_key); const sources = (college.sourceUrls || []).map(sourceUrl).filter(safeUrl); const numericKnown = [college.feesInr, college.averageCtcInr, college.minGraduationPercent].filter(value => value !== null && value !== undefined).length; return <article key={college.id} className="group flex min-w-0 flex-col rounded-[22px] border border-[#e5eaf3] bg-white p-5 transition duration-300 hover:-translate-y-1 hover:border-[#cbd9f4] hover:shadow-[0_16px_48px_-30px_rgba(16,38,76,0.3)] motion-reduce:transform-none sm:p-6"><div className="flex items-start justify-between gap-4"><div className="grid h-14 w-14 shrink-0 place-items-center rounded-[18px] border border-[#e2eafb] bg-[#f0f4ff] text-sm font-semibold tracking-tight text-[#225feb]">{initials(college.name)}</div><button onClick={() => handleAction('bookmark', college)} disabled={busy[college.id]} aria-label={plan?.is_bookmarked ? `Remove ${college.name} from bookmarks` : `Bookmark ${college.name}`} aria-pressed={Boolean(plan?.is_bookmarked)} className={`rounded-full border p-2.5 transition disabled:opacity-50 ${plan?.is_bookmarked ? 'border-[#d7e2fb] bg-[#edf3ff] text-[#225feb]' : 'border-[#e9edf5] text-[#a0aec2] hover:border-[#225feb] hover:text-[#225feb]'}`}><Bookmark className={`h-4 w-4 ${plan?.is_bookmarked ? 'fill-current' : ''}`}/></button></div><div className="mt-5 flex-1"><p className="text-[9px] font-semibold uppercase tracking-[.14em] text-[#8da0bd]">{college.type || 'Management institution'}</p><Link to={`/college/${college.id}`} className="mt-2 block text-[17px] font-semibold leading-6 tracking-[-.025em] text-[#10264c] hover:text-[#225feb]">{college.name}</Link><p className="mt-2 flex items-center gap-1.5 text-[11px] text-[#8291a8]"><MapPin className="h-3 w-3"/>{college.city}{college.geographicScope === 'broader_ncr' && <span className="ml-1 rounded-full bg-[#f4f6fa] px-2 py-0.5 text-[9px]">Wider NCR</span>}</p>{college.programmes?.length > 1 ? <label className="mt-4 block"><span className="sr-only">Programme at {college.name}</span><select value={college.programme_key || ''} onChange={event => setProgrammeChoices(previous => ({ ...previous, [college.id]: event.target.value }))} className="w-full truncate rounded-lg border border-[#e7ecf5] bg-[#fbfcfe] px-2.5 py-2 text-[11px] text-[#60738e] outline-none focus:border-[#225feb]">{college.programmes.map(programme => <option key={programme.id} value={programme.id}>{programme.name}</option>)}</select></label> : <p className="mt-4 truncate text-[11px] text-[#60738e]">{college.programme || college.programmeNames?.[0] || 'Programme details to be confirmed'}</p>}<div className="mt-5 grid grid-cols-2 gap-3 border-y border-[#edf0f6] py-4"><div><p className="text-[9px] uppercase tracking-[.1em] text-[#9aa8bc]">Reported fee</p><p className="mt-1.5 text-[13px] font-semibold text-[#10264c]">{money(college.feesInr)}</p></div><div><p className="text-[9px] uppercase tracking-[.1em] text-[#9aa8bc]">Average placement</p><p className="mt-1.5 text-[13px] font-semibold text-[#10264c]">{college.averageCtcInr ? `${money(college.averageCtcInr)} p.a.` : 'Not verified'}</p></div></div><div className="mt-4 flex items-center justify-between gap-3"><button onClick={() => setDialog({ kind: 'match', college })} className="flex items-center gap-2 text-left"><span className={`rounded-lg px-2.5 py-1.5 text-sm font-semibold ${college.match.score === null ? 'bg-[#f2f5fa] text-[#8a9bb2]' : 'bg-[#edf3ff] text-[#225feb]'}`}>{college.match.score === null ? '—' : `${college.match.score}%`}</span><span className="text-[10px] text-[#7a8ca7]">Profile alignment<br/><span className="text-[9px] text-[#a0aec2]">{college.match.confidence.percentage}% criteria coverage</span></span><CircleHelp className="h-3.5 w-3.5 text-[#9aadc9]"/></button>{college.match.eligibility === 'review_required' && <span className="max-w-[88px] rounded-md bg-orange-50 px-2 py-1 text-center text-[9px] text-orange-700">Review eligibility</span>}</div><p className="mt-3 text-[9px] leading-4 text-[#9aa8bc]">{sources.length} source{sources.length === 1 ? '' : 's'} linked · {numericKnown}/3 key figures available · check scope & cycle. {college.deadline?.verificationStatus === 'verified_current_cycle' && college.deadline?.date ? 'Deadline available in details.' : 'Confirm current deadlines.'}</p></div><div className="mt-4 flex items-center justify-between border-t border-[#edf0f6] pt-4"><label className="flex cursor-pointer items-center gap-2 text-[10px] text-[#7b8ba4]"><input type="checkbox" checked={compareIds.includes(college.id)} onChange={() => toggleCompare(college)} className="accent-[#225feb]"/>Compare</label><span className="text-[9px] text-[#a0aec2]">{college.programmes?.length > 1 ? `${college.programmes.length} programmes` : 'Programme details'}</span></div><div className="mt-4 flex items-center justify-between gap-3"><Link to={`/college/${college.id}`} className="flex items-center gap-1.5 text-[11px] font-semibold text-[#60738e] hover:text-[#225feb]">Explore college<ArrowUpRight className="h-3.5 w-3.5"/></Link><button onClick={() => handleAction('select', college)} disabled={busy[college.id]} aria-pressed={Boolean(plan?.is_selected)} className={`flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[10px] font-semibold transition disabled:opacity-50 ${plan?.is_selected ? 'bg-[#10264c] text-white' : 'bg-[#edf3ff] text-[#225feb] hover:bg-[#225feb] hover:text-white'}`}>{busy[college.id] ? <Loader2 className="h-3 w-3 animate-spin"/> : plan?.is_selected ? <Check className="h-3 w-3"/> : null}{differentProgramme ? 'Use programme' : plan?.is_selected ? 'Selected' : 'Select college'}</button></div></article> })}</div>
+    {filtered.length === 0 && <div className="rounded-[24px] border border-dashed border-[#d6e0ef] bg-white px-6 py-16 text-center"><Search className="mx-auto h-8 w-8 text-[#b2c3e1]"/><h2 className="mt-5 text-lg font-semibold text-[#10264c]">{view === 'selected' ? 'Your selection starts here.' : view === 'bookmarked' ? 'Make room for possibilities.' : 'Try a different perspective.'}</h2><p className="mx-auto mt-3 max-w-sm text-xs leading-6 text-[#8190a6]">{view === 'all' ? 'No colleges match these filters. Adjust your search or include unverified fee data.' : 'Save or select colleges while you explore. Your choices will appear here after you sign in.'}</p><button onClick={() => { clearFilters(); setView('all') }} className="mt-6 rounded-full bg-[#225feb] px-6 py-3 text-xs font-semibold text-white">Explore all colleges</button></div>}
+    {visible.length < filtered.length && <div className="mt-8 text-center"><button onClick={() => { setPageCriteria(criteriaKey); setPage(currentPage + 1) }} className="rounded-full border border-[#dbe4f2] bg-white px-7 py-3.5 text-xs font-semibold text-[#60738e] hover:border-[#225feb] hover:text-[#225feb]">Show more colleges <span className="ml-2 text-[#a0aec2]">{visible.length} / {filtered.length}</span></button></div>}
+    <p className="mx-auto mb-2 mt-8 flex max-w-3xl items-start gap-2 text-[10px] leading-5 text-[#97a5ba]"><Info className="mt-1 h-3 w-3 shrink-0"/>Research dates vary by institution. Linked sources support specific fields, not a blanket guarantee of current admissions details. Confirm fees, eligibility and deadlines with the institution before applying.</p>
+  </div>{comparison.length > 0 && <div className="fixed bottom-5 left-5 right-5 z-40 mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-3 rounded-[20px] border border-[#d7e1f3] bg-white/95 p-4 shadow-[0_10px_50px_rgba(16,38,76,0.16)] backdrop-blur-xl lg:left-[284px]"><div><p className="text-xs font-semibold text-[#10264c]">{comparison.length} of 3 colleges</p><p className="mt-1 text-[10px] text-[#8190a6]">See your options side by side.</p></div><div className="flex items-center gap-4"><button onClick={() => setCompareIds([])} className="text-[11px] text-[#8b9bb2]">Clear</button><button onClick={() => setDialog({ kind: 'compare' })} className="flex items-center gap-2 rounded-full bg-[#225feb] px-5 py-3 text-xs font-semibold text-white">Compare<ArrowRight className="h-3.5 w-3.5"/></button></div></div>}{dialog && <Dialog wide={dialog.kind === 'compare'} title={dialog.kind === 'signin' ? 'A place for your possibilities.' : dialog.kind === 'compare' ? 'Put your possibilities in perspective.' : 'Understand your match'} onClose={closeDialog}>{dialog.kind === 'signin' ? <div><p className="text-sm leading-7 text-[#718098]">Sign in to save colleges, compare them with your profile and prepare a shared application.</p><Link onClick={closeDialog} to="/login" className="mt-7 inline-flex items-center gap-3 rounded-full bg-[#225feb] px-6 py-3.5 text-xs font-semibold text-white">Sign in or create an account<ArrowUpRight className="h-4 w-4"/></Link></div> : dialog.kind === 'compare' ? <div><div className="overflow-x-auto"><table className="w-full min-w-[540px] border-collapse text-left"><thead><tr><th className="w-24 border-b border-[#e5eaf3] pb-5 text-[10px] font-medium text-[#8b9bb2]">Your options</th>{comparison.map(college => <th key={college.id} className="min-w-[170px] border-b border-[#e5eaf3] px-4 pb-5 align-top"><Link to={`/college/${college.id}`} onClick={closeDialog} className="text-sm font-semibold leading-6 tracking-tight text-[#10264c] hover:text-[#225feb]">{college.name}</Link><p className="mt-2 text-[10px] font-normal text-[#8b9bb2]">{college.city}</p><button onClick={() => toggleCompare(college)} className="mt-2 text-[10px] font-normal text-[#225feb]">Remove</button></th>)}</tr></thead><tbody>{[['Programme', college => college.programme], ['Reported fee', college => money(college.feesInr)], ['Fee scope', college => college.feesInr ? college.feeScope : 'Fee needs verification'], ['Avg. placement', college => college.averageCtcInr ? `${money(college.averageCtcInr)} p.a. · ${college.averageCtcLabel || 'see cohort in source'}` : 'Not verified'], ['Tests', college => college.acceptedExamsLabel || college.acceptedExams?.join(', ') || 'Confirm with college'], ['Deadline', college => college.deadline?.verificationStatus === 'verified_current_cycle' ? college.deadline?.date : 'Confirmation required'], ['Alignment', college => college.match.score === null ? 'Not yet assessed' : `${college.match.score}% · ${college.match.confidence.percentage}% criteria coverage`]].map(([label, value]) => <tr key={label}><th className="border-b border-[#edf0f6] py-4 text-[10px] font-medium text-[#8b9bb2]">{label}</th>{comparison.map(college => <td key={college.id} className="border-b border-[#edf0f6] px-4 py-4 align-top text-[11px] leading-6 text-[#60738e]">{value(college) || 'Confirmation required'}</td>)}</tr>)}</tbody></table></div><p className="mt-5 text-[10px] leading-6 text-[#8b9bb2]">Match percentages describe profile alignment, not admission probability. Compare programme fee scopes and placement cohorts before drawing conclusions. Open each college to inspect its sources.</p></div> : <MatchExplanation match={dialog.college.match} collegeName={dialog.college.name}/>}</Dialog>}</Layout>
 }
