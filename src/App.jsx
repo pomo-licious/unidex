@@ -1,115 +1,82 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// src/App.jsx — URL router / navigation hub
-//
-// This file is the map of the entire app. It links each URL path (e.g. /profile)
-// to the page component that should be rendered at that URL.
-// When a user clicks a nav link, the router swaps out the visible page without
-// doing a full browser refresh — that's what makes it feel like a fast app.
-// ─────────────────────────────────────────────────────────────────────────────
-
-import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { ErrorBoundary } from 'react-error-boundary'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { DemoProvider } from './context/DemoContext'
+import { AdmissionsProvider } from './context/AdmissionsContext'
 import { supabase } from './lib/supabase'
 
-// ── Import every page component ──
-import LandingPage       from './pages/LandingPage'
-import Login             from './pages/Login'
-import Signup            from './pages/Signup'
-import Onboarding        from './pages/Onboarding'
-import Profile           from './pages/Profile'
-import CollegeDirectory  from './pages/CollegeDirectory'
-import CollegeProfile    from './pages/CollegeProfile'
-import AppTracker        from './pages/AppTracker'
-// Applications.jsx removed — features merged into AppTracker.jsx
-import DeadlineCalendar  from './pages/DeadlineCalendar'
-import DocumentUpload    from './pages/DocumentUpload'
-import OfferCelebration  from './pages/OfferCelebration'
-import ApplyNow          from './pages/ApplyNow'
-import FeedbackSurvey    from './pages/FeedbackSurvey'
-import AdminLogin        from './pages/AdminLogin'
-import AdminDashboard    from './pages/AdminDashboard'
-import Reminders         from './pages/Reminders'
-import Privacy           from './pages/Privacy'
-import Terms             from './pages/Terms'
-import About             from './pages/About'
+const LandingPage = lazy(() => import('./pages/LandingPage'))
+const Login = lazy(() => import('./pages/Login'))
+const Signup = lazy(() => import('./pages/Signup'))
+const Onboarding = lazy(() => import('./pages/Onboarding'))
+const Profile = lazy(() => import('./pages/Profile'))
+const CollegeDirectory = lazy(() => import('./pages/CollegeDirectory'))
+const CollegeProfile = lazy(() => import('./pages/CollegeProfile'))
+const AppTracker = lazy(() => import('./pages/AppTracker'))
+const DeadlineCalendar = lazy(() => import('./pages/DeadlineCalendar'))
+const DocumentUpload = lazy(() => import('./pages/DocumentUpload'))
+const OfferCelebration = lazy(() => import('./pages/OfferCelebration'))
+const ApplicationBuilder = lazy(() => import('./pages/ApplicationBuilder'))
+const FeedbackSurvey = lazy(() => import('./pages/FeedbackSurvey'))
+const AdminLogin = lazy(() => import('./pages/AdminLogin'))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
+const Reminders = lazy(() => import('./pages/Reminders'))
+const Privacy = lazy(() => import('./pages/Privacy'))
+const Terms = lazy(() => import('./pages/Terms'))
+const About = lazy(() => import('./pages/About'))
 
-// ── ProtectedRoute — redirects to /login if user is not authenticated ──
+function PageLoading() {
+  return <div role="status" aria-live="polite" className="grid min-h-[60vh] place-items-center bg-white"><div className="text-center"><div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-blue-100 border-t-[#225feb] motion-reduce:animate-none" /><span className="text-sm text-slate-500">Opening your next step…</span></div></div>
+}
+
+function PageError() {
+  return <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-6"><p className="mb-4 text-xs font-semibold uppercase tracking-[.2em] text-[#225feb]">Unidex</p><h1 className="text-4xl font-semibold tracking-tight">Let’s reconnect.</h1><p className="mt-5 leading-7 text-slate-500">This page could not be opened. Your saved workspace stays in your account. Reload to try again.</p><button onClick={() => window.location.reload()} className="mt-8 w-fit rounded-full bg-[#225feb] px-7 py-3.5 font-medium text-white">Reload Unidex</button></main>
+}
+
 function ProtectedRoute({ element, user, loading }) {
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
-      </div>
-    )
-  }
+  if (loading) return <PageLoading />
   return user ? element : <Navigate to="/login" replace />
 }
 
 export default function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-
   useEffect(() => {
-    // Listen for auth changes (login/logout)
-    // This listener fires immediately with current session on mount
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user || null)
-      setLoading(false)
+    let active = true
+    let authEventReceived = false
+    supabase.auth.getSession().then(({ data }) => { if (active && !authEventReceived) { setUser(data?.session?.user || null); setLoading(false) } }).catch(() => { if (active && !authEventReceived) setLoading(false) })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      authEventReceived = true
+      if (active) { setUser(session?.user || null); setLoading(false) }
     })
-
-    return () => subscription?.unsubscribe()
+    return () => { active = false; subscription?.unsubscribe() }
   }, [])
-
-  return (
-    <DemoProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public landing page */}
-          <Route path="/" element={
-            loading ? (
-              <div className="min-h-screen flex items-center justify-center bg-[#0A1628]">
-                <div className="w-8 h-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
-              </div>
-            ) : (
-              <LandingPage />
-            )
-          } />
-
-          {/* Public auth pages */}
-          <Route path="/login"      element={<Login />} />
-          <Route path="/signup"     element={<Signup />} />
-
-          {/* Onboarding — can access before full profile setup */}
-          <Route path="/onboarding" element={<Onboarding />} />
-
-          {/* Public college browsing (with guest mode) */}
-          <Route path="/colleges"   element={<CollegeDirectory user={user} loading={loading} />} />
-          <Route path="/college/:id" element={<CollegeProfile user={user} loading={loading} />} />
-
-          {/* Public feedback survey */}
-          <Route path="/feedback"   element={<FeedbackSurvey />} />
-
-          {/* Public pages */}
-          <Route path="/privacy"    element={<Privacy />} />
-          <Route path="/terms"      element={<Terms />} />
-          <Route path="/about"      element={<About />} />
-
-          {/* Admin login (public, but checks role after auth) */}
-          <Route path="/admin/login" element={<AdminLogin />} />
-
-          {/* Protected routes — require authentication */}
-          <Route path="/profile"    element={<ProtectedRoute element={<Profile />} user={user} loading={loading} />} />
-          <Route path="/tracker"    element={<ProtectedRoute element={<AppTracker />} user={user} loading={loading} />} />
-          <Route path="/applications" element={<Navigate to="/tracker" replace />} />
-          <Route path="/reminders"  element={<ProtectedRoute element={<Reminders />} user={user} loading={loading} />} />
-          <Route path="/calendar"   element={<ProtectedRoute element={<DeadlineCalendar />} user={user} loading={loading} />} />
-          <Route path="/documents"  element={<ProtectedRoute element={<DocumentUpload />} user={user} loading={loading} />} />
-          <Route path="/apply/:applicationId" element={<ProtectedRoute element={<ApplyNow />} user={user} loading={loading} />} />
-          <Route path="/offer/:college_id" element={<ProtectedRoute element={<OfferCelebration />} user={user} loading={loading} />} />
-          <Route path="/admin"      element={<ProtectedRoute element={<AdminDashboard />} user={user} loading={loading} />} />
-        </Routes>
-      </BrowserRouter>
-    </DemoProvider>
-  )
+  const protectedPage = element => <ProtectedRoute element={element} user={user} loading={loading} />
+  return <ErrorBoundary FallbackComponent={PageError}><DemoProvider><AdmissionsProvider key={user?.id || 'guest'} user={user}><BrowserRouter><Suspense fallback={<PageLoading />}><Routes>
+    <Route path="/" element={<LandingPage />} />
+    <Route path="/login" element={<Login />} />
+    <Route path="/forgot-password" element={<Login />} />
+    <Route path="/reset-password" element={<Login />} />
+    <Route path="/signup" element={<Signup />} />
+    <Route path="/onboarding" element={protectedPage(<Onboarding />)} />
+    <Route path="/profile" element={protectedPage(<Profile />)} />
+    <Route path="/profile/edit" element={protectedPage(<Profile />)} />
+    <Route path="/colleges" element={<CollegeDirectory user={user} loading={loading} />} />
+    <Route path="/college/:id" element={<CollegeProfile user={user} loading={loading} />} />
+    <Route path="/tracker" element={protectedPage(<AppTracker />)} />
+    <Route path="/applications" element={<Navigate to="/tracker" replace />} />
+    <Route path="/application-builder" element={protectedPage(<ApplicationBuilder />)} />
+    <Route path="/apply/:applicationId" element={protectedPage(<ApplicationBuilder />)} />
+    <Route path="/documents" element={protectedPage(<DocumentUpload />)} />
+    <Route path="/calendar" element={protectedPage(<DeadlineCalendar />)} />
+    <Route path="/reminders" element={protectedPage(<Reminders />)} />
+    <Route path="/offer/:college_id" element={protectedPage(<OfferCelebration />)} />
+    <Route path="/feedback" element={<FeedbackSurvey />} />
+    <Route path="/admin/login" element={<AdminLogin />} />
+    <Route path="/admin" element={protectedPage(<AdminDashboard />)} />
+    <Route path="/about" element={<About />} />
+    <Route path="/privacy" element={<Privacy />} />
+    <Route path="/terms" element={<Terms />} />
+    <Route path="*" element={<Navigate to="/" replace />} />
+  </Routes></Suspense></BrowserRouter></AdmissionsProvider></DemoProvider></ErrorBoundary>
 }

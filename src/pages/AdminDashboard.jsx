@@ -1,342 +1,92 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowDownToLine, ArrowRight, ArrowUpRight, Bug, Check, ChevronDown, Loader2, MessageSquare, RefreshCw, ShieldCheck, Star, Users, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
 
+const CATEGORIES = [{ key: 'rating_overall', label: 'Overall experience' }, { key: 'rating_ease', label: 'Ease of use' }, { key: 'rating_design', label: 'Visual design' }, { key: 'rating_usefulness', label: 'Usefulness' }, { key: 'rating_data_quality', label: 'College information' }]
+const TYPES = ['CAT aspirant', 'MBA student', 'Working professional', 'Other']
+const SEVERITIES = ['Critical', 'High', 'Medium', 'Low', 'None']
+const severityClass = severity => severity === 'Critical' ? 'bg-red-50 text-red-700' : severity === 'High' ? 'bg-orange-50 text-orange-700' : severity === 'Medium' ? 'bg-amber-50 text-amber-700' : 'bg-[#f1f5fb] text-[#7c8ca5]'
+const validNumber = (value, min, max) => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) && Number(value) >= min && Number(value) <= max
+const average = values => values.length ? values.reduce((total, value) => total + Number(value), 0) / values.length : null
+const displayNumber = (value, digits = 1) => value === null ? '—' : Number(value).toFixed(digits)
+
 export default function AdminDashboard() {
   const navigate = useNavigate()
-  const [user, setUser] = useState(null)
   const [activeTab, setActiveTab] = useState('overview')
   const [feedback, setFeedback] = useState([])
   const [loading, setLoading] = useState(true)
-  const [metrics, setMetrics] = useState(null)
+  const [authorized, setAuthorized] = useState(false)
+  const [error, setError] = useState('')
   const [expandedId, setExpandedId] = useState(null)
   const [filterType, setFilterType] = useState('all')
   const [filterSeverity, setFilterSeverity] = useState('all')
-
+  const [savingId, setSavingId] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const loadFeedback = useCallback(async () => {
+    setError('')
+    const { data, error: queryError } = await supabase.from('uat_feedback').select('*').order('created_at', { ascending: false }).limit(500)
+    if (queryError) throw queryError
+    setFeedback(data || [])
+  }, [])
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-
-      if (!user) {
-        navigate('/login', { replace: true })
-        return
-      }
-
-      // Verify admin role with server-side check
-      // Try to read from admin table - if RLS denies it, user is not admin
-      const { error: adminCheck } = await supabase
-        .from('uat_feedback')
-        .select('count()', { count: 'exact' })
-        .limit(0)
-
-      // If query fails with permissions error, user is not admin
-      if (adminCheck && adminCheck.message?.includes('permission')) {
-        navigate('/profile', { replace: true })
-        return
-      }
-
-      setUser(user)
-      loadFeedback()
+    document.title = 'Team workspace · Unidex'
+    let active = true
+    async function checkAuth() {
+      try {
+        const { data, error: authError } = await supabase.auth.getUser()
+        if (!active) return
+        if (authError || !data?.user) { navigate('/admin/login', { replace: true }); return }
+        // Only trusted app metadata authorizes this UI; database RLS remains mandatory.
+        if (data.user.app_metadata?.role !== 'admin') { navigate('/profile', { replace: true }); return }
+        setAuthorized(true)
+        await loadFeedback()
+      } catch (err) { if (active) setError(`Team data could not be loaded. ${err.message || 'Please try again.'}`) } finally { if (active) setLoading(false) }
     }
-
     checkAuth()
-  }, [navigate])
-
-  const loadFeedback = async () => {
+    return () => { active = false }
+  }, [navigate, loadFeedback])
+  const metrics = useMemo(() => {
+    const nps = feedback.map(item => item.nps_score).filter(value => validNumber(value, 0, 10)).map(Number)
+    const ratings = feedback.map(item => item.rating_overall).filter(value => validNumber(value, 1, 5))
+    const bugs = feedback.filter(item => item.bugs_found?.trim())
+    return { total: feedback.length, nps: nps.length ? Math.round((nps.filter(value => value >= 9).length - nps.filter(value => value <= 6).length) / nps.length * 100) : null, avgRating: average(ratings), completion: feedback.length ? average(feedback.map(item => Math.min(item.tasks_completed?.length || 0, 8))) / 8 * 100 : null, bugs, categoryRatings: CATEGORIES.map(category => ({ ...category, average: average(feedback.map(item => item[category.key]).filter(value => validNumber(value, 1, 5))) })), typeCounts: TYPES.map(type => ({ type, count: feedback.filter(item => item.user_type === type).length })), npsGroups: [{ label: 'Promoters', count: nps.filter(value => value >= 9).length, className: 'bg-[#225feb]' }, { label: 'Passives', count: nps.filter(value => value >= 7 && value <= 8).length, className: 'bg-[#8daef2]' }, { label: 'Detractors', count: nps.filter(value => value <= 6).length, className: 'bg-[#cfdcf5]' }], npsCount: nps.length }
+  }, [feedback])
+  const filtered = feedback.filter(item => (filterType === 'all' || item.user_type === filterType) && (filterSeverity === 'all' || item.bug_severity === filterSeverity))
+  const bugs = filtered.filter(item => item.bugs_found?.trim()).sort((a, b) => { const rank = value => { const i = SEVERITIES.indexOf(value); return i === -1 ? 5 : i }; return rank(a.bug_severity) - rank(b.bug_severity) })
+  const expanded = feedback.find(item => item.id === expandedId)
+  async function refresh() { setRefreshing(true); try { await loadFeedback() } catch (err) { setError(err.message || 'Refresh did not complete.') } finally { setRefreshing(false) } }
+  async function toggleResolved(item) {
+    setSavingId(item.id); setError('')
     try {
-      const { data, error } = await supabase
-        .from('uat_feedback')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      setFeedback(data || [])
-      calculateMetrics(data || [])
-    } catch (err) {
-      console.error('Error loading feedback:', err)
-    } finally {
-      setLoading(false)
-    }
+      const { data, error: updateError } = await supabase.from('uat_feedback').update({ bug_resolved: !item.bug_resolved }).eq('id', item.id).select('id,bug_resolved').single()
+      if (updateError) throw updateError
+      setFeedback(prev => prev.map(record => record.id === data.id ? { ...record, bug_resolved: data.bug_resolved } : record))
+    } catch (err) { setError(`The bug status was not saved. ${err.message || 'Please try again.'}`) } finally { setSavingId(null) }
   }
-
-  const calculateMetrics = (data) => {
-    if (data.length === 0) {
-      setMetrics({
-        totalResponses: 0,
-        avgNPS: 0,
-        avgRating: 0,
-        taskCompletionRate: 0,
-      })
-      return
-    }
-
-    const avgNPS = data.reduce((sum, f) => sum + (f.nps_score || 0), 0) / data.length
-    const avgRating = data.reduce((sum, f) => sum + (f.rating_overall || 0), 0) / data.length
-    const avgTasks = data.reduce((sum, f) => sum + (f.tasks_completed?.length || 0), 0) / data.length
-    const taskCompletionRate = (avgTasks / 8) * 100
-
-    setMetrics({
-      totalResponses: data.length,
-      avgNPS: avgNPS.toFixed(1),
-      avgRating: avgRating.toFixed(1),
-      taskCompletionRate: taskCompletionRate.toFixed(0),
-    })
-  }
-
-  const getFilteredFeedback = () => {
-    let filtered = feedback
-
-    if (filterType !== 'all') {
-      filtered = filtered.filter(f => f.user_type === filterType)
-    }
-
-    if (filterSeverity !== 'all') {
-      filtered = filtered.filter(f => f.bug_severity === filterSeverity)
-    }
-
-    return filtered
-  }
-
-  const getBugsOnly = () => {
-    return feedback
-      .filter(f => f.bugs_found && f.bugs_found.trim())
-      .sort((a, b) => {
-        const severityOrder = { 'Critical': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'None': 4 }
-        return (severityOrder[a.bug_severity] || 4) - (severityOrder[b.bug_severity] || 4)
-      })
-  }
-
-  const toggleResolved = async (id, resolved) => {
+  function exportResponses() {
+    const fields = ['full_name', 'email', 'user_type', 'device', 'nps_score', 'rating_overall', 'bugs_found', 'bug_severity', 'bug_resolved', 'created_at']
+    const csvCell = value => { let text = String(value ?? ''); if (/^[=+@\-\t\r]/.test(text)) text = `'${text}`; return `"${text.replace(/"/g, '""')}"` }
     try {
-      const { error } = await supabase
-        .from('uat_feedback')
-        .update({ bug_resolved: !resolved })
-        .eq('id', id)
-
-      if (error) throw error
-      loadFeedback()
-    } catch (err) {
-      console.error('Error updating bug status:', err)
-    }
+      const csv = [fields.join(','), ...filtered.map(item => fields.map(key => csvCell(item[key])).join(','))].join('\r\n')
+      const url = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })), anchor = document.createElement('a')
+      anchor.href = url; anchor.download = 'Unidex-feedback.csv'; anchor.click(); URL.revokeObjectURL(url)
+    } catch { setError('Export did not complete. Please try again.') }
   }
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-screen">
-          <div className="w-8 h-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
-        </div>
-      </Layout>
-    )
-  }
-
-  const filteredFeedback = getFilteredFeedback()
-
-  return (
-    <Layout>
-      <div className="min-h-screen bg-slate-50">
-        {/* Header */}
-        <div className="bg-white border-b border-slate-200 px-8 py-6">
-          <h1 className="text-3xl font-bold text-slate-900">UAT Dashboard</h1>
-          <p className="text-slate-600 mt-1">Feedback responses and metrics</p>
-        </div>
-
-        {/* Tabs */}
-        <div className="bg-white border-b border-slate-200">
-          <div className="px-8 flex gap-8">
-            {['overview', 'responses', 'bugs'].map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`py-4 px-2 border-b-2 font-medium transition-colors ${
-                  activeTab === tab
-                    ? 'text-indigo-600 border-indigo-600'
-                    : 'text-slate-600 border-transparent hover:text-slate-900'
-                }`}>
-                {tab === 'overview' && 'Overview'}
-                {tab === 'responses' && 'Responses'}
-                {tab === 'bugs' && 'Bugs'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-8">
-          {/* OVERVIEW TAB */}
-          {activeTab === 'overview' && metrics && (
-            <div className="space-y-8">
-              {/* Key metrics */}
-              <div className="grid md:grid-cols-4 gap-6">
-                {[
-                  { label: 'Total responses', value: metrics.totalResponses, unit: '' },
-                  { label: 'Average NPS', value: metrics.avgNPS, unit: '/10' },
-                  { label: 'Average rating', value: metrics.avgRating, unit: '/5' },
-                  { label: 'Task completion', value: metrics.taskCompletionRate, unit: '%' },
-                ].map(metric => (
-                  <div key={metric.label} className="bg-white rounded-xl border border-slate-200 p-6">
-                    <p className="text-sm text-slate-600 mb-2">{metric.label}</p>
-                    <p className="text-3xl font-bold text-slate-900">
-                      {metric.value}{metric.unit}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Charts placeholder */}
-              <div className="grid md:grid-cols-3 gap-6">
-                {[
-                  { title: 'Average Rating by Category', desc: 'Overall, Ease, Design, etc.' },
-                  { title: 'Tester Type Distribution', desc: 'CAT, MBA, Professional, Other' },
-                  { title: 'NPS Distribution', desc: 'Promoters, Passives, Detractors' },
-                ].map(chart => (
-                  <div key={chart.title} className="bg-white rounded-xl border border-slate-200 p-6">
-                    <h3 className="font-semibold text-slate-900 mb-2">{chart.title}</h3>
-                    <div className="h-40 bg-slate-50 rounded-lg flex items-center justify-center text-slate-500 text-sm">
-                      {chart.desc}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Top insights */}
-              <div className="bg-white rounded-xl border border-slate-200 p-6">
-                <h3 className="font-semibold text-slate-900 mb-6">Top Insights</h3>
-                <div className="space-y-4">
-                  <p className="text-slate-700"><strong>Total bugs reported:</strong> {getBugsOnly().length}</p>
-                  <p className="text-slate-700"><strong>Critical bugs:</strong> {getBugsOnly().filter(b => b.bug_severity === 'Critical').length}</p>
-                  <p className="text-slate-700"><strong>Resolved bugs:</strong> {getBugsOnly().filter(b => b.bug_resolved).length}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* RESPONSES TAB */}
-          {activeTab === 'responses' && (
-            <div className="space-y-6">
-              {/* Filters */}
-              <div className="flex gap-4 bg-white p-4 rounded-lg border border-slate-200">
-                <div>
-                  <label className="text-sm text-slate-600 block mb-2">Tester type</label>
-                  <select
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    className="px-3 py-2 border border-slate-200 rounded-lg text-sm">
-                    <option value="all">All types</option>
-                    <option value="CAT aspirant">CAT aspirant</option>
-                    <option value="MBA student">MBA student</option>
-                    <option value="Working professional">Working professional</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Table */}
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50">
-                      <th className="text-left py-3 px-4 font-semibold text-slate-900">Name</th>
-                      <th className="text-left py-3 px-4 font-semibold text-slate-900">Date</th>
-                      <th className="text-left py-3 px-4 font-semibold text-slate-900">Device</th>
-                      <th className="text-left py-3 px-4 font-semibold text-slate-900">Type</th>
-                      <th className="text-left py-3 px-4 font-semibold text-slate-900">NPS</th>
-                      <th className="text-left py-3 px-4 font-semibold text-slate-900">Rating</th>
-                      <th className="text-left py-3 px-4 font-semibold text-slate-900">Tasks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredFeedback.map(response => (
-                      <tr
-                        key={response.id}
-                        onClick={() => setExpandedId(expandedId === response.id ? null : response.id)}
-                        className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer">
-                        <td className="py-3 px-4 text-slate-900 font-medium">{response.full_name}</td>
-                        <td className="py-3 px-4 text-slate-600">{new Date(response.created_at).toLocaleDateString()}</td>
-                        <td className="py-3 px-4 text-slate-600">{response.device}</td>
-                        <td className="py-3 px-4 text-slate-600 text-xs">{response.user_type}</td>
-                        <td className="py-3 px-4 font-semibold text-slate-900">{response.nps_score}/10</td>
-                        <td className="py-3 px-4 font-semibold text-slate-900">{response.rating_overall}/5</td>
-                        <td className="py-3 px-4 text-slate-600">{response.tasks_completed?.length || 0}/8</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {filteredFeedback.length === 0 && (
-                  <div className="text-center py-12 text-slate-500">No responses found</div>
-                )}
-              </div>
-
-              {/* Expanded details */}
-              {expandedId && (
-                <div className="bg-white rounded-xl border border-slate-200 p-6">
-                  {(() => {
-                    const resp = filteredFeedback.find(f => f.id === expandedId)
-                    if (!resp) return null
-                    return (
-                      <div className="space-y-4">
-                        <h3 className="font-semibold text-slate-900">{resp.full_name}'s feedback</h3>
-                        {resp.best_feature && <p><strong>Liked most:</strong> {resp.best_feature}</p>}
-                        {resp.biggest_problem && <p><strong>Most frustrating:</strong> {resp.biggest_problem}</p>}
-                        {resp.missing_feature && <p><strong>Missing feature:</strong> {resp.missing_feature}</p>}
-                        {resp.bugs_found && <p><strong>Bugs:</strong> {resp.bugs_found}</p>}
-                        {resp.comments && <p><strong>Comments:</strong> {resp.comments}</p>}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* BUGS TAB */}
-          {activeTab === 'bugs' && (
-            <div className="space-y-4">
-              {getBugsOnly().length === 0 ? (
-                <div className="text-center py-12 text-slate-500 bg-white rounded-xl border border-slate-200">
-                  No bugs reported
-                </div>
-              ) : (
-                getBugsOnly().map(bug => (
-                  <div key={bug.id} className="bg-white rounded-xl border border-slate-200 p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{bug.full_name}</h3>
-                        <p className="text-xs text-slate-500 mt-1">
-                          {new Date(bug.created_at).toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="flex gap-3 items-center">
-                        <span className={`text-xs px-3 py-1 rounded-full font-medium ${
-                          bug.bug_severity === 'Critical' ? 'bg-red-100 text-red-700' :
-                          bug.bug_severity === 'High' ? 'bg-orange-100 text-orange-700' :
-                          bug.bug_severity === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-slate-100 text-slate-700'
-                        }`}>
-                          {bug.bug_severity}
-                        </span>
-                        <button
-                          onClick={() => toggleResolved(bug.id, bug.bug_resolved)}
-                          className={`px-3 py-1 text-xs font-medium rounded-lg transition ${
-                            bug.bug_resolved
-                              ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                          }`}>
-                          {bug.bug_resolved ? '✓ Resolved' : 'Mark resolved'}
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-slate-700">{bug.bugs_found}</p>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </Layout>
-  )
+  if (loading) return <Layout><div className="flex items-center justify-center gap-3 px-6 py-28 text-sm text-[#8796ad]"><Loader2 className="h-5 w-5 animate-spin text-[#225feb]"/>Opening the team workspace…</div></Layout>
+  if (!authorized) return <Layout><div className="mx-auto max-w-lg px-6 py-20 text-center"><ShieldCheck className="mx-auto h-10 w-10 text-[#225feb]"/><h1 className="mt-6 text-2xl font-medium tracking-tight">Team access required.</h1><p role="alert" className="mt-4 text-sm leading-7 text-[#8796ad]">{error || 'Sign in with an authorized administrator account to continue.'}</p><Link to="/admin/login" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#225feb]">Team sign in <ArrowRight className="h-4 w-4"/></Link></div></Layout>
+  return <Layout><div className="mx-auto max-w-[1400px] px-5 py-8 sm:px-8 sm:py-10"><div className="mb-8 flex flex-wrap items-end justify-between gap-5"><div><p className="mb-3 text-[10px] font-semibold uppercase tracking-[.22em] text-[#225feb]">Behind the experience</p><h1 className="text-3xl font-semibold tracking-[-.045em] text-[#10264c] sm:text-[42px]">Listen. Understand. Improve.</h1><p className="mt-3 text-sm leading-6 text-[#7c8ca5]">Real feedback from the people building their next chapter.</p></div><div className="flex flex-wrap gap-3"><button disabled={refreshing} onClick={refresh} className="inline-flex items-center gap-2 rounded-full border border-[#dce4f0] bg-white px-4 py-3 text-xs font-semibold text-[#617696] disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`}/>Refresh</button><button disabled={filtered.length === 0} onClick={exportResponses} className="inline-flex items-center gap-2 rounded-full bg-[#225feb] px-5 py-3 text-xs font-semibold text-white disabled:opacity-40"><ArrowDownToLine className="h-3.5 w-3.5"/>Export responses</button></div></div>
+    {error && <div role="alert" className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-red-100 bg-red-50 p-5 text-xs leading-6 text-red-700"><span>{error}</span><button onClick={() => setError('')} aria-label="Dismiss error"><X className="h-4 w-4"/></button></div>}
+    <div className="mb-7 flex gap-7 border-b border-[#e1e8f2]">{[{ id: 'overview', label: 'Overview' }, { id: 'responses', label: 'Responses', count: feedback.length }, { id: 'bugs', label: 'Reported issues', count: metrics.bugs.length }].map(tab => <button key={tab.id} onClick={() => setActiveTab(tab.id)} aria-pressed={activeTab === tab.id} className={`flex items-center gap-2 border-b-2 pb-4 text-xs font-semibold transition ${activeTab === tab.id ? 'border-[#225feb] text-[#225feb]' : 'border-transparent text-[#91a0b6]'}`}>{tab.label}{tab.count !== undefined && <span className="rounded-full bg-[#eaf0fa] px-2 py-0.5 text-[9px] text-[#8796ad]">{tab.count}</span>}</button>)}</div>
+    {activeTab === 'overview' && <div className="space-y-6"><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[{ label: 'Responses received', value: metrics.total, icon: Users }, { label: 'Net Promoter Score', value: metrics.nps ?? '—', icon: MessageSquare }, { label: 'Overall experience', value: metrics.avgRating === null ? '—' : `${displayNumber(metrics.avgRating)}/5`, icon: Star }, { label: 'Task completion', value: metrics.completion === null ? '—' : `${displayNumber(metrics.completion, 0)}%`, icon: Check }].map(({ label, value, icon: Icon }) => <div key={label} className="rounded-[22px] border border-[#e5ebf4] bg-white p-6"><div className="flex items-center justify-between gap-3"><p className="text-[10px] text-[#91a0b6]">{label}</p><Icon className="h-4 w-4 text-[#8da7ce]" strokeWidth={1.5}/></div><p className="mt-5 text-[34px] font-medium tracking-[-.045em]">{value}</p></div>)}</div>
+    <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]"><section className="rounded-[24px] border border-[#e5ebf4] bg-white p-6 sm:p-7"><h2 className="text-sm font-semibold">What the experience feels like</h2><p className="mt-2 text-[11px] text-[#91a0b6]">Average of submitted ratings. Unrated categories are excluded.</p><div className="mt-7 space-y-5">{metrics.categoryRatings.map(category => <div key={category.key}><div className="mb-2.5 flex justify-between gap-3 text-[11px]"><span className="text-[#7c8ca5]">{category.label}</span><span className="font-semibold text-[#617696]">{displayNumber(category.average)}{category.average === null ? '' : ' / 5'}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-[#edf2fa]"><div className="h-full rounded-full bg-[#225feb]" style={{ width: `${(category.average || 0) / 5 * 100}%` }}/></div></div>)}</div></section><section className="rounded-[24px] bg-[#10264c] p-6 text-white sm:p-7"><p className="text-[10px] uppercase tracking-[.18em] text-[#92afd9]">The next opportunity</p><h2 className="mt-4 text-2xl font-medium tracking-[-.035em]">Every issue is a chance<br/>to make it clearer.</h2><div className="mt-7 grid grid-cols-3 gap-3 border-t border-white/10 pt-6">{[{ label: 'Reported', count: metrics.bugs.length }, { label: 'Critical', count: metrics.bugs.filter(item => item.bug_severity === 'Critical' && !item.bug_resolved).length }, { label: 'Resolved', count: metrics.bugs.filter(item => item.bug_resolved).length }].map(item => <div key={item.label}><p className="text-3xl font-medium tracking-[-.04em]">{item.count}</p><p className="mt-2 text-[10px] text-[#9ab3d8]">{item.label}</p></div>)}</div><button onClick={() => setActiveTab('bugs')} className="mt-7 inline-flex items-center gap-2 text-xs font-semibold">Review reported issues <ArrowUpRight className="h-4 w-4"/></button></section></div>
+    <div className="grid gap-6 md:grid-cols-2"><section className="rounded-[24px] border border-[#e5ebf4] bg-white p-6 sm:p-7"><h2 className="text-sm font-semibold">Who's sharing their perspective</h2><div className="mt-6 space-y-4">{metrics.typeCounts.map(item => <div key={item.type} className="flex items-center justify-between border-b border-[#edf1f7] pb-3 text-xs last:border-0"><span className="text-[#7c8ca5]">{item.type}</span><span className="font-semibold text-[#617696]">{item.count}</span></div>)}</div></section><section className="rounded-[24px] border border-[#e5ebf4] bg-white p-6 sm:p-7"><h2 className="text-sm font-semibold">Likelihood to recommend</h2><p className="mt-2 text-[11px] leading-6 text-[#91a0b6]">NPS = % promoters (9–10) − % detractors (0–6).</p><div className="mt-6 flex h-3 overflow-hidden rounded-full bg-[#edf2fa]">{metrics.npsGroups.map(group => <div key={group.label} className={group.className} style={{ width: `${metrics.npsCount ? group.count / metrics.npsCount * 100 : 0}%` }}/>)}</div><div className="mt-6 grid grid-cols-3 gap-3">{metrics.npsGroups.map(group => <div key={group.label}><p className="flex items-center gap-2 text-[10px] text-[#8796ad]"><span className={`h-1.5 w-1.5 rounded-full ${group.className}`}/>{group.label}</p><p className="mt-3 text-2xl font-medium tracking-tight">{group.count}</p></div>)}</div>{!metrics.npsCount && <p className="mt-4 text-[10px] text-[#9cabc0]">No recommendation scores received yet.</p>}</section></div>{!feedback.length && <div className="rounded-2xl border border-dashed border-[#ced9ea] p-6 text-center"><p className="text-sm font-medium">The conversation starts with a first response.</p><p className="mt-2 text-xs leading-6 text-[#91a0b6]">No feedback has been received yet. The dashboard will use real submissions as they arrive.</p><Link to="/feedback" className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-[#225feb]">View feedback form <ArrowUpRight className="h-4 w-4"/></Link></div>}</div>}
+    {activeTab !== 'overview' && <><div className="mb-5 flex flex-wrap gap-3"><label className="text-[10px] text-[#8796ad]">Applicant type<select value={filterType} onChange={event => { setFilterType(event.target.value); setExpandedId(null) }} className="ml-2 rounded-xl border border-[#dce4f0] bg-white px-3 py-2.5 text-xs text-[#617696]"><option value="all">All applicants</option>{TYPES.map(type => <option key={type}>{type}</option>)}</select></label><label className="text-[10px] text-[#8796ad]">Severity<select value={filterSeverity} onChange={event => { setFilterSeverity(event.target.value); setExpandedId(null) }} className="ml-2 rounded-xl border border-[#dce4f0] bg-white px-3 py-2.5 text-xs text-[#617696]"><option value="all">All severities</option>{SEVERITIES.map(severity => <option key={severity}>{severity}</option>)}</select></label></div>
+    {activeTab === 'responses' ? <div className="overflow-x-auto rounded-[22px] border border-[#e5ebf4] bg-white"><table className="w-full min-w-[760px] text-left text-xs"><thead><tr className="border-b border-[#edf1f7] bg-[#fafbfd] text-[9px] uppercase tracking-[.12em] text-[#91a0b6]">{['Applicant', 'Date', 'Device', 'Applicant type', 'Recommend', 'Experience', 'Tasks', ''].map((label, i) => <th key={i} className="px-5 py-4 font-medium">{label}</th>)}</tr></thead><tbody>{filtered.map(item => <tr key={item.id} className="border-b border-[#edf1f7] last:border-0"><td className="px-5 py-5 font-semibold">{item.full_name || 'Unnamed response'}</td><td className="px-5 py-5 text-[#8796ad]">{item.created_at ? new Date(item.created_at).toLocaleDateString('en-IN') : '—'}</td><td className="px-5 py-5 text-[#8796ad]">{item.device || '—'}</td><td className="px-5 py-5 text-[#8796ad]">{item.user_type || '—'}</td><td className="px-5 py-5 text-[#617696]">{validNumber(item.nps_score, 0, 10) ? `${item.nps_score}/10` : '—'}</td><td className="px-5 py-5 text-[#617696]">{validNumber(item.rating_overall, 1, 5) ? `${item.rating_overall}/5` : '—'}</td><td className="px-5 py-5 text-[#8796ad]">{item.tasks_completed?.length || 0}/8</td><td className="px-5 py-5"><button aria-label={`View feedback from ${item.full_name || 'applicant'}`} aria-expanded={expandedId === item.id} onClick={() => setExpandedId(expandedId === item.id ? null : item.id)} className="rounded-full bg-[#edf3ff] p-2 text-[#225feb]"><ChevronDown className={`h-3.5 w-3.5 transition ${expandedId === item.id ? 'rotate-180' : ''}`}/></button></td></tr>)}</tbody></table>{filtered.length === 0 && <div className="px-6 py-16 text-center text-xs text-[#91a0b6]">No responses match these filters.</div>}</div> : <div className="space-y-4">{bugs.length ? bugs.map(item => <article key={item.id} className="rounded-[22px] border border-[#e5ebf4] bg-white p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-4"><div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#f3f6fb]"><Bug className="h-4 w-4 text-[#8da2c0]" strokeWidth={1.5}/></span><div><p className="text-sm font-semibold">{item.full_name || 'Unnamed response'}</p><p className="mt-1.5 text-[10px] text-[#91a0b6]">{item.created_at ? new Date(item.created_at).toLocaleString('en-IN') : 'Date unavailable'}</p></div></div><div className="flex items-center gap-3"><span className={`rounded-full px-3 py-1.5 text-[10px] font-medium ${severityClass(item.bug_severity)}`}>{item.bug_severity || 'Not rated'}</span><button disabled={savingId !== null} onClick={() => toggleResolved(item)} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[10px] font-semibold disabled:opacity-50 ${item.bug_resolved ? 'bg-[#edf5ef] text-[#568166]' : 'border border-[#dce4f0] text-[#617696]'}`}>{savingId === item.id ? <Loader2 className="h-3 w-3 animate-spin"/> : item.bug_resolved ? <Check className="h-3 w-3"/> : null}{item.bug_resolved ? 'Resolved · reopen' : 'Mark resolved'}</button></div></div><p className="mt-5 whitespace-pre-wrap text-xs leading-7 text-[#7c8ca5]">{item.bugs_found}</p></article>) : <div className="rounded-3xl border border-[#e5ebf4] bg-white px-6 py-16 text-center"><Check className="mx-auto h-8 w-8 text-[#225feb]"/><p className="mt-4 text-sm font-medium">No reported issues in this view.</p><p className="mt-2 text-xs text-[#91a0b6]">Try another filter or check back after more feedback arrives.</p></div>}</div>}
+    {activeTab === 'responses' && expanded && <section className="mt-5 rounded-[24px] border border-[#dce6fa] bg-white p-6 sm:p-7"><div className="flex items-center justify-between gap-3"><div><p className="text-[9px] font-semibold uppercase tracking-[.15em] text-[#225feb]">Their perspective</p><h2 className="mt-3 text-xl font-medium tracking-tight">{expanded.full_name || 'Applicant'}'s feedback</h2></div><button onClick={() => setExpandedId(null)} aria-label="Close feedback details" className="rounded-full p-2 text-[#91a0b6]"><X className="h-4 w-4"/></button></div><div className="mt-6 grid gap-6 sm:grid-cols-2">{[{ key: 'best_feature', label: 'Most useful' }, { key: 'biggest_problem', label: 'Most frustrating' }, { key: 'missing_feature', label: 'Missing feature' }, { key: 'would_pay', label: 'Willingness to pay' }, { key: 'bugs_found', label: 'Reported issue' }, { key: 'comments', label: 'Other thoughts' }].filter(field => expanded[field.key]).map(field => <div key={field.key}><h3 className="text-[10px] font-semibold text-[#617696]">{field.label}</h3><p className="mt-2 whitespace-pre-wrap text-xs leading-7 text-[#8796ad]">{expanded[field.key]}</p></div>)}</div>{expanded.tasks_completed?.length > 0 && <div className="mt-6 border-t border-[#edf1f7] pt-5"><h3 className="text-[10px] font-semibold text-[#617696]">Completed tasks</h3><div className="mt-3 flex flex-wrap gap-2">{expanded.tasks_completed.map(task => <span key={task} className="rounded-full bg-[#f1f5fb] px-3 py-2 text-[10px] text-[#8796ad]">{task}</span>)}</div></div>}</section>}
+    </>}
+    <p className="mt-7 text-[10px] leading-6 text-[#9cabc0]">Showing the latest {feedback.length} feedback responses, up to 500. Only authorized team members can view this workspace.</p>
+  </div></Layout>
 }

@@ -8,7 +8,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-export default function RejectionRecoveryModal({ studentId, collegeId, onClose, onAddCollege }) {
+export default function RejectionRecoveryModal({ studentId, onClose, onAddCollege }) {
   const [suggestions, setSuggestions] = useState([])
   const [loading, setLoading] = useState(true)
   const [addingCollege, setAddingCollege] = useState(null)
@@ -23,15 +23,6 @@ export default function RejectionRecoveryModal({ studentId, collegeId, onClose, 
           .eq('student_id', studentId)
 
         const appliedCollegeIds = new Set(applications?.map(a => a.college_id) || [])
-
-        // Get student's CAT percentile for matching
-        const { data: student } = await supabase
-          .from('students')
-          .select('academic_background')
-          .eq('id', studentId)
-          .single()
-
-        const catPercentile = student?.academic_background?.cat_percentile || 0
 
         // Try tier 2 first, if none available try tier 3
         let { data: tier2Colleges } = await supabase

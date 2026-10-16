@@ -1,359 +1,84 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// src/pages/DeadlineCalendar.jsx — Monthly deadline calendar
-//
-// Shows all application deadlines for colleges the student either:
-//   a) has in their target_colleges list, or
-//   b) has an application row for
-//
-// Deadlines are sourced from colleges.deadlines JSONB (the separate `deadlines`
-// table exists in the schema but is not yet seeded; JSONB has real data).
-//
-// Each date cell shows coloured dots per deadline type.
-// Clicking a date reveals a detail panel with college + round + type.
-//
-// Route: /calendar
-// ─────────────────────────────────────────────────────────────────────────────
-
-import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowRight, ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, Download, Loader2, Plus } from 'lucide-react'
 import Layout from '../components/Layout'
-import ExamCalendar from '../components/ExamCalendar'
-import { supabase } from '../lib/supabase'
+import { useAdmissions } from '../context/AdmissionsContext'
+import { DELHI_NCR_COLLEGES } from '../data/delhiNcrColleges'
 
-// ─── Deadline type → colour mapping ──────────────────────────────────────────
-const TYPE_META = {
-  CAT:       { dot: 'bg-blue-500',   badge: 'bg-blue-100 text-blue-700'     },
-  GMAT:      { dot: 'bg-purple-500', badge: 'bg-purple-100 text-purple-700' },
-  GRE:       { dot: 'bg-violet-500', badge: 'bg-violet-100 text-violet-700' },
-  SOP:       { dot: 'bg-amber-500',  badge: 'bg-amber-100 text-amber-700'   },
-  Interview: { dot: 'bg-green-500',  badge: 'bg-green-100 text-green-700'   },
-  Result:    { dot: 'bg-gray-400',   badge: 'bg-gray-100 text-gray-600'     },
+const pad = value => String(value).padStart(2, '0')
+const isoDate = (year, month, day) => `${year}-${pad(month + 1)}-${pad(day)}`
+const dateText = iso => new Date(`${iso}T12:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+function planDate(plan) {
+  const snapshot = plan.college_snapshot || {}
+  const college = DELHI_NCR_COLLEGES.find(item => item.id === plan.college_id) || snapshot
+  const selectedProgramme = snapshot.selected_programme && typeof snapshot.selected_programme === 'object'
+    ? snapshot.selected_programme
+    : snapshot.programme && typeof snapshot.programme === 'object' ? snapshot.programme : null
+  const programmeId = snapshot.selectedProgrammeId || snapshot.programme_id || snapshot.programme_key || selectedProgramme?.id
+  const programmeName = snapshot.selectedProgrammeName || selectedProgramme?.name || (typeof snapshot.programme === 'string' ? snapshot.programme : '')
+  const programmeRecords = Array.isArray(college.programmes) ? college.programmes
+    : college.programmes && typeof college.programmes === 'object' ? Object.values(college.programmes)
+      : selectedProgramme ? [selectedProgramme] : []
+  const programme = programmeId
+    ? programmeRecords.find(item => item.id === programmeId)
+    : programmeName ? programmeRecords.find(item => item.name === programmeName) : null
+  // An explicit programme must resolve to its own date; never inherit another programme's deadline.
+  const deadline = programmeId || programmeName ? programme?.deadline : college.deadline
+  const manual = plan.checklist?.deadline
+  if (manual?.date && /^\d{4}-\d{2}-\d{2}$/.test(manual.date)) return { date: manual.date, source: 'Your date', sourceUrl: null, note: 'Added by you; confirm with the college.' }
+  if (deadline?.date && deadline.verificationStatus === 'verified_current_cycle') return { date: deadline.date, source: 'Official deadline', sourceUrl: deadline.sourceUrl, note: deadline.label || '', closesAt: deadline.closesAt }
+  return null
+}
+function calendarText(events) {
+  const escape = value => String(value || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,')
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Unidex//Admissions Calendar//EN', 'CALSCALE:GREGORIAN']
+  for (const event of events) {
+    const end = new Date(`${event.date}T12:00:00Z`); end.setUTCDate(end.getUTCDate() + 1)
+    lines.push('BEGIN:VEVENT', `UID:${escape(event.id)}@unidex.co.in`, `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')}`, `DTSTART;VALUE=DATE:${event.date.replace(/-/g, '')}`, `DTEND;VALUE=DATE:${end.toISOString().slice(0, 10).replace(/-/g, '')}`, `SUMMARY:${escape(event.name)} — application deadline`, `DESCRIPTION:${escape([event.source, event.note, event.sourceUrl, event.closesAt ? `Closes ${event.closesAt}` : null].filter(Boolean).join('\n'))}`, 'END:VEVENT')
+  }
+  lines.push('END:VCALENDAR')
+  return lines.join('\r\n')
 }
 
-const DOW   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const MONTHS = [
-  'January','February','March','April','May','June',
-  'July','August','September','October','November','December',
-]
-
-// ─── buildGrid — returns an array of day numbers (1–31) padded with nulls ────
-// so the grid starts on the correct day-of-week column
-function buildGrid(year, month) {
-  const firstDow    = new Date(year, month, 1).getDay()  // 0 = Sunday
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const cells = []
-  for (let i = 0; i < firstDow; i++)    cells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
-  while (cells.length % 7 !== 0)         cells.push(null)
-  return cells
-}
-
-// ─── toIso — formats year/month(0-based)/day as "YYYY-MM-DD" ─────────────────
-function toIso(year, month, day) {
-  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 export default function DeadlineCalendar() {
-  const navigate = useNavigate()
-  const now = new Date()
-
-  // ── View state — which month is showing ───────────────────────────────────
-  const [viewYear,  setViewYear]  = useState(now.getFullYear())
-  const [viewMonth, setViewMonth] = useState(now.getMonth())
-
-  // ── Data state ─────────────────────────────────────────────────────────────
-  // flat list: [{ college_name, college_type, round, date, type }, ...]
-  const [deadlines, setDeadlines] = useState([])
-  const [loading,   setLoading]   = useState(true)
-  const [error,     setError]     = useState(null)
-
-  // ── Selected date — ISO string of the clicked day cell ────────────────────
+  const { user, plans = [], loading, error, refreshPlans } = useAdmissions()
+  const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   const [selected, setSelected] = useState(null)
-
-  // ── Page title ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    document.title = 'Calendar · Unidex'
-  }, [])
-
-  // ── loadDeadlines — fetches colleges + unnests their deadline JSONB ────────
-  const loadDeadlines = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-
-    // Step 1: confirm the user is logged in
-    const { data: { user }, error: userErr } = await supabase.auth.getUser()
-    if (userErr || !user) {
-      setError('Please log in to view your deadline calendar.')
-      setLoading(false)
-      return
-    }
-
-    // Step 2: get the student row to read target_colleges
-    const { data: student, error: studentErr } = await supabase
-      .from('students')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-
-    if (studentErr || !student) {
-      console.error('Student lookup failed in DeadlineCalendar:', { studentErr, student, userId: user.id })
-      setError(`No student profile found. ${studentErr?.message || 'Please complete your profile first.'}`)
-      setLoading(false)
-      return
-    }
-
-    // Step 3: get college_ids from existing applications (explicitly filter by student)
-    const { data: apps } = await supabase
-      .from('applications')
-      .select('college_id')
-      .eq('student_id', student.id)
-
-    const appCollegeIds = (apps || []).map(a => a.college_id)
-    const targetNames   = student.target_colleges || []
-
-    // If student has nothing tracked yet, show empty state
-    if (targetNames.length === 0 && appCollegeIds.length === 0) {
-      setDeadlines([])
-      setLoading(false)
-      return
-    }
-
-    // Step 4: fetch colleges by name (target list) and by id (applications)
-    // Run both in parallel — one or both queries may be empty
-    const [byNameRes, byIdRes] = await Promise.all([
-      targetNames.length > 0
-        ? supabase.from('colleges').select('id, name, type, deadlines').in('name', targetNames)
-        : Promise.resolve({ data: [] }),
-      appCollegeIds.length > 0
-        ? supabase.from('colleges').select('id, name, type, deadlines').in('id', appCollegeIds)
-        : Promise.resolve({ data: [] }),
-    ])
-
-    // Merge and deduplicate by college id
-    const combined = [...(byNameRes.data || []), ...(byIdRes.data || [])]
-    const seen = new Set()
-    const unique = combined.filter(c => {
-      if (seen.has(c.id)) return false
-      seen.add(c.id)
-      return true
-    })
-
-    // Step 5: flatten each college's deadlines JSONB into a single array
-    // colleges.deadlines = [{ round, date, type }, ...]
-    const flat = unique.flatMap(college =>
-      (college.deadlines || [])
-        .filter(d => d.date)  // skip entries with no date
-        .map(d => ({
-          college_name: college.name,
-          college_type: college.type,
-          round:        d.round  || '–',
-          date:         d.date,
-          type:         d.type   || 'Result',
-        }))
-    )
-
-    setDeadlines(flat)
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { loadDeadlines() }, [loadDeadlines])
-
-  // ── Derived: group deadlines by ISO date ──────────────────────────────────
-  const byDate = deadlines.reduce((acc, d) => {
-    if (!acc[d.date]) acc[d.date] = []
-    acc[d.date].push(d)
-    return acc
-  }, {})
-
-  const grid  = buildGrid(viewYear, viewMonth)
-  const today = toIso(now.getFullYear(), now.getMonth(), now.getDate())
-
-  // ── Month navigation ───────────────────────────────────────────────────────
-  function prevMonth() {
-    setSelected(null)
-    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11) }
-    else setViewMonth(m => m - 1)
-  }
-  function nextMonth() {
-    setSelected(null)
-    if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0) }
-    else setViewMonth(m => m + 1)
+  const [exportError, setExportError] = useState('')
+  useEffect(() => { document.title = 'Your calendar · Unidex' }, [])
+  const events = useMemo(() => plans.map(plan => { const deadline = planDate(plan); return deadline ? { id: plan.id, name: plan.college_snapshot?.name || 'College', collegeId: plan.college_id, ...deadline } : null }).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date)), [plans])
+  const unknown = plans.filter(plan => !planDate(plan))
+  const now = new Date()
+  const today = isoDate(now.getFullYear(), now.getMonth(), now.getDate())
+  const upcoming = events.filter(event => event.date >= today)
+  const year = month.getFullYear(), monthIndex = month.getMonth()
+  const leading = (new Date(year, monthIndex, 1).getDay() + 6) % 7
+  const total = new Date(year, monthIndex + 1, 0).getDate()
+  const grid = Array.from({ length: Math.ceil((leading + total) / 7) * 7 }, (_, i) => i >= leading && i < leading + total ? i - leading + 1 : null)
+  const monthEvents = events.filter(event => event.date.startsWith(`${year}-${pad(monthIndex + 1)}`))
+  const detailEvents = selected ? events.filter(event => event.date === selected) : upcoming.slice(0, 5)
+  function moveMonth(offset) { setMonth(new Date(year, monthIndex + offset, 1)); setSelected(null) }
+  function exportCalendar() {
+    try {
+      setExportError('')
+      const file = new Blob([calendarText(events)], { type: 'text/calendar;charset=utf-8' })
+      const url = URL.createObjectURL(file), link = document.createElement('a')
+      link.href = url; link.download = 'Unidex-application-deadlines.ics'; link.click(); URL.revokeObjectURL(url)
+    } catch { setExportError('Calendar export did not complete. Please try again.') }
   }
 
-  const selectedDeadlines = selected ? (byDate[selected] || []) : []
-
-  // ── Render ─────────────────────────────────────────────────────────────────
-  return (
-    <Layout>
-      <div className="px-6 py-8 max-w-3xl mx-auto">
-
-        {/* Page header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Deadline Calendar</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Deadlines for your target colleges and tracked applications
-          </p>
-        </div>
-
-        {/* Error banner */}
-        {error && (
-          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {/* Loading spinner */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <div className="w-8 h-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
-            <p className="text-sm text-gray-400">Loading your deadlines…</p>
-          </div>
-
-        ) : deadlines.length === 0 ? (
-          /* Empty state */
-          <div className="text-center py-20 space-y-4">
-            <p className="text-sm font-semibold text-gray-700">No deadlines yet</p>
-            <p className="text-xs text-gray-400 max-w-xs mx-auto">
-              Add colleges to your target list to see their deadlines here.
-            </p>
-            <button
-              onClick={() => navigate('/colleges')}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors">
-              Browse colleges →
-            </button>
-          </div>
-
-        ) : (
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-
-            {/* ── Month navigation header ── */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <button onClick={prevMonth}
-                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-600 transition-colors font-medium">
-                ←
-              </button>
-              <h2 className="text-sm font-bold text-gray-900">
-                {MONTHS[viewMonth]} {viewYear}
-              </h2>
-              <button onClick={nextMonth}
-                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-600 transition-colors font-medium">
-                →
-              </button>
-            </div>
-
-            {/* ── Day-of-week column labels ── */}
-            <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50">
-              {DOW.map(d => (
-                <div key={d} className="py-2 text-center text-xs font-semibold text-gray-400">
-                  {d}
-                </div>
-              ))}
-            </div>
-
-            {/* ── Calendar grid ── */}
-            <div className="grid grid-cols-7">
-              {grid.map((day, i) => {
-                const iso         = day ? toIso(viewYear, viewMonth, day) : null
-                const dayDeadlines = iso ? (byDate[iso] || []) : []
-                const isToday     = iso === today
-                const isSelected  = iso === selected
-                const hasEvents   = dayDeadlines.length > 0
-
-                return (
-                  <div key={i}
-                    onClick={() => day && setSelected(isSelected ? null : iso)}
-                    className={`min-h-[68px] p-1.5 border-b border-r border-gray-100 transition-colors
-                      ${!day ? 'bg-gray-50/50' : hasEvents ? 'cursor-pointer hover:bg-indigo-50' : 'cursor-default'}
-                      ${isSelected ? 'bg-indigo-50 ring-2 ring-inset ring-indigo-300' : ''}
-                    `}>
-                    {day && (
-                      <>
-                        {/* Date number */}
-                        <div className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-semibold mb-1 mx-auto
-                          ${isToday ? 'bg-indigo-600 text-white' : 'text-gray-700'}`}>
-                          {day}
-                        </div>
-                        {/* Deadline dots — max 3 shown, +N for overflow */}
-                        {dayDeadlines.length > 0 && (
-                          <div className="flex flex-wrap gap-0.5 justify-center">
-                            {dayDeadlines.slice(0, 3).map((d, j) => (
-                              <div key={j}
-                                className={`w-1.5 h-1.5 rounded-full ${(TYPE_META[d.type] || TYPE_META.Result).dot}`}
-                                title={`${d.college_name} · ${d.round} · ${d.type}`}
-                              />
-                            ))}
-                            {dayDeadlines.length > 3 && (
-                              <span className="text-[9px] text-gray-400 leading-tight">
-                                +{dayDeadlines.length - 3}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* ── Selected date detail panel ── */}
-            {selected && (
-              <div className="border-t border-gray-100 px-6 py-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-semibold text-gray-700">
-                    {/* Parse as local date to avoid UTC offset shifting the day */}
-                    {new Date(selected + 'T00:00:00').toLocaleDateString('en-IN', {
-                      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-                    })}
-                  </p>
-                  <button onClick={() => setSelected(null)}
-                    className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-                    ✕ close
-                  </button>
-                </div>
-
-                {selectedDeadlines.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">No deadlines on this day.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {selectedDeadlines.map((d, i) => {
-                      const meta = TYPE_META[d.type] || TYPE_META.Result
-                      return (
-                        <div key={i}
-                          className="flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0">
-                          <div className={`w-2 h-2 rounded-full shrink-0 ${meta.dot}`} />
-                          <span className="text-sm font-medium text-gray-800 flex-1 min-w-0 truncate">
-                            {d.college_name}
-                          </span>
-                          <span className="text-xs text-gray-400 shrink-0">{d.round}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${meta.badge}`}>
-                            {d.type}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── Legend ── */}
-            <div className="border-t border-gray-100 px-6 py-3 flex flex-wrap gap-4 bg-gray-50/50">
-              {Object.entries(TYPE_META).map(([type, meta]) => (
-                <div key={type} className="flex items-center gap-1.5">
-                  <div className={`w-2 h-2 rounded-full ${meta.dot}`} />
-                  <span className="text-[11px] text-gray-500">{type}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Exam Calendar Section — ExamCalendar renders its own divider only when
-            it has data, so nothing shows here when exam_calendar is empty. */}
-        <ExamCalendar />
-      </div>
-    </Layout>
-  )
+  return <Layout><div className="mx-auto max-w-[1400px] px-5 py-8 sm:px-8 sm:py-10">
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-5"><div><p className="mb-3 text-[10px] font-semibold uppercase tracking-[.22em] text-[#225feb]">A little more ahead</p><h1 className="text-3xl font-semibold tracking-[-.045em] text-[#10264c] sm:text-[42px]">Make room for what's next.</h1><p className="mt-3 text-sm leading-6 text-[#7c8ca5]">The important dates. One clear view.</p></div><button disabled={events.length === 0 || loading} onClick={exportCalendar} className="inline-flex items-center gap-2 rounded-full border border-[#dce4f0] bg-white px-5 py-3 text-xs font-semibold text-[#10264c] transition hover:border-[#225feb] disabled:opacity-40"><Download className="h-4 w-4"/>Export calendar</button></div>
+    {(error || exportError) && <div role="alert" className="mb-5 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-xs leading-5 text-red-700">{exportError || error}<button onClick={async () => { try { await refreshPlans() } catch (err) { setExportError(err.message || 'Calendar could not be refreshed.') } }} className="ml-3 underline">Retry</button></div>}
+    {loading ? <div className="flex justify-center gap-3 rounded-3xl bg-white py-24 text-sm text-[#7c8ca5]"><Loader2 className="h-5 w-5 animate-spin text-[#225feb]"/>Loading your calendar…</div> : !user ? <div className="rounded-3xl border border-[#e5ebf4] bg-white py-20 text-center"><CalendarDays className="mx-auto h-10 w-10 text-[#225feb]"/><h2 className="mt-5 text-2xl font-medium tracking-tight">Your dates, together.</h2><p className="mt-3 text-sm text-[#7c8ca5]">Sign in to see deadlines for your saved college plans.</p><Link to="/login" className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#225feb] px-6 py-3 text-xs font-semibold text-white">Sign in <ArrowRight className="h-4 w-4"/></Link></div> : <>
+    <div className="grid gap-6 xl:grid-cols-[1fr_320px]"><section className="overflow-hidden rounded-[24px] border border-[#e5ebf4] bg-white"><div className="flex flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-7"><div><h2 className="text-xl font-medium tracking-tight">{month.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</h2><p className="mt-1.5 text-[11px] text-[#91a0b6]">{monthEvents.length} saved deadline{monthEvents.length === 1 ? '' : 's'} this month</p></div><div className="flex items-center gap-2"><button onClick={() => { setMonth(new Date(now.getFullYear(), now.getMonth(), 1)); setSelected(today) }} className="rounded-full border border-[#e5ebf4] px-4 py-2 text-[10px] font-semibold text-[#6d829f]">Today</button><button aria-label="Previous month" onClick={() => moveMonth(-1)} className="rounded-full p-2 text-[#7c8ca5] hover:bg-[#f0f4fa]"><ChevronLeft className="h-4 w-4"/></button><button aria-label="Next month" onClick={() => moveMonth(1)} className="rounded-full p-2 text-[#7c8ca5] hover:bg-[#f0f4fa]"><ChevronRight className="h-4 w-4"/></button></div></div><div className="grid grid-cols-7 border-y border-[#edf1f7] bg-[#fafbfd]">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => <div key={day} className="py-3 text-center text-[10px] font-medium text-[#96a5ba]">{day}</div>)}</div><div className="grid grid-cols-7">{grid.map((day, i) => {
+      const iso = day ? isoDate(year, monthIndex, day) : null, dayEvents = iso ? events.filter(event => event.date === iso) : []
+      return <div key={i} className={`min-h-[72px] border-b border-r border-[#edf1f7] last:border-r-0 sm:min-h-[108px] ${!day ? 'bg-[#fafbfd]' : selected === iso ? 'bg-[#edf3ff]' : ''}`}>{day && <button aria-label={`${dateText(iso)}${dayEvents.length ? `, ${dayEvents.length} deadlines` : ''}`} aria-pressed={selected === iso} onClick={() => setSelected(selected === iso ? null : iso)} className="h-full min-h-[72px] w-full px-1.5 py-2 text-left transition hover:bg-[#f4f7fc] sm:min-h-[108px] sm:px-3 sm:py-3"><span className={`grid h-7 w-7 place-items-center rounded-full text-[11px] ${iso === today ? 'bg-[#225feb] font-semibold text-white' : 'text-[#6d829f]'}`}>{day}</span><span className="mt-2 flex flex-wrap gap-1 sm:hidden">{dayEvents.map(event => <span key={event.id} className={`h-1.5 w-1.5 rounded-full ${event.source === 'Your date' ? 'bg-[#ff8e53]' : 'bg-[#225feb]'}`}/>)}</span><span className="mt-2 hidden space-y-1 sm:block">{dayEvents.slice(0, 2).map(event => <span key={event.id} className={`block truncate rounded px-1.5 py-1 text-[8px] font-medium ${event.source === 'Your date' ? 'bg-[#fff2e9] text-[#b97c51]' : 'bg-[#edf3ff] text-[#225feb]'}`}>{event.name}</span>)}{dayEvents.length > 2 && <span className="text-[8px] text-[#8796ad]">+{dayEvents.length - 2} more</span>}</span></button>}</div>
+    })}</div><div className="flex flex-wrap items-center gap-5 px-6 py-4 text-[10px] text-[#91a0b6]"><span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#225feb]"/>Verified official date</span><span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#ff8e53]"/>Date you entered</span></div></section>
+    <aside className="space-y-5"><section className="rounded-[24px] bg-[#10264c] px-6 py-7 text-white"><CalendarDays className="h-5 w-5 text-[#8bb4ff]"/><p className="mt-6 text-[10px] uppercase tracking-[.18em] text-[#91aed6]">Looking ahead</p><p className="mt-2 text-4xl font-medium tracking-[-.05em]">{upcoming.length}<span className="ml-2 text-xs font-normal tracking-normal text-[#afc1df]">upcoming dates</span></p><p className="mt-4 text-[11px] leading-6 text-[#afc1df]">Only verified official dates and dates you enter appear here. Unknown deadlines stay on your checklist.</p>{upcoming[0] && <button onClick={() => { const [y, m] = upcoming[0].date.split('-').map(Number); setMonth(new Date(y, m - 1, 1)); setSelected(upcoming[0].date) }} className="mt-4 inline-flex items-center gap-2 text-[11px] font-semibold">Go to next deadline <ArrowRight className="h-3.5 w-3.5"/></button>}</section><section className="rounded-[24px] border border-[#e5ebf4] bg-white p-6"><h2 className="text-sm font-semibold">{selected ? dateText(selected) : 'Next on your calendar'}</h2><div className="mt-5 space-y-5">{detailEvents.length ? detailEvents.map(event => <div key={event.id} className="border-b border-[#edf1f7] pb-4 last:border-0 last:pb-0"><p className="text-[10px] text-[#225feb]">{dateText(event.date)}</p><Link to={`/college/${event.collegeId}`} className="mt-2 block text-xs font-semibold leading-5">{event.name}</Link><p className="mt-1.5 text-[10px] leading-5 text-[#91a0b6]">{event.source}{event.note ? ` · ${event.note}` : ''}</p>{event.closesAt && <p className="mt-1.5 text-[10px] text-[#7c8ca5]">Closes {new Date(event.closesAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit' })} IST</p>}{event.sourceUrl && <a href={event.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-[#225feb]">Official source <ArrowUpRight className="h-3 w-3"/></a>}</div>) : <p className="text-xs leading-6 text-[#91a0b6]">{selected ? 'A little breathing room. No saved deadlines on this date.' : 'No confirmed upcoming dates yet. Add colleges and confirm their deadlines.'}</p>}</div></section></aside></div>
+    {unknown.length > 0 && <section className="mt-7 rounded-[24px] border border-[#e5ebf4] bg-white p-6 sm:p-7"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-[#b88258]">A useful next step</p><h2 className="mt-3 text-xl font-medium tracking-tight">A few dates to confirm.</h2><p className="mt-2 text-xs leading-6 text-[#91a0b6]">Check these colleges' official admissions pages. Add your confirmed date from your application plan.</p></div><Link to="/tracker" className="inline-flex items-center gap-2 text-xs font-semibold text-[#225feb]">Update my plans <ArrowRight className="h-4 w-4"/></Link></div><div className="mt-5 flex flex-wrap gap-2">{unknown.map(plan => <Link key={plan.id} to={`/college/${plan.college_id}`} className="rounded-full border border-[#e5ebf4] bg-[#fafbfd] px-4 py-2 text-[10px] text-[#7c8ca5]">{plan.college_snapshot?.name || 'College'} · Confirm deadline</Link>)}</div></section>}
+    {plans.length === 0 && <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#dce6fa] bg-[#edf3ff] px-6 py-5"><p className="text-xs leading-6 text-[#627aa0]">Start by adding colleges to your plan. Their confirmed dates will appear here.</p><Link to="/colleges" className="inline-flex items-center gap-2 text-xs font-semibold text-[#225feb]"><Plus className="h-4 w-4"/>Explore colleges</Link></div>}
+    <p className="mt-5 text-[10px] leading-5 text-[#91a0b6]">Exports contain all-day reminders. Check official sources for closing times, programme eligibility and changes. Email reminders require a configured delivery service.</p>
+    </>}
+  </div></Layout>
 }

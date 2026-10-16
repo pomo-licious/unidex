@@ -1,362 +1,46 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, Loader2, MessageSquare, Star } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { PublicHeader, PublicFooter, inputClass, primaryClass } from '../components/Brand'
+
+const STEPS = ['About you', 'Your experience', 'Your rating', 'Your thoughts']
+const TASKS = ['Signed up / created account', 'Browsed the college directory', 'Added a college to my tracker', 'Viewed a college profile page', 'Moved a college to a different status', 'Prepared the shared application form', 'Checked the deadline calendar', 'Uploaded a document']
+const RATINGS = [{ field: 'rating_overall', label: 'Overall experience' }, { field: 'rating_ease', label: 'Ease of use' }, { field: 'rating_design', label: 'Visual design' }, { field: 'rating_usefulness', label: 'Usefulness for MBA applications' }, { field: 'rating_data_quality', label: 'Quality of college information' }]
 
 export default function FeedbackSurvey() {
-  const [step, setStep] = useState(1)
-  const [submitted, setSubmitted] = useState(false)
-  const [loading, setLoading] = useState(false)
-
-  const [formData, setFormData] = useState({
-    full_name: '',
-    email: '',
-    user_type: '',
-    cat_percentile: '',
-    device: '',
-    tasks_completed: [],
-    rating_overall: 0,
-    rating_ease: 0,
-    rating_design: 0,
-    rating_usefulness: 0,
-    rating_data_quality: 0,
-    nps_score: 5,
-    best_feature: '',
-    biggest_problem: '',
-    missing_feature: '',
-    would_pay: '',
-    bugs_found: '',
-    bug_severity: 'None',
-    comments: '',
-  })
-
-  const tasks = [
-    'Signed up / created account',
-    'Browsed the college directory',
-    'Added a college to my tracker',
-    'Viewed a college profile page',
-    'Moved a college to a different status',
-    'Tried the Apply Now flow',
-    'Checked the deadline calendar',
-    'Uploaded a document',
-  ]
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
-
-  const handleTaskToggle = (task) => {
-    setFormData(prev => ({
-      ...prev,
-      tasks_completed: prev.tasks_completed.includes(task)
-        ? prev.tasks_completed.filter(t => t !== task)
-        : [...prev.tasks_completed, task]
-    }))
-  }
-
-  const handleRatingChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
-
-  const handleNPSChange = (value) => {
-    setFormData(prev => ({ ...prev, nps_score: value }))
-  }
-
-  const handleSubmit = async () => {
-    setLoading(true)
-    try {
-      const { error } = await supabase
-        .from('uat_feedback')
-        .insert([formData])
-
-      if (error) throw error
-      setSubmitted(true)
-    } catch (err) {
-      console.error('Error submitting feedback:', err)
-      alert('Error submitting feedback. Please try again.')
-    } finally {
-      setLoading(false)
+  const [step, setStep] = useState(1), [submitted, setSubmitted] = useState(false), [loading, setLoading] = useState(false), [error, setError] = useState('')
+  const [formData, setFormData] = useState({ full_name: '', email: '', user_type: '', cat_percentile: '', device: '', tasks_completed: [], rating_overall: 0, rating_ease: 0, rating_design: 0, rating_usefulness: 0, rating_data_quality: 0, nps_score: 5, best_feature: '', biggest_problem: '', missing_feature: '', would_pay: '', bugs_found: '', bug_severity: 'None', comments: '' })
+  useEffect(() => { document.title = 'Share your experience · Unidex' }, [])
+  const setField = (name, value) => setFormData(prev => ({ ...prev, [name]: value }))
+  function validate(currentStep) {
+    if (currentStep === 1) {
+      if (!formData.full_name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) || !formData.user_type || !formData.device) return 'Please add your name, a valid email, your applicant type and the device you used.'
+      if (formData.cat_percentile !== '' && (!Number.isInteger(Number(formData.cat_percentile)) || Number(formData.cat_percentile) < 0 || Number(formData.cat_percentile) > 100)) return 'Enter your approximate CAT percentile as a whole number from 0 to 100.'
     }
+    if (currentStep === 3 && RATINGS.some(({ field }) => !formData[field])) return 'Please rate each category before continuing.'
+    return ''
   }
-
-  if (submitted) {
-    return (
-      <div className="min-h-screen bg-[#0A1628] flex items-center justify-center px-6">
-        <div className="max-w-md text-center">
-          <div className="text-6xl mb-6">✓</div>
-          <h1 className="text-4xl font-bold text-white mb-4">Thank you!</h1>
-          <p className="text-xl text-slate-400 mb-8">Your feedback helps us build a better product.</p>
-          <a
-            href="/"
-            className="inline-block px-8 py-3 bg-[#C9A84C] text-[#0A1628] rounded-full font-semibold hover:bg-amber-300 transition">
-            Back to Unidex
-          </a>
-        </div>
-      </div>
-    )
+  function nextStep() { const message = validate(step); setError(message); if (!message) { setStep(step + 1); window.scrollTo({ top: 0, behavior: 'instant' }) } }
+  function taskToggle(task) { setFormData(prev => ({ ...prev, tasks_completed: prev.tasks_completed.includes(task) ? prev.tasks_completed.filter(item => item !== task) : [...prev.tasks_completed, task] })) }
+  async function handleSubmit(event) {
+    event.preventDefault()
+    const message = validate(1) || validate(3)
+    if (message) { setError(message); setStep(validate(1) ? 1 : 3); return }
+    setLoading(true); setError('')
+    try {
+      const payload = { ...formData, full_name: formData.full_name.trim(), email: formData.email.trim(), cat_percentile: formData.cat_percentile === '' ? null : Number(formData.cat_percentile) }
+      const { error: submitError } = await supabase.from('uat_feedback').insert([payload])
+      if (submitError) throw submitError
+      setSubmitted(true); window.scrollTo({ top: 0, behavior: 'instant' })
+    } catch (err) { setError(`Your feedback has not been saved. ${err.message || 'Please try again.'}`) } finally { setLoading(false) }
   }
+  function choiceGroup(name, options) { return <div className="flex flex-wrap gap-2">{options.map(option => <label key={option} className={`cursor-pointer rounded-full border px-4 py-2.5 text-xs transition ${formData[name] === option ? 'border-[#225feb] bg-[#edf3ff] text-[#225feb]' : 'border-[#e1e8f2] text-[#7c8ca5] hover:border-[#a9bbe0]'}`}><input type="radio" name={name} value={option} checked={formData[name] === option} onChange={() => setField(name, option)} className="sr-only"/>{option}</label>)}</div> }
 
-  return (
-    <div className="min-h-screen bg-[#0A1628] py-12">
-      <div className="max-w-2xl mx-auto px-6">
-        {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold text-white mb-2">We'd love your feedback</h1>
-          <p className="text-slate-400">Help us improve Unidex. Takes ~5 minutes.</p>
-        </div>
-
-        {/* Progress bar */}
-        <div className="mb-12 flex gap-2">
-          {[1, 2, 3, 4].map(s => (
-            <div
-              key={s}
-              className={`flex-1 h-2 rounded-full transition-colors ${
-                s <= step ? 'bg-[#C9A84C]' : 'bg-slate-700'
-              }`}
-            />
-          ))}
-        </div>
-
-        {/* Step counter */}
-        <div className="text-sm text-slate-400 mb-8">
-          STEP {step} OF 4
-        </div>
-
-        {/* STEP 1 */}
-        {step === 1 && (
-          <div className="space-y-6 bg-[#0F2040] p-8 rounded-2xl border border-slate-700">
-            <h2 className="text-2xl font-bold text-white mb-8">About you</h2>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Full name *</label>
-              <input
-                type="text"
-                name="full_name"
-                value={formData.full_name}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 bg-[#0A1628] border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
-                placeholder="Your name"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Email *</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 bg-[#0A1628] border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
-                placeholder="your@email.com"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-3">I am a *</label>
-              <div className="space-y-2">
-                {['CAT aspirant', 'MBA student', 'Working professional', 'Other'].map(type => (
-                  <label key={type} className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="user_type"
-                      value={type}
-                      checked={formData.user_type === type}
-                      onChange={handleInputChange}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-slate-300">{type}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">CAT percentile (optional)</label>
-              <input
-                type="number"
-                name="cat_percentile"
-                value={formData.cat_percentile}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 bg-[#0A1628] border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
-                placeholder="e.g., 95"
-                min="0"
-                max="100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-3">Device used *</label>
-              <div className="space-y-2">
-                {['Desktop', 'Mobile', 'Tablet'].map(device => (
-                  <label key={device} className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="device"
-                      value={device}
-                      checked={formData.device === device}
-                      onChange={handleInputChange}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-slate-300">{device}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 2 */}
-        {step === 2 && (
-          <div className="space-y-6 bg-[#0F2040] p-8 rounded-2xl border border-slate-700">
-            <h2 className="text-2xl font-bold text-white mb-2">Task completion</h2>
-            <p className="text-slate-400 mb-6">Tick each task you were able to complete</p>
-
-            <div className="space-y-3">
-              {tasks.map(task => (
-                <label key={task} className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-[#0A1628] transition">
-                  <input
-                    type="checkbox"
-                    checked={formData.tasks_completed.includes(task)}
-                    onChange={() => handleTaskToggle(task)}
-                    className="w-5 h-5"
-                  />
-                  <span className="text-slate-300">{task}</span>
-                </label>
-              ))}
-            </div>
-
-            <div className="text-sm text-slate-400 mt-8 pt-6 border-t border-slate-600">
-              {formData.tasks_completed.length} of {tasks.length} tasks completed
-            </div>
-          </div>
-        )}
-
-        {/* STEP 3 */}
-        {step === 3 && (
-          <div className="space-y-8 bg-[#0F2040] p-8 rounded-2xl border border-slate-700">
-            <h2 className="text-2xl font-bold text-white mb-8">Ratings</h2>
-
-            {[
-              { field: 'rating_overall', label: 'Overall experience' },
-              { field: 'rating_ease', label: 'Ease of use' },
-              { field: 'rating_design', label: 'Visual design' },
-              { field: 'rating_usefulness', label: 'Usefulness for MBA applications' },
-              { field: 'rating_data_quality', label: 'Quality of college data' },
-            ].map(({ field, label }) => (
-              <div key={field}>
-                <div className="flex justify-between items-center mb-3">
-                  <label className="text-slate-300">{label}</label>
-                  <span className="text-[#C9A84C] font-semibold">{formData[field]}/5</span>
-                </div>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map(rating => (
-                    <button
-                      key={rating}
-                      onClick={() => handleRatingChange(field, rating)}
-                      className={`flex-1 py-2 rounded-lg transition ${
-                        formData[field] === rating
-                          ? 'bg-[#C9A84C] text-[#0A1628]'
-                          : 'bg-[#0A1628] text-slate-400 hover:text-white'
-                      }`}>
-                      ⭐
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            <div className="pt-6 border-t border-slate-600">
-              <label className="block text-slate-300 mb-4">
-                How likely are you to recommend Unidex to a fellow CAT aspirant?
-              </label>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-slate-500">Not at all</span>
-                <span className="text-[#C9A84C] font-semibold">{formData.nps_score}/10</span>
-                <span className="text-xs text-slate-500">Definitely</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="10"
-                value={formData.nps_score}
-                onChange={(e) => handleNPSChange(parseInt(e.target.value))}
-                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[#C9A84C]"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* STEP 4 */}
-        {step === 4 && (
-          <div className="space-y-6 bg-[#0F2040] p-8 rounded-2xl border border-slate-700">
-            <h2 className="text-2xl font-bold text-white mb-8">Open feedback</h2>
-
-            {[
-              { field: 'best_feature', label: 'What did you like most?' },
-              { field: 'biggest_problem', label: 'What was most frustrating or broken?' },
-              { field: 'missing_feature', label: "What feature is missing that you'd want?" },
-              { field: 'would_pay', label: 'Would you pay for this? If yes, how much?' },
-              { field: 'bugs_found', label: 'Any bugs you noticed?' },
-              { field: 'comments', label: 'General comments (optional)' },
-            ].map(({ field, label }) => (
-              <div key={field}>
-                <label className="block text-sm font-medium text-slate-300 mb-2">{label}</label>
-                <textarea
-                  name={field}
-                  value={formData[field]}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-[#0A1628] border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#C9A84C] resize-none"
-                  rows="3"
-                  placeholder="Your answer..."
-                />
-              </div>
-            ))}
-
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-3">Bug severity</label>
-              <div className="space-y-2">
-                {['Critical', 'High', 'Medium', 'Low', 'None'].map(severity => (
-                  <label key={severity} className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="bug_severity"
-                      value={severity}
-                      checked={formData.bug_severity === severity}
-                      onChange={handleInputChange}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-slate-300">{severity}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Navigation buttons */}
-        <div className="flex justify-between mt-12">
-          <button
-            onClick={() => setStep(Math.max(1, step - 1))}
-            disabled={step === 1}
-            className="px-6 py-2 border border-slate-600 text-slate-300 rounded-lg hover:border-white hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed">
-            ← Back
-          </button>
-
-          {step < 4 ? (
-            <button
-              onClick={() => setStep(step + 1)}
-              className="px-6 py-2 bg-[#C9A84C] text-[#0A1628] rounded-lg font-semibold hover:bg-amber-300 transition">
-              Next →
-            </button>
-          ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={loading}
-              className="px-6 py-2 bg-[#C9A84C] text-[#0A1628] rounded-lg font-semibold hover:bg-amber-300 transition disabled:opacity-50 disabled:cursor-not-allowed">
-              {loading ? 'Submitting...' : 'Submit feedback'}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+  return <div className="min-h-screen bg-[#f7f9fc] text-[#10264c]"><PublicHeader/>{submitted ? <main className="mx-auto max-w-xl px-6 py-24 text-center sm:py-32"><span className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-[#edf3ff]"><CheckCircle2 className="h-8 w-8 text-[#225feb]" strokeWidth={1.5}/></span><p className="mt-8 text-[10px] font-semibold uppercase tracking-[.2em] text-[#225feb]">Received with thanks</p><h1 className="mt-5 text-4xl font-medium leading-tight tracking-[-.05em] sm:text-5xl">A better experience<br/>starts with you.</h1><p className="mt-6 text-sm leading-7 text-[#8796ad]">Your feedback has been saved. Thank you for helping us make the MBA journey a little clearer.</p><Link to="/profile" className={`${primaryClass} mt-8`}>Back to my workspace <ArrowRight className="h-4 w-4"/></Link></main> : <main className="mx-auto grid max-w-[1200px] gap-10 px-6 py-12 lg:grid-cols-[320px_1fr] lg:gap-16 lg:px-12 lg:py-16"><aside><p className="text-[10px] font-semibold uppercase tracking-[.22em] text-[#225feb]">Built around you</p><h1 className="mt-5 text-[40px] font-medium leading-[1.08] tracking-[-.05em] sm:text-5xl">Your experience.<br/>Our next step.</h1><p className="mt-6 max-w-sm text-sm leading-7 text-[#8796ad]">Tell us what felt clear. And what could feel better. Your perspective helps shape Unidex.</p><div className="mt-9 space-y-4">{STEPS.map((label, i) => <div key={label} className={`flex items-center gap-3 text-xs ${step === i + 1 ? 'font-semibold text-[#225feb]' : 'text-[#9caac0]'}`}><span className={`grid h-7 w-7 place-items-center rounded-full border text-[10px] ${step > i + 1 ? 'border-[#225feb] bg-[#225feb] text-white' : step === i + 1 ? 'border-[#225feb] bg-[#edf3ff]' : 'border-[#dce4f0]'}`}>{step > i + 1 ? <Check className="h-3 w-3"/> : i + 1}</span>{label}</div>)}</div><div className="mt-9 hidden rounded-2xl bg-[#10264c] p-6 lg:block"><MessageSquare className="h-5 w-5 text-[#91b6f5]" strokeWidth={1.5}/><p className="mt-4 text-xs leading-7 text-[#bfcee5]">A few considered minutes can make the next student's journey better.</p></div></aside><form onSubmit={handleSubmit} className="min-w-0"><div className="overflow-hidden rounded-[26px] border border-[#e5ebf4] bg-white"><div className="flex h-1 bg-[#e9eff8]">{[1, 2, 3, 4].map(s => <span key={s} className={`h-full flex-1 ${s <= step ? 'bg-[#225feb]' : ''}`}/>)}</div><div className="p-6 sm:p-9"><p className="mb-3 text-[10px] font-semibold uppercase tracking-[.16em] text-[#9cabc0]">Step {step} of 4</p><h2 className="mb-8 text-2xl font-semibold tracking-[-.035em]">{STEPS[step - 1]}</h2>
+    {step === 1 && <div className="space-y-6"><div><label htmlFor="feedback-name" className="mb-2 block text-xs font-semibold text-[#617696]">Full name <span className="text-[#a4b1c4]">*</span></label><input id="feedback-name" value={formData.full_name} onChange={event => setField('full_name', event.target.value)} autoComplete="name" className={inputClass} placeholder="Your name"/></div><div><label htmlFor="feedback-email" className="mb-2 block text-xs font-semibold text-[#617696]">Email <span className="text-[#a4b1c4]">*</span></label><input id="feedback-email" type="email" value={formData.email} onChange={event => setField('email', event.target.value)} autoComplete="email" className={inputClass} placeholder="you@example.com"/></div><fieldset><legend className="mb-3 text-xs font-semibold text-[#617696]">Your applicant type *</legend>{choiceGroup('user_type', ['CAT aspirant', 'MBA student', 'Working professional', 'Other'])}</fieldset><div><label htmlFor="feedback-cat" className="mb-2 block text-xs font-semibold text-[#617696]">Approximate CAT percentile <span className="font-normal text-[#a4b1c4]">(optional)</span></label><input id="feedback-cat" type="number" min="0" max="100" step="1" value={formData.cat_percentile} onChange={event => setField('cat_percentile', event.target.value)} className={inputClass} placeholder="Whole number, for example 95"/></div><fieldset><legend className="mb-3 text-xs font-semibold text-[#617696]">Device used *</legend>{choiceGroup('device', ['Desktop', 'Mobile', 'Tablet'])}</fieldset></div>}
+    {step === 2 && <div><p className="mb-5 text-xs leading-6 text-[#91a0b6]">Which of these were you able to complete? Select all that apply.</p><div className="space-y-3">{TASKS.map(task => <label key={task} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 text-xs leading-5 transition ${formData.tasks_completed.includes(task) ? 'border-[#bcd0fc] bg-[#f5f8ff] text-[#446ba6]' : 'border-[#e5ebf4] text-[#7c8ca5] hover:border-[#c3d2e9]'}`}><input type="checkbox" checked={formData.tasks_completed.includes(task)} onChange={() => taskToggle(task)} className="h-4 w-4 shrink-0 accent-[#225feb]"/>{task}</label>)}</div><p className="mt-5 text-[10px] text-[#91a0b6]">{formData.tasks_completed.length} of {TASKS.length} tasks completed</p></div>}
+    {step === 3 && <div className="space-y-7">{RATINGS.map(({ field, label }) => <fieldset key={field}><legend className="mb-3 text-xs font-medium text-[#617696]">{label}</legend><div className="flex gap-2">{[1, 2, 3, 4, 5].map(rating => <button key={rating} type="button" onClick={() => setField(field, rating)} aria-label={`${rating} out of 5 for ${label}`} aria-pressed={formData[field] === rating} className={`flex flex-1 items-center justify-center gap-1 rounded-xl border py-3 text-xs transition sm:gap-2 ${formData[field] === rating ? 'border-[#225feb] bg-[#edf3ff] text-[#225feb]' : 'border-[#e5ebf4] text-[#a2b0c5] hover:border-[#a9bee5]'}`}><Star className={`hidden h-3.5 w-3.5 sm:block ${formData[field] === rating ? 'fill-[#225feb]' : ''}`}/>{rating}</button>)}</div></fieldset>)}<div className="border-t border-[#edf1f7] pt-6"><label htmlFor="feedback-nps" className="block text-xs font-medium leading-6 text-[#617696]">How likely are you to recommend Unidex?</label><div className="my-4 flex items-center justify-between text-[10px] text-[#91a0b6]"><span>Not likely</span><span className="text-lg font-medium text-[#225feb]">{formData.nps_score}<span className="ml-1 text-[10px] text-[#91a0b6]">/10</span></span><span>Very likely</span></div><input id="feedback-nps" type="range" min="0" max="10" value={formData.nps_score} onChange={event => setField('nps_score', Number(event.target.value))} className="w-full accent-[#225feb]"/></div></div>}
+    {step === 4 && <div className="space-y-6">{[{ field: 'best_feature', label: 'What felt most useful?' }, { field: 'biggest_problem', label: 'What was frustrating or unclear?' }, { field: 'missing_feature', label: 'What would you like us to add?' }, { field: 'would_pay', label: 'Would you pay for Unidex? What would feel fair?' }, { field: 'bugs_found', label: 'Did anything break or fail to work?' }, { field: 'comments', label: 'Anything else we should know?' }].map(({ field, label }) => <div key={field}><label htmlFor={`feedback-${field}`} className="mb-2 block text-xs font-medium leading-6 text-[#617696]">{label}</label><textarea id={`feedback-${field}`} value={formData[field]} onChange={event => setField(field, event.target.value)} rows={3} className={`${inputClass} resize-y`} placeholder="Your thoughts (optional)"/></div>)}<fieldset><legend className="mb-3 text-xs font-medium text-[#617696]">If you found a bug, how severe was it?</legend>{choiceGroup('bug_severity', ['Critical', 'High', 'Medium', 'Low', 'None'])}</fieldset><p className="text-[10px] leading-6 text-[#9cabc0]">Please keep passwords and private document contents out of your feedback.</p></div>}
+    {error && <div role="alert" className="mt-6 rounded-xl border border-red-100 bg-red-50 p-4 text-xs leading-6 text-red-700">{error}</div>}<div className="mt-8 flex items-center justify-between gap-4 border-t border-[#edf1f7] pt-6"><button type="button" disabled={step === 1 || loading} onClick={() => { setError(''); setStep(step - 1) }} className="inline-flex items-center gap-2 text-xs font-semibold text-[#8796ad] disabled:opacity-30"><ArrowLeft className="h-3.5 w-3.5"/>Back</button>{step < 4 ? <button type="button" onClick={nextStep} className={primaryClass}>Continue <ArrowRight className="h-4 w-4"/></button> : <button disabled={loading} type="submit" className={primaryClass}>{loading ? <><Loader2 className="h-4 w-4 animate-spin"/>Saving…</> : <>Share feedback <ArrowRight className="h-4 w-4"/></>}</button>}</div></div></div></form></main>}<PublicFooter/></div>
 }

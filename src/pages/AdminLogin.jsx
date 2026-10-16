@@ -1,110 +1,28 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ArrowRight, Loader2, ShieldCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { AuthShell, inputClass, primaryClass } from '../components/Brand'
 
 export default function AdminLogin() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('admin@unidex.co.in')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState(null)
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
-  const handleLogin = async (e) => {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-
+  useEffect(() => { document.title = 'Team access · Unidex' }, [])
+  async function handleLogin(event) {
+    event.preventDefault(); setError(''); setLoading(true)
     try {
-      // Sign in with Supabase
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (signInError) {
-        setError('Invalid credentials')
-        setLoading(false)
-        return
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      if (signInError) throw new Error('We could not sign you in with those details. Please check your email and password.')
+      if (data?.user?.app_metadata?.role !== 'admin') {
+        const { error: signOutError } = await supabase.auth.signOut()
+        if (signOutError) throw new Error('This account has no team access. Please sign out before trying another account.')
+        throw new Error('This account does not have team access. Please use your administrator account.')
       }
-
-      // Check if user has admin role (use user from signin response, not a new getUser call)
-      const user = data?.user
-      const isAdmin = user?.app_metadata?.role === 'admin'
-
-      if (!isAdmin) {
-        // Sign out immediately if not admin
-        await supabase.auth.signOut()
-        setError('Access denied — admin only')
-        setLoading(false)
-        return
-      }
-
-      // Navigate to admin dashboard
       navigate('/admin', { replace: true })
-    } catch (err) {
-      console.error('Login error:', err)
-      setError('An error occurred. Please try again.')
-      setLoading(false)
-    }
+    } catch (err) { setError(err.message || 'Sign in did not complete. Please try again.') } finally { setLoading(false) }
   }
-
-  return (
-    <div className="min-h-screen bg-[#0A1628] flex flex-col">
-      {/* Header */}
-      <div className="p-6">
-        <span className="text-sm text-slate-500">⚙ Unidex Admin</span>
-      </div>
-
-      {/* Login card */}
-      <div className="flex-1 flex items-center justify-center px-6">
-        <div className="w-full max-w-md bg-[#0F2040] border border-slate-700 rounded-2xl p-8 space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold text-white mb-2">Admin Access</h1>
-            <p className="text-sm text-red-400">Restricted to authorised personnel only</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            {/* Email input */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 bg-[#0A1628] border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="admin@unidex.co.in"
-              />
-            </div>
-
-            {/* Password input */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 bg-[#0A1628] border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {/* Error message */}
-            {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
-                {error}
-              </div>
-            )}
-
-            {/* Sign in button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
-              {loading ? 'Signing in…' : 'Sign in to admin'}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
-  )
+  return <AuthShell title={'A clearer view.\nBehind the scenes.'}><div className="mb-8 grid h-12 w-12 place-items-center rounded-2xl bg-[#edf3ff]"><ShieldCheck className="h-6 w-6 text-[#225feb]" strokeWidth={1.5}/></div><p className="mb-4 text-[10px] font-semibold uppercase tracking-[.2em] text-[#225feb]">Unidex team</p><h2 className="text-[36px] font-semibold leading-tight tracking-[-.05em]">Welcome behind<br/>the experience.</h2><p className="mb-9 mt-4 text-sm leading-7 text-[#8796ad]">Sign in with your authorized administrator account to review feedback and product insights.</p><form onSubmit={handleLogin} className="space-y-6"><div><label htmlFor="admin-email" className="mb-2 block text-xs font-semibold text-[#617696]">Work email</label><input id="admin-email" type="email" required autoComplete="username" value={email} onChange={event => setEmail(event.target.value)} disabled={loading} className={inputClass} placeholder="you@unidex.co.in"/></div><div><label htmlFor="admin-password" className="mb-2 block text-xs font-semibold text-[#617696]">Password</label><input id="admin-password" type="password" required autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} disabled={loading} className={inputClass} placeholder="Enter your password"/></div>{error && <div role="alert" className="rounded-xl border border-red-100 bg-red-50 p-4 text-xs leading-6 text-red-700">{error}</div>}<button type="submit" disabled={loading} className={`${primaryClass} w-full`}>{loading ? <><Loader2 className="h-4 w-4 animate-spin"/>Signing in…</> : <>Sign in to team workspace <ArrowRight className="h-4 w-4"/></>}</button></form><p className="mt-8 text-[10px] leading-6 text-[#a1aec1]">Team permissions are controlled by the server. Student accounts cannot access administrator data.</p></AuthShell>
 }

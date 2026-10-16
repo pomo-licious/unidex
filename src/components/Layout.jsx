@@ -1,432 +1,91 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// src/components/Layout.jsx — Shared sidebar shell (wraps Profile, Colleges, Tracker)
-//
-// Every main app page (except Onboarding/Signup) uses this Layout as its
-// outer wrapper. It renders a fixed left sidebar with the logo, nav links,
-// a CAT exam countdown widget, and the current user's name + role at the bottom.
-// The page's own content goes into the <main> area on the right.
-//
-// Usage: wrap any page in <Layout>...</Layout> to get the sidebar automatically.
-// ─────────────────────────────────────────────────────────────────────────────
-
-import { NavLink, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { useIsDemo } from '../context/DemoContext'
-import { NewsTicker } from './NewsTicker'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Bell, CalendarDays, ChevronRight, FilePenLine, Files, GraduationCap, HelpCircle, LayoutDashboard, LogIn, LogOut, Menu, MessageSquare, ShieldCheck, X, ListChecks, ArrowUpRight } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { Bell, Calendar } from 'lucide-react'
+import Brand from './Brand'
 
-// ─── Sidebar navigation items ────────────────────────────────────────────────
-// Each item has a URL path, a display label, and an inline SVG icon.
-// Adding a new page to the nav = add one object here.
 const NAV = [
-  {
-    to: '/profile',
-    label: 'My Profile',
-    // Person/user icon
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-      </svg>
-    ),
-  },
-  {
-    to: '/colleges',
-    label: 'Colleges',
-    // Building/institution icon
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-      </svg>
-    ),
-  },
-  {
-    to: '/tracker',
-    label: 'Applications',
-    // Checklist/clipboard icon
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-      </svg>
-    ),
-  },
-  {
-    to: '/calendar',
-    label: 'Calendar',
-    // Calendar/date icon
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h18M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-      </svg>
-    ),
-  },
-  {
-    to: '/documents',
-    label: 'Documents',
-    // Documents/file icon
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-    ),
-  },
+  { to: '/profile', label: 'Overview', icon: LayoutDashboard },
+  { to: '/colleges', label: 'Explore colleges', icon: GraduationCap },
+  { to: '/tracker', label: 'My applications', icon: ListChecks },
+  { to: '/application-builder', label: 'Application form', icon: FilePenLine },
+  { to: '/documents', label: 'My documents', icon: Files },
+  { to: '/calendar', label: 'Calendar', icon: CalendarDays },
+  { to: '/reminders', label: 'Reminders', icon: Bell },
 ]
 
-// ─── Layout component ─────────────────────────────────────────────────────────
-// Accepts `children` — whatever the page puts inside <Layout>...</Layout>
 export default function Layout({ children }) {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const isDemo   = useIsDemo()
-  const [user, setUser] = useState(null)
-  const [deadlineCount, setDeadlineCount] = useState(0)
+  const [sessionUser, setSessionUser] = useState(null)
   const [student, setStudent] = useState(null)
-  const [notifications, setNotifications] = useState([])
-  const [showNotifications, setShowNotifications] = useState(false)
-  const [daysUntilCAT, setDaysUntilCAT] = useState(0)
-  const [sidebarDeadlines, setSidebarDeadlines] = useState([])
+  const [notificationCount, setNotificationCount] = useState(0)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
+  const [sessionError, setSessionError] = useState('')
+  const location = useLocation()
+  const navigate = useNavigate()
+  const activeLabel = NAV.find(item => location.pathname.startsWith(item.to))?.label || (location.pathname.startsWith('/admin') ? 'Team workspace' : 'Unidex')
 
-  // Listen to auth state changes with proper cleanup
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => setUser(session?.user ?? null)
-    )
-    return () => subscription.unsubscribe()
+    let active = true
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return
+      setSessionUser(data?.session?.user || null)
+      if (error) setSessionError('Your session could not be checked. Please sign in again.')
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      if (active) setSessionUser(session?.user || null)
+    })
+    return () => { active = false; subscription.unsubscribe() }
   }, [])
 
-  // Fetch student data when user ID changes
   useEffect(() => {
-    if (!user) {
-      setStudent(null)
-      return
+    let active = true
+    async function loadWorkspace() {
+      if (!sessionUser?.id) { setStudent(null); setNotificationCount(0); return }
+      const { data, error } = await supabase.from('students').select('id, name').eq('user_id', sessionUser.id).maybeSingle()
+      if (!active) return
+      if (error) { setSessionError('Some workspace details could not be loaded.'); return }
+      setStudent(data)
+      if (!data?.id) return
+      const today = new Date()
+      const sevenDays = new Date(today)
+      sevenDays.setDate(sevenDays.getDate() + 7)
+      const localDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+      const { count } = await supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('student_id', data.id).eq('sent', false).gte('due_date', localDate(today)).lte('due_date', localDate(sevenDays))
+      if (active) setNotificationCount(count || 0)
     }
+    loadWorkspace().catch(() => { if (active) setSessionError('Some workspace details could not be loaded.') })
+    return () => { active = false }
+  }, [sessionUser?.id])
 
-    async function loadStudent() {
-      try {
-        const { data } = await supabase
-          .from('students')
-          .select('name')
-          .eq('user_id', user.id)
-          .single()
-
-        if (data) setStudent(data)
-      } catch (err) {
-        console.error('Failed to load student:', err)
-      }
-    }
-
-    loadStudent()
-  }, [user?.id])
-
-  // Load upcoming notifications (next 7 days, unsent)
   useEffect(() => {
-    if (!user) return
-
-    async function loadNotifications() {
-      try {
-        const today = new Date().toISOString().split('T')[0]
-        const sevenDaysLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-
-        const { data } = await supabase
-          .from('notifications')
-          .select('id, message, due_date, sent')
-          .eq('sent', false)
-          .gte('due_date', today)
-          .lte('due_date', sevenDaysLater)
-          .order('due_date', { ascending: true })
-
-        setNotifications(data || [])
-      } catch (err) {
-        console.error('Failed to load notifications:', err)
-      }
-    }
-
-    loadNotifications()
-  }, [user?.id])
-
-  // Calculate days until CAT exam
-  useEffect(() => {
-    const catDate = new Date('2026-11-30')
-    catDate.setHours(0, 0, 0, 0)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const days = Math.ceil((catDate - today) / (1000 * 60 * 60 * 24))
-    setDaysUntilCAT(Math.max(0, days))
+    const close = event => { if (event.key === 'Escape') setMenuOpen(false) }
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
   }, [])
 
-  // Count deadlines within 7 days
-  useEffect(() => {
-    if (!student?.id) return
-
-    async function loadDeadlines() {
-      try {
-        const { data: appData } = await supabase
-          .from('applications')
-          .select('*, colleges(deadlines)')
-          .eq('student_id', student.id)
-
-        let count = 0
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const sevenDaysLater = new Date(today)
-        sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
-
-        ;(appData || []).forEach(app => {
-          if (app.colleges?.deadlines && Array.isArray(app.colleges.deadlines)) {
-            app.colleges.deadlines.forEach(deadline => {
-              const deadlineDate = new Date(deadline.date || deadline)
-              deadlineDate.setHours(0, 0, 0, 0)
-              if (deadlineDate >= today && deadlineDate <= sevenDaysLater) {
-                count++
-              }
-            })
-          }
-        })
-
-        setDeadlineCount(count)
-      } catch (err) {
-        console.error('Failed to load deadlines:', err)
-      }
-    }
-
-    loadDeadlines()
-  }, [student?.id])
-
-  // Load upcoming deadlines for sidebar (next 3)
-  useEffect(() => {
-    if (!student?.id) {
-      setSidebarDeadlines([])
-      return
-    }
-
-    async function loadSidebarDeadlines() {
-      try {
-        const { data: appData } = await supabase
-          .from('applications')
-          .select('*, colleges(name, deadlines)')
-          .eq('student_id', student.id)
-
-        const deadlines = []
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-
-        ;(appData || []).forEach(app => {
-          if (app.colleges?.deadlines && Array.isArray(app.colleges.deadlines)) {
-            app.colleges.deadlines.forEach(deadline => {
-              const deadlineDate = new Date(deadline.date || deadline)
-              deadlineDate.setHours(0, 0, 0, 0)
-              if (deadlineDate >= today) {
-                const daysLeft = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24))
-                deadlines.push({
-                  id: `${app.id}-${deadline.date}`,
-                  college: app.colleges.name.substring(0, 12),
-                  daysLeft,
-                  date: deadline.date
-                })
-              }
-            })
-          }
-        })
-
-        deadlines.sort((a, b) => a.daysLeft - b.daysLeft)
-        setSidebarDeadlines(deadlines.slice(0, 3))
-      } catch (err) {
-        console.error('Failed to load sidebar deadlines:', err)
-      }
-    }
-
-    loadSidebarDeadlines()
-  }, [student?.id])
-
-  // Generate initials from the student's name
-  const name = student?.name || 'U'
-  const initials = name.split(' ').map(n => n[0]).join('')
-
-  // ── handleLogout — sign out and redirect to login ──
   async function handleLogout() {
-    await supabase.auth.signOut()
-    navigate('/login')
+    setSigningOut(true)
+    const { error } = await supabase.auth.signOut()
+    setSigningOut(false)
+    if (error) { setSessionError('Sign out did not complete. Please try again.'); return }
+    setMenuOpen(false)
+    navigate('/')
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex">
+  const displayName = student?.name || sessionUser?.user_metadata?.full_name || 'Your workspace'
 
-      {/* ── Fixed left sidebar ── */}
-      <aside className="w-60 bg-white border-r border-gray-200 flex flex-col fixed inset-y-0 left-0 z-10">
-
-        {/* Logo and tagline */}
-        <Link
-          to="/"
-          className="block px-6 py-5 border-b border-gray-100 hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#c9a84c] flex items-center justify-center">
-              <span className="text-white text-xs font-bold">U</span>
-            </div>
-            <span className="text-lg font-bold text-[#1a2744]">Unidex</span>
-          </div>
-          <p className="text-xs text-gray-600 mt-1 ml-9">MBA Application Hub</p>
-        </Link>
-
-        {/* Navigation links — NavLink auto-highlights the active route */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
-          {NAV.map(({ to, label, icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              // isActive is true when the current URL matches this link's path
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border-l-2 ${
-                  isActive
-                    ? 'bg-[#c9a84c]/10 text-[#1a2744] border-[#c9a84c] font-semibold'  // navy text + gold accent when active
-                    : 'text-gray-600 border-transparent hover:bg-gray-50 hover:text-gray-900'  // default + hover state
-                }`
-              }
-            >
-              {icon}
-              {label}
-            </NavLink>
-          ))}
-
-          {/* Notification bell */}
-          <div className="pt-4 mt-4 border-t border-gray-100 relative">
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                <span className="text-xs font-medium text-gray-600">Reminders</span>
-              </div>
-              {notifications.length > 0 && (
-                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
-                  {notifications.length}
-                </span>
-              )}
-            </button>
-
-            {/* Notification dropdown */}
-            {showNotifications && (
-              <div className="absolute bottom-full mb-2 left-0 w-56 bg-white rounded-lg border border-gray-200 shadow-lg z-20">
-                <div className="p-3 border-b border-gray-100">
-                  <p className="text-xs font-semibold text-gray-900">Upcoming Reminders</p>
-                </div>
-                {notifications.length === 0 ? (
-                  <div className="p-3 text-xs text-gray-500 text-center">No reminders</div>
-                ) : (
-                  <div className="max-h-64 overflow-y-auto">
-                    {notifications.map(notif => (
-                      <div
-                        key={notif.id}
-                        className="px-3 py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 cursor-pointer"
-                        onClick={async () => {
-                          try {
-                            const { error } = await supabase
-                              .from('notifications')
-                              .update({ sent: true })
-                              .eq('id', notif.id)
-
-                            if (!error) {
-                              setNotifications(prev => prev.filter(n => n.id !== notif.id))
-                            } else {
-                              console.error('Failed to mark notification as sent:', error)
-                            }
-                          } catch (err) {
-                            console.error('Error updating notification:', err)
-                          }
-                        }}
-                      >
-                        <p className="text-xs text-gray-800">{notif.message}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{notif.due_date}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-        </nav>
-
-        {/* Upcoming deadlines section */}
-        {(daysUntilCAT <= 200 || sidebarDeadlines.length > 0) && (
-          <div className="px-3 py-3 border-t border-gray-100 space-y-2">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2">Upcoming</p>
-            <div className="space-y-1.5">
-              {daysUntilCAT <= 200 && (
-                <div className="flex items-center gap-2 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 rounded transition">
-                  <span className="w-2 h-2 rounded-full bg-gray-400 shrink-0" />
-                  <span className="truncate flex-1">CAT 2026</span>
-                  <span className="text-gray-500 whitespace-nowrap">{daysUntilCAT}d</span>
-                </div>
-              )}
-              {sidebarDeadlines.map(deadline => {
-                const color = deadline.daysLeft <= 7 ? 'bg-red-400' : deadline.daysLeft <= 30 ? 'bg-amber-400' : 'bg-gray-300'
-                return (
-                  <div key={deadline.id} className="flex items-center gap-2 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 rounded transition">
-                    <span className={`w-2 h-2 rounded-full ${color} shrink-0`} />
-                    <span className="truncate flex-1">{deadline.college}</span>
-                    <span className="text-gray-500 whitespace-nowrap">{deadline.daysLeft}d</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Sign out button at the bottom */}
-        <div className="px-4 py-3 border-t border-gray-100">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-700 transition-colors">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Sign out
-          </button>
-        </div>
-      </aside>
-
-      {/* ── Main content area — everything to the right of the sidebar ── */}
-      {/* ml-60 = left margin equal to sidebar width so content doesn't overlap */}
-      <main className="ml-60 flex-1 min-h-screen flex flex-col">
-        {/* CAT countdown strip */}
-        <div className="flex items-center justify-center gap-2 px-6 py-1.5 border-b border-gray-100 bg-[#faf8f5] text-xs">
-          <Calendar className="w-3.5 h-3.5 text-[#c9a84c]" />
-          <span className="font-semibold text-[#1a2744]">CAT 2026 — {daysUntilCAT} days away</span>
-          <span className="text-gray-300">·</span>
-          <button
-            onClick={() => navigate('/calendar')}
-            className="font-medium text-[#c9a84c] hover:underline"
-          >
-            View deadline calendar →
-          </button>
-        </div>
-
-        {/* Header with news ticker and bell icon */}
-        <div className="flex items-center justify-between px-6 py-1 border-b border-gray-200 bg-white">
-          <NewsTicker />
-          {user && (
-            <button
-              onClick={() => navigate('/reminders')}
-              className="relative flex items-center justify-center w-9 h-9 rounded-lg hover:bg-gray-100 transition"
-              title="View deadlines"
-            >
-              <Bell className="w-5 h-5 text-gray-600" />
-              {deadlineCount > 0 && (
-                <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                  {deadlineCount > 9 ? '9+' : deadlineCount}
-                </span>
-              )}
-            </button>
-          )}
-        </div>
-        <div className="flex-1">
-          {children}
-        </div>
-      </main>
-    </div>
-  )
+  return <div className="min-h-screen bg-[#f7f9fc] text-[#10264c]">
+    <a href="#workspace-main" className="sr-only z-[70] rounded-full bg-white px-5 py-3 text-sm text-[#225feb] focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Skip to content</a>
+    {menuOpen && <button type="button" className="fixed inset-0 z-40 bg-[#10264c]/35 backdrop-blur-sm lg:hidden" aria-label="Close menu" onClick={() => setMenuOpen(false)}/>}
+    <aside className={`fixed inset-y-0 left-0 z-50 flex w-[264px] flex-col bg-[#10264c] px-5 pb-5 pt-8 transition-transform duration-300 motion-reduce:transition-none lg:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-label="Workspace navigation">
+      <div className="flex items-center justify-between px-3"><Brand light/><button type="button" onClick={() => setMenuOpen(false)} className="rounded-lg p-2 text-white/70 lg:hidden" aria-label="Close menu"><X className="h-5 w-5"/></button></div>
+      <p className="mb-5 mt-12 px-4 text-[10px] font-semibold uppercase tracking-[.2em] text-[#8da7ce]">Your next chapter</p>
+      <nav className="space-y-1.5">{NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} onClick={() => setMenuOpen(false)} className={({ isActive }) => `group flex items-center gap-3.5 rounded-xl px-4 py-3 text-[13px] font-medium transition ${isActive ? 'bg-white text-[#10264c] shadow-lg shadow-black/5' : 'text-[#bdcee7] hover:bg-white/10 hover:text-white'}`}><Icon className="h-[18px] w-[18px]" strokeWidth={1.7}/><span>{label}</span>{to === '/reminders' && notificationCount > 0 && <span className="ml-auto rounded-full bg-[#ff762e] px-1.5 py-0.5 text-[9px] text-white">{notificationCount > 9 ? '9+' : notificationCount}</span>}</NavLink>)}</nav>
+      <div className="mt-auto pt-8"><div className="mx-2 mb-5 rounded-2xl border border-white/10 bg-white/[.04] p-4"><div className="flex items-center gap-2 text-[11px] font-medium text-white"><span className="h-1.5 w-1.5 rounded-full bg-[#ff762e]"/>A little more clarity.</div><p className="mt-2 text-[11px] leading-5 text-[#a4bbdc]">Bring your options, documents and next steps together.</p></div><div className="flex items-center gap-2 px-4 text-[11px] text-[#a4bbdc]"><Link to="/feedback" onClick={() => setMenuOpen(false)} className="flex items-center gap-1.5 hover:text-white"><MessageSquare className="h-3 w-3"/>Feedback</Link><span className="text-white/20">·</span><Link to={sessionUser?.app_metadata?.role === 'admin' ? '/admin' : '/admin/login'} onClick={() => setMenuOpen(false)} className="hover:text-white">Team access</Link></div><div className="mt-5 border-t border-white/10 px-3 pt-5">{sessionUser ? <div className="flex items-center gap-3"><div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#2c4770] text-sm font-semibold text-white">{displayName.charAt(0).toUpperCase()}</div><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-white">{displayName}</p><p className="mt-1 text-[10px] text-[#91aacd]">MBA applicant</p></div><button onClick={handleLogout} disabled={signingOut} aria-label="Sign out" className="rounded-lg p-2 text-[#a4bbdc] hover:bg-white/10 hover:text-white disabled:opacity-50"><LogOut className="h-4 w-4"/></button></div> : <Link to="/login" className="flex items-center justify-between text-xs font-semibold text-white">Sign in to your workspace <LogIn className="h-4 w-4"/></Link>}</div></div>
+    </aside>
+    <div className="min-w-0 lg:pl-[264px]"><header className="sticky top-0 z-30 flex h-[76px] items-center justify-between gap-4 border-b border-[#e8edf5] bg-white/95 px-5 backdrop-blur-xl sm:px-8"><div className="flex min-w-0 items-center gap-3"><button type="button" onClick={() => setMenuOpen(true)} aria-expanded={menuOpen} aria-label="Open workspace menu" className="rounded-lg p-2 text-[#10264c] lg:hidden"><Menu className="h-5 w-5"/></button><div className="flex min-w-0 items-center gap-2 text-xs"><Link to="/" className="hidden text-[#94a3b8] sm:block">Unidex</Link><ChevronRight className="hidden h-3 w-3 text-[#bdc8d9] sm:block"/><span className="truncate font-medium text-[#526982]">{activeLabel}</span></div></div><div className="flex items-center gap-3 sm:gap-5"><Link to="/reminders" className="relative rounded-full border border-[#e3e9f3] p-2.5 text-[#7186a5] hover:border-[#225feb] hover:text-[#225feb]" aria-label={notificationCount ? `${notificationCount} upcoming reminders` : 'View reminders'}><Bell className="h-4 w-4" strokeWidth={1.7}/>{notificationCount > 0 && <span className="absolute right-2 top-1.5 h-1.5 w-1.5 rounded-full bg-[#ff762e]"/>}</Link>{sessionUser ? <a href="mailto:hello@unidex.co.in" className="hidden items-center gap-2 text-xs text-[#718098] sm:flex"><HelpCircle className="h-4 w-4"/>Need a hand?</a> : <Link to="/login" className="inline-flex items-center gap-2 rounded-full bg-[#225feb] px-4 py-2.5 text-xs font-semibold text-white">Sign in <ArrowUpRight className="h-3.5 w-3.5"/></Link>}</div></header>
+    {sessionError && <div className="flex items-center justify-between gap-3 border-b border-[#dce6f8] bg-[#edf3ff] px-6 py-3 text-xs text-[#526982]" role="status">{sessionError}<button onClick={() => setSessionError('')} aria-label="Dismiss session message"><X className="h-3.5 w-3.5"/></button></div>}
+    <main id="workspace-main" className="min-w-0 pb-14 focus:outline-none" tabIndex={-1}>{children}</main><footer className="flex flex-wrap items-center justify-between gap-4 border-t border-[#e8edf5] px-6 py-6 text-[11px] text-[#94a3b8] sm:px-8"><span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5"/>Your next step, considered.</span><div className="flex gap-5"><Link to="/about">About</Link><Link to="/privacy">Privacy</Link><Link to="/terms">Terms</Link></div></footer></div>
+  </div>
 }

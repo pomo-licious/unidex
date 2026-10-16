@@ -1,262 +1,67 @@
-import { useState, useEffect } from 'react'
-import { Bell, CheckCircle2, AlertCircle, ChevronDown } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowRight, ArrowUpRight, Bell, CalendarDays, Check, CheckCircle2, ChevronDown, Circle, Loader2 } from 'lucide-react'
 import Layout from '../components/Layout'
-import { supabase } from '../lib/supabase'
+import { useAdmissions } from '../context/AdmissionsContext'
+import { DELHI_NCR_COLLEGES } from '../data/delhiNcrColleges'
 
-function DeadlineCard({ deadline }) {
-  const isUrgent = deadline.daysRemaining <= 7
-  const isVeryUrgent = deadline.daysRemaining <= 2
-
-  return (
-    <div
-      className={`rounded-lg border p-4 ${
-        isVeryUrgent
-          ? 'bg-red-50 border-red-200'
-          : isUrgent
-          ? 'bg-amber-50 border-amber-200'
-          : 'bg-white border-gray-200'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            {isVeryUrgent ? (
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-            ) : isUrgent ? (
-              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-            ) : null}
-            <h3 className={`font-semibold text-sm ${
-              isVeryUrgent ? 'text-red-900' : isUrgent ? 'text-amber-900' : 'text-gray-900'
-            }`}>
-              {deadline.collegeName}
-            </h3>
-          </div>
-          <p className={`text-xs ${
-            isVeryUrgent ? 'text-red-700' : isUrgent ? 'text-amber-700' : 'text-gray-600'
-          }`}>
-            {deadline.type} deadline
-          </p>
-        </div>
-        <div className="text-right shrink-0">
-          <p className={`font-bold text-sm ${
-            isVeryUrgent ? 'text-red-600' : isUrgent ? 'text-amber-600' : 'text-gray-900'
-          }`}>
-            {deadline.daysRemaining} day{deadline.daysRemaining !== 1 ? 's' : ''}
-          </p>
-          <p className={`text-xs ${
-            isVeryUrgent ? 'text-red-600' : isUrgent ? 'text-amber-600' : 'text-gray-500'
-          }`}>
-            {new Date(deadline.date).toLocaleDateString()}
-          </p>
-        </div>
-      </div>
-    </div>
-  )
+const PREPARATION = [ ['profile', 'Review shared profile'], ['documents', 'Confirm supporting documents'], ['sop', 'Prepare your statement of purpose'], ['requirements', 'Review college-specific questions'], ['deadline_confirmed', 'Confirm official deadline'] ]
+function getDeadline(plan) {
+  const snapshot = plan.college_snapshot || {}, college = DELHI_NCR_COLLEGES.find(item => item.id === plan.college_id) || snapshot
+  const selectedProgramme = snapshot.selected_programme && typeof snapshot.selected_programme === 'object'
+    ? snapshot.selected_programme
+    : snapshot.programme && typeof snapshot.programme === 'object' ? snapshot.programme : null
+  const programmeId = snapshot.selectedProgrammeId || snapshot.programme_id || snapshot.programme_key || selectedProgramme?.id
+  const programmeName = snapshot.selectedProgrammeName || selectedProgramme?.name || (typeof snapshot.programme === 'string' ? snapshot.programme : '')
+  const programmeRecords = Array.isArray(college.programmes) ? college.programmes
+    : college.programmes && typeof college.programmes === 'object' ? Object.values(college.programmes)
+      : selectedProgramme ? [selectedProgramme] : []
+  const programme = programmeId
+    ? programmeRecords.find(item => item.id === programmeId)
+    : programmeName ? programmeRecords.find(item => item.name === programmeName) : null
+  // An explicit programme must resolve to its own date; never inherit another programme's deadline.
+  const deadline = programmeId || programmeName ? programme?.deadline : college.deadline
+  const manual = plan.checklist?.deadline
+  if (manual?.date && /^\d{4}-\d{2}-\d{2}$/.test(manual.date)) return { date: manual.date, source: 'Date you entered', sourceUrl: null }
+  return deadline?.date && deadline.verificationStatus === 'verified_current_cycle' ? { ...deadline, source: 'Verified official deadline' } : null
 }
+function localToday() { const today = new Date(); return Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) }
+function dayCount(date) { const [y, m, d] = date.split('-').map(Number); return Math.round((Date.UTC(y, m - 1, d) - localToday()) / 86400000) }
+const dateText = value => new Date(`${value}T12:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
 
 export default function Reminders() {
-  const [user, setUser] = useState(null)
-  const [student, setStudent] = useState(null)
-  const [applications, setApplications] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const { user, plans = [], loading, error, updatePlan, refreshPlans } = useAdmissions()
+  const [tab, setTab] = useState('deadlines')
   const [showLater, setShowLater] = useState(false)
-
-  // ── Page title ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    document.title = 'Reminders · Unidex'
-  }, [])
-
-  // Get current user via auth listener
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user || null)
-    })
-    return () => subscription?.unsubscribe()
-  }, [])
-
-  // Load student and applications with deadlines
-  useEffect(() => {
-    if (!user) {
-      setLoading(false)
-      return
-    }
-
-    async function loadData() {
-      try {
-        // Get student record
-        const { data: studentData, error: studentErr } = await supabase
-          .from('students')
-          .select('*')
-          .eq('user_id', user.id)
-          .single()
-
-        if (studentErr) throw studentErr
-        if (!studentData) {
-          setError('Student profile not found')
-          setLoading(false)
-          return
-        }
-
-        setStudent(studentData)
-
-        // Get applications with college deadlines
-        const { data: appData, error: appErr } = await supabase
-          .from('applications')
-          .select('*, colleges(id, name, deadlines)')
-          .eq('student_id', studentData.id)
-
-        if (appErr) throw appErr
-        setApplications(appData || [])
-        setError(null)
-      } catch (err) {
-        console.error('Error loading reminders:', err)
-        setError(err.message || 'Failed to load reminders')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadData()
-  }, [user?.id])
-
-  // Extract upcoming deadlines from applications
-  const getUpcomingDeadlines = () => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const deadlines = []
-
-    applications.forEach(app => {
-      if (!app.colleges?.deadlines || !Array.isArray(app.colleges.deadlines)) return
-
-      app.colleges.deadlines.forEach(deadline => {
-        const deadlineDate = new Date(deadline.date)
-        if (deadlineDate >= today) {
-          deadlines.push({
-            id: `${app.id}-${deadline.date}`,
-            collegeName: app.colleges.name,
-            applicationId: app.id,
-            date: deadline.date,
-            type: deadline.type || 'Regular',
-            daysRemaining: Math.floor((deadlineDate - today) / (1000 * 60 * 60 * 24))
-          })
-        }
-      })
-    })
-
-    // Sort by days remaining (closest first)
-    return deadlines.sort((a, b) => a.daysRemaining - b.daysRemaining)
+  const [actionError, setActionError] = useState('')
+  const [saving, setSaving] = useState(null)
+  useEffect(() => { document.title = 'Your next steps · Unidex' }, [])
+  const events = plans.map(plan => { const deadline = getDeadline(plan); return deadline ? { ...deadline, plan, days: dayCount(deadline.date) } : null }).filter(Boolean).sort((a, b) => a.days - b.days)
+  const upcoming = events.filter(event => event.days >= 0)
+  const unknown = plans.filter(plan => !getDeadline(plan))
+  const preparing = plans.filter(plan => !['Applied', 'Interview', 'Offer', 'Rejected'].includes(plan.status))
+  const tasksRemaining = preparing.reduce((total, plan) => total + PREPARATION.filter(([key]) => !plan.checklist?.[key]).length, 0)
+  async function toggleTask(plan, key) {
+    setSaving(`${plan.id}-${key}`); setActionError('')
+    try { await updatePlan({ ...plan, checklist: { ...(plan.checklist || {}), [key]: !plan.checklist?.[key] } }) } catch (err) { setActionError(err.message || 'Could not save your checklist. Please try again.') } finally { setSaving(null) }
+  }
+  function eventCard(event) {
+    const urgent = event.days <= 7
+    return <article key={event.plan.id} className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-[#e5ebf4] bg-white p-5 sm:p-6"><div className="flex items-start gap-4"><div className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${urgent ? 'bg-[#fff1e6] text-[#cf854b]' : 'bg-[#edf3ff] text-[#225feb]'}`}><CalendarDays className="h-5 w-5" strokeWidth={1.5}/></div><div><p className="text-[9px] font-semibold uppercase tracking-[.13em] text-[#9cabc0]">{event.source}</p><Link to={`/college/${event.plan.college_id}`} className="mt-2 block text-sm font-semibold leading-6 text-[#10264c]">{event.plan.college_snapshot?.name || 'College'}</Link><p className="mt-1 text-[11px] text-[#91a0b6]">Application deadline · {dateText(event.date)}</p>{event.sourceUrl && <a href={event.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[10px] text-[#225feb]">Check official source <ArrowUpRight className="h-3 w-3"/></a>}</div></div><div className="flex items-center gap-5 pl-[60px] sm:pl-0"><span className={`rounded-full px-3 py-1.5 text-[10px] font-semibold ${urgent ? 'bg-[#fff4e9] text-[#bd7a47]' : 'bg-[#f0f4fa] text-[#7d91ae]'}`}>{event.days === 0 ? 'Due today' : `In ${event.days} day${event.days === 1 ? '' : 's'}`}</span><Link to="/application-builder" aria-label={`Prepare application for ${event.plan.college_snapshot?.name || 'college'}`} className="rounded-full border border-[#e5ebf4] p-2.5 text-[#8796ad] hover:border-[#225feb] hover:text-[#225feb]"><ArrowUpRight className="h-4 w-4"/></Link></div></article>
   }
 
-  const upcomingDeadlines = getUpcomingDeadlines()
-
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <div className="w-8 h-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin mx-auto" />
-            <p className="text-sm text-gray-400 mt-3">Loading reminders…</p>
-          </div>
-        </div>
-      </Layout>
-    )
-  }
-
-  if (error) {
-    return (
-      <Layout>
-        <div className="max-w-3xl mx-auto px-6 py-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-red-600 font-medium">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="mt-3 text-sm text-red-600 hover:underline"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      </Layout>
-    )
-  }
-
-  return (
-    <Layout>
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <Bell className="w-8 h-8 text-indigo-600" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Reminders</h1>
-            <p className="text-sm text-gray-500 mt-1">{upcomingDeadlines.length} upcoming deadline{upcomingDeadlines.length !== 1 ? 's' : ''}</p>
-          </div>
-        </div>
-
-        {/* Deadlines grouped by urgency */}
-        {upcomingDeadlines.length === 0 ? (
-          <div className="text-center py-12">
-            <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4 opacity-50" />
-            <p className="text-gray-500 text-lg">No upcoming deadlines</p>
-            <p className="text-sm text-gray-400 mt-2">You're all caught up!</p>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {/* This Week */}
-            {upcomingDeadlines.filter(d => d.daysRemaining <= 7).length > 0 && (
-              <div>
-                <h2 className="text-sm font-bold text-red-600 mb-3 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-red-600" />
-                  This week
-                </h2>
-                <div className="space-y-3">
-                  {upcomingDeadlines.filter(d => d.daysRemaining <= 7).map(deadline => (
-                    <DeadlineCard key={deadline.id} deadline={deadline} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* This Month */}
-            {upcomingDeadlines.filter(d => d.daysRemaining > 7 && d.daysRemaining <= 30).length > 0 && (
-              <div>
-                <h2 className="text-sm font-bold text-amber-600 mb-3 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-600" />
-                  This month
-                </h2>
-                <div className="space-y-3">
-                  {upcomingDeadlines.filter(d => d.daysRemaining > 7 && d.daysRemaining <= 30).map(deadline => (
-                    <DeadlineCard key={deadline.id} deadline={deadline} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Later */}
-            {upcomingDeadlines.filter(d => d.daysRemaining > 30).length > 0 && (
-              <div>
-                <button
-                  onClick={() => setShowLater(!showLater)}
-                  className="w-full flex items-center justify-between text-sm font-bold text-gray-600 hover:text-gray-900 transition mb-3"
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-gray-400" />
-                    Later ({upcomingDeadlines.filter(d => d.daysRemaining > 30).length})
-                  </span>
-                  <ChevronDown className={`w-4 h-4 transition ${showLater ? 'rotate-180' : ''}`} />
-                </button>
-                {showLater && (
-                  <div className="space-y-3">
-                    {upcomingDeadlines.filter(d => d.daysRemaining > 30).map(deadline => (
-                      <DeadlineCard key={deadline.id} deadline={deadline} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </Layout>
-  )
+  return <Layout><div className="mx-auto max-w-[1280px] px-5 py-8 sm:px-8 sm:py-10"><div className="mb-8 flex flex-wrap items-end justify-between gap-5"><div><p className="mb-3 text-[10px] font-semibold uppercase tracking-[.22em] text-[#225feb]">Stay a step ahead</p><h1 className="text-3xl font-semibold tracking-[-.045em] text-[#10264c] sm:text-[42px]">The next thing. Made clear.</h1><p className="mt-3 text-sm leading-6 text-[#7c8ca5]">A considered view of what needs your attention.</p></div><Link to="/calendar" className="inline-flex items-center gap-2 rounded-full border border-[#dce4f0] bg-white px-5 py-3 text-xs font-semibold"><CalendarDays className="h-4 w-4"/>Open calendar</Link></div>
+    <div className="mb-8 grid gap-4 sm:grid-cols-3">{[{ label: 'Due in the next 7 days', count: upcoming.filter(event => event.days <= 7).length, color: 'text-[#c78552]' }, { label: 'Dates to confirm', count: unknown.length, color: 'text-[#10264c]' }, { label: 'Preparation steps left', count: tasksRemaining, color: 'text-[#225feb]' }].map(item => <div key={item.label} className="rounded-[22px] border border-[#e5ebf4] bg-white p-6"><p className="text-[10px] text-[#91a0b6]">{item.label}</p><p className={`mt-3 text-4xl font-medium tracking-[-.05em] ${item.color}`}>{item.count}</p></div>)}</div>
+    {(error || actionError) && <div role="alert" className="mb-5 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-xs leading-5 text-red-700">{actionError || error}<button onClick={async () => { try { await refreshPlans() } catch (err) { setActionError(err.message || 'Reminders could not be refreshed.') } }} className="ml-3 underline">Retry</button></div>}
+    {loading ? <div className="flex justify-center gap-3 rounded-3xl bg-white py-24 text-sm text-[#7c8ca5]"><Loader2 className="h-5 w-5 animate-spin text-[#225feb]"/>Gathering your next steps…</div> : !user ? <div className="rounded-3xl border border-[#e5ebf4] bg-white py-20 text-center"><Bell className="mx-auto h-9 w-9 text-[#225feb]"/><h2 className="mt-5 text-2xl font-medium tracking-tight">A clearer way to keep track.</h2><p className="mt-3 text-sm text-[#7c8ca5]">Sign in to see your upcoming dates and preparation steps.</p><Link to="/login" className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#225feb] px-6 py-3 text-xs font-semibold text-white">Sign in <ArrowRight className="h-4 w-4"/></Link></div> : <>
+    <div className="mb-6 flex gap-6 border-b border-[#e1e8f2]">{[{ id: 'deadlines', label: 'Important dates' }, { id: 'preparation', label: 'Preparation checklist' }].map(item => <button key={item.id} onClick={() => setTab(item.id)} aria-pressed={tab === item.id} className={`border-b-2 pb-4 text-xs font-semibold transition ${tab === item.id ? 'border-[#225feb] text-[#225feb]' : 'border-transparent text-[#91a0b6]'}`}>{item.label}</button>)}</div>
+    {tab === 'deadlines' ? <div className="space-y-7">{upcoming.length === 0 && <div className="rounded-[24px] border border-[#e5ebf4] bg-white px-6 py-14 text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[#edf3ff]"><CheckCircle2 className="h-6 w-6 text-[#225feb]"/></div><h2 className="mt-5 text-xl font-medium tracking-tight">No confirmed dates ahead.</h2><p className="mx-auto mt-3 max-w-md text-xs leading-6 text-[#91a0b6]">{unknown.length ? 'Some deadlines still need checking. Confirm them with the colleges below.' : 'Add a college to your plan to start organizing the dates that matter.'}</p>{!plans.length && <Link to="/colleges" className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-[#225feb]">Explore Delhi NCR colleges <ArrowRight className="h-4 w-4"/></Link>}</div>}
+    {[{ label: 'This week', items: upcoming.filter(event => event.days <= 7) }, { label: 'Coming this month', items: upcoming.filter(event => event.days > 7 && event.days <= 30) }].filter(group => group.items.length).map(group => <section key={group.label}><h2 className="mb-4 text-xs font-semibold text-[#7d91ae]">{group.label}</h2><div className="space-y-3">{group.items.map(eventCard)}</div></section>)}
+    {upcoming.some(event => event.days > 30) && <section><button onClick={() => setShowLater(!showLater)} aria-expanded={showLater} className="mb-4 flex w-full items-center justify-between text-xs font-semibold text-[#7d91ae]">A little further ahead ({upcoming.filter(event => event.days > 30).length})<ChevronDown className={`h-4 w-4 transition ${showLater ? 'rotate-180' : ''}`}/></button>{showLater && <div className="space-y-3">{upcoming.filter(event => event.days > 30).map(eventCard)}</div>}</section>}
+    {unknown.length > 0 && <section className="rounded-[24px] border border-[#e5ebf4] bg-white p-6 sm:p-7"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-[10px] font-semibold uppercase tracking-[.15em] text-[#ba8259]">Needs your attention</p><h2 className="mt-3 text-xl font-medium tracking-tight">Confirm these deadlines.</h2><p className="mt-2 max-w-lg text-xs leading-6 text-[#91a0b6]">We haven't confirmed the current application date. Check the official source and add your own reminder in the tracker.</p></div><Link to="/tracker" className="inline-flex items-center gap-2 text-xs font-semibold text-[#225feb]">Open my plans <ArrowRight className="h-4 w-4"/></Link></div><div className="mt-5 grid gap-3 md:grid-cols-2">{unknown.map(plan => <Link key={plan.id} to={`/college/${plan.college_id}`} className="flex items-center justify-between gap-3 rounded-xl border border-[#edf1f7] px-4 py-3 text-xs text-[#6d829f]"><span>{plan.college_snapshot?.name || 'College'}</span><ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-[#9cabc0]"/></Link>)}</div></section>}
+    {events.some(event => event.days < 0) && <details className="rounded-2xl border border-[#e5ebf4] bg-white p-5"><summary className="cursor-pointer text-xs font-semibold text-[#8796ad]">Past dates ({events.filter(event => event.days < 0).length})</summary><div className="mt-4 space-y-3">{events.filter(event => event.days < 0).map(event => <div key={event.plan.id} className="flex flex-wrap justify-between gap-3 text-xs text-[#91a0b6]"><span>{event.plan.college_snapshot?.name}</span><span>{dateText(event.date)} · {event.source}</span></div>)}</div><p className="mt-4 text-[10px] leading-5 text-[#91a0b6]">A past date is not an application decision. Check the college for extensions and your actual application status.</p></details>}
+    </div> : <div className="space-y-5">{preparing.length ? preparing.map(plan => <section key={plan.id} className="rounded-[24px] border border-[#e5ebf4] bg-white p-6 sm:p-7"><div className="mb-6 flex flex-wrap items-center justify-between gap-3"><Link to={`/college/${plan.college_id}`} className="text-sm font-semibold">{plan.college_snapshot?.name || 'College'}</Link><span className="text-[10px] text-[#91a0b6]">{PREPARATION.filter(([key]) => plan.checklist?.[key]).length} of {PREPARATION.length} complete</span></div><div className="grid gap-x-6 gap-y-4 md:grid-cols-2">{PREPARATION.map(([key, label]) => <button disabled={saving !== null} key={key} onClick={() => toggleTask(plan, key)} aria-pressed={Boolean(plan.checklist?.[key])} className="flex items-center gap-3 text-left text-xs leading-5 text-[#7c8ca5] disabled:opacity-60">{saving === `${plan.id}-${key}` ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#225feb]"/> : plan.checklist?.[key] ? <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-[#225feb]"><Check className="h-2.5 w-2.5 text-white"/></span> : <Circle className="h-4 w-4 shrink-0 text-[#c2cfe0]"/>}<span className={plan.checklist?.[key] ? 'text-[#a7b4c6] line-through' : ''}>{label}</span></button>)}</div></section>) : <div className="rounded-3xl border border-[#e5ebf4] bg-white p-12 text-center"><CheckCircle2 className="mx-auto h-8 w-8 text-[#225feb]"/><h2 className="mt-5 text-xl font-medium">A little breathing room.</h2><p className="mt-3 text-xs leading-6 text-[#91a0b6]">No applications currently need preparation. Add a college when you're ready to explore another possibility.</p><Link to="/colleges" className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-[#225feb]">Explore colleges <ArrowRight className="h-4 w-4"/></Link></div>}</div>}
+    <div className="mt-8 flex items-start gap-3 rounded-2xl bg-[#edf3ff] p-5"><Bell className="mt-0.5 h-4 w-4 shrink-0 text-[#225feb]"/><p className="text-[11px] leading-6 text-[#6980a3]">These reminders live in your workspace. Export your dates from the calendar for personal alerts. Automatic email and SMS delivery are not enabled here.</p></div>
+    </>}
+  </div></Layout>
 }

@@ -32,7 +32,6 @@ export default function DocumentUpload({ onExtracted }) {
   console.log('[DocumentUpload] component rendered')
   const [zoneStates, setZoneStates] = useState({})
   const [user, setUser] = useState(null)
-  const [student, setStudent] = useState(null)
   const [initError, setInitError] = useState(null)
   const [toast, setToast] = useState(null)
   const studentRef = useRef(null)
@@ -71,7 +70,6 @@ export default function DocumentUpload({ onExtracted }) {
           return
         }
 
-        setStudent(data)
         studentRef.current = data
         setInitError(null)
       } catch (err) {
@@ -424,7 +422,7 @@ export default function DocumentUpload({ onExtracted }) {
 
                     {/* Extracted fields with edit toggles */}
                     <div className="space-y-2 mb-4">
-                      {state.extracted && Object.entries(state.extracted).map(([key, value]) => {
+                      {state.extracted && Object.entries(state.extracted).map(([key]) => {
                         const isEditing = state.editingFields?.[key]
                         const correctedValue = state.correctedValues?.[key] || ''
 

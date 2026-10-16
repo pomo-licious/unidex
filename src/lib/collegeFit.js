@@ -70,8 +70,8 @@ export function getCollegeFit(studentScore, college, cutoffRows) {
 
   // Prefer the real cutoff for the exam the student actually sat; otherwise
   // estimate from the college tier and flag it.
-  let cutoff = null
-  let estimated = false
+  let cutoff
+  let estimated
 
   const examRow = pickCutoffRow(cutoffRows, exam)
 

@@ -1,752 +1,106 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// src/pages/AppTracker.jsx — Application status kanban board (Supabase-backed)
-//
-// All four CRUD operations now talk directly to Supabase:
-//
-//   LOAD   — SELECT applications.*, colleges(name,location,type,deadlines)
-//            RLS automatically filters to the logged-in student's rows only.
-//
-//   ADD    — INSERT into applications (student_id, college_id, status, notes)
-//            Requires fetching the student's UUID first (auth.uid() → students.id)
-//
-//   MOVE   — UPDATE applications SET status = ? WHERE id = ?
-//            Optimistic update: UI changes instantly, rolled back if Supabase rejects.
-//
-//   DELETE — DELETE FROM applications WHERE id = ?
-//            Optimistic removal with snapshot rollback on error.
-//
-// Note: The `colleges` table must be seeded before the Add modal dropdown works.
-// Route: /tracker
-// ─────────────────────────────────────────────────────────────────────────────
-
-import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { GraduationCap, PartyPopper, Eye, Hourglass, BookMarked } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, ArrowUpRight, Bookmark, CalendarDays, Check, CheckSquare, ChevronRight, GraduationCap, LayoutGrid, List, Loader2, Plus, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import Layout from '../components/Layout'
+import { useAdmissions } from '../context/AdmissionsContext'
 import { supabase } from '../lib/supabase'
-import { STATUSES, STATUS_META } from '../lib/mockData'
-import { useIsDemo } from '../context/DemoContext'
-import { createDeadlineNotifications } from '../lib/notificationHelpers'
-import RejectionRecoveryModal from '../components/RejectionRecoveryModal'
+import { DELHI_NCR_COLLEGES } from '../data/delhiNcrColleges'
 
-// ─── Helper: days from today until a date string ──────────────────────────────
-// Uses the real current date (unlike the hardcoded version in mockData.js)
-function daysFromNow(dateStr) {
-  if (!dateStr) return null
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)   // Strip time so comparison is date-only
-  return Math.round((new Date(dateStr) - today) / (1000 * 60 * 60 * 24))
+const STATUSES = ['Researching', 'Preparing', 'Submitted to Unidex', 'Applied', 'Interview', 'Offer', 'Rejected']
+const CHECKLIST = [ ['profile', 'Review your shared profile'], ['documents', 'Confirm supporting documents'], ['sop', 'Prepare statement of purpose'], ['requirements', 'Check college-specific requirements'], ['deadline_confirmed', 'Confirm the application deadline'] ]
+const STATUS_COLORS = { Researching: 'bg-[#edf3ff] text-[#225feb]', Preparing: 'bg-[#edf0fb] text-[#5866a5]', 'Submitted to Unidex': 'bg-[#f1edff] text-[#7154ba]', Applied: 'bg-[#eaf5f9] text-[#267490]', Interview: 'bg-[#fff4e8] text-[#b17427]', Offer: 'bg-[#eaf5ee] text-[#40805a]', Rejected: 'bg-[#fbefef] text-[#b76868]' }
+const collegeOf = plan => plan.college_snapshot || {}
+const nameOf = plan => collegeOf(plan).name || 'College in your plan'
+
+function deadlineLabel(plan) {
+  const manual = plan.checklist?.deadline
+  if (manual?.date) return `${new Date(manual.date + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · your date`
+  const snapshot = collegeOf(plan), college = DELHI_NCR_COLLEGES.find(item => item.id === plan.college_id) || snapshot
+  const selectedProgramme = snapshot.selected_programme && typeof snapshot.selected_programme === 'object'
+    ? snapshot.selected_programme
+    : snapshot.programme && typeof snapshot.programme === 'object' ? snapshot.programme : null
+  const programmeId = snapshot.selectedProgrammeId || snapshot.programme_id || snapshot.programme_key || selectedProgramme?.id
+  const programmeName = snapshot.selectedProgrammeName || selectedProgramme?.name || (typeof snapshot.programme === 'string' ? snapshot.programme : '')
+  const programmeRecords = Array.isArray(college.programmes) ? college.programmes
+    : college.programmes && typeof college.programmes === 'object' ? Object.values(college.programmes)
+      : selectedProgramme ? [selectedProgramme] : []
+  const programme = programmeId
+    ? programmeRecords.find(item => item.id === programmeId)
+    : programmeName ? programmeRecords.find(item => item.name === programmeName) : null
+  // An explicit programme must resolve to its own date; never inherit another programme's deadline.
+  const deadline = programmeId || programmeName ? programme?.deadline : college.deadline
+  if (deadline?.date && deadline.verificationStatus === 'verified_current_cycle') return new Date(deadline.date + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  return 'Confirm deadline'
 }
 
-// ─── Helper: pick the nearest deadline from colleges.deadlines JSONB ─────────
-// colleges.deadlines is an array of { round, date, type } objects
-// Returns the earliest upcoming date, or the latest past date if all are closed
-function nearestDeadline(deadlines) {
-  if (!Array.isArray(deadlines) || deadlines.length === 0) return null
-  const today = new Date().toISOString().split('T')[0]   // "YYYY-MM-DD"
-  const dates = deadlines.map(d => d.date).filter(Boolean).sort()
-  const future = dates.filter(d => d >= today)
-  return future[0] ?? dates[dates.length - 1] ?? null   // Prefer upcoming; fall back to most recent past
-}
-
-// ─── Helper: normalise a raw Supabase application row into a flat UI object ──
-// Supabase returns nested colleges: { name, location, type, deadlines }
-// We flatten this so every component just reads app.college, app.deadline, etc.
-function normaliseApp(row) {
-  return {
-    id:              row.id,
-    status:          row.status,
-    notes:           row.notes,
-    checklist_state: row.checklist_state ?? null,
-    college_id:      row.college_id,
-    college:    row.colleges?.name     ?? 'Unknown college',
-    location:   row.colleges?.location ?? '',
-    type:       row.colleges?.type     ?? '',
-    deadline:   nearestDeadline(row.colleges?.deadlines),
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AppTracker — main page component
-// ─────────────────────────────────────────────────────────────────────────────
 export default function AppTracker() {
+  const { user, loading, error, plans = [], updatePlan, removePlan, toggleSelection, refreshPlans } = useAdmissions()
   const navigate = useNavigate()
-  const isDemo   = useIsDemo()
+  const [view, setView] = useState('list')
+  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState('all')
+  const [editing, setEditing] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [actionError, setActionError] = useState('')
+  const [confirmRemove, setConfirmRemove] = useState(null)
+  const [legacy, setLegacy] = useState([])
+  const [legacyError, setLegacyError] = useState('')
 
-  // ── Data state ─────────────────────────────────────────────────────────────
-  const [apps, setApps]           = useState([])        // flattened application rows
-  const [allColleges, setAllColleges] = useState([])    // all colleges (for add modal)
-  const [studentId, setStudentId] = useState(null)      // students.id for the logged-in user
-
-  // ── UI state ───────────────────────────────────────────────────────────────
-  const [loading, setLoading]     = useState(true)
-  const [error, setError]         = useState(null)
-  const [showAdd, setShowAdd]     = useState(false)
-  const [newApp, setNewApp]       = useState({ college_id: '', notes: '' })
-  const [saving, setSaving]       = useState(false)
-  const [saveError, setSaveError] = useState(null)
-  const [rejectionCollege, setRejectionCollege] = useState(null)
-  const [dismissedRejections, setDismissedRejections] = useState(new Set())
-
-  // ── Page title ──────────────────────────────────────────────────────────────
+  useEffect(() => { document.title = 'My applications · Unidex' }, [])
   useEffect(() => {
-    document.title = 'My Applications · Unidex'
-  }, [])
-
-  // Load dismissed rejections from localStorage on mount
+    let active = true
+    async function loadLegacy() {
+      if (!user?.id) return
+      const { data: student, error: studentError } = await supabase.from('students').select('id').eq('user_id', user.id).maybeSingle()
+      if (!active) return
+      if (studentError) { setLegacyError('Your earlier tracker could not be checked. Your new plans are shown below.'); return }
+      if (!student) return
+      const { data, error: applicationsError } = await supabase.from('applications').select('id,status,notes,college_id,colleges(name,location)').eq('student_id', student.id).order('last_updated', { ascending: false })
+      if (!active) return
+      if (applicationsError) setLegacyError('Earlier applications could not be loaded. You can still manage your current plans.')
+      else setLegacy(data || [])
+    }
+    loadLegacy().catch(() => { if (active) setLegacyError('Earlier applications could not be checked.') })
+    return () => { active = false }
+  }, [user?.id])
   useEffect(() => {
-    const stored = localStorage.getItem('dismissedRejections')
-    if (stored) {
-      try {
-        setDismissedRejections(new Set(JSON.parse(stored)))
-      } catch (err) {
-        console.error('Failed to load dismissed rejections:', err)
-      }
-    }
-  }, [])
+    if (!editing && !confirmRemove) return
+    const escape = event => { if (event.key === 'Escape' && !saving) { setEditing(null); setConfirmRemove(null) } }
+    window.addEventListener('keydown', escape)
+    return () => window.removeEventListener('keydown', escape)
+  }, [editing, confirmRemove, saving])
 
-  // ── loadData — fetches everything needed to render the board ──────────────
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-
-    // Step 1: confirm the user is logged in
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
-      setError('You need to be logged in to view your applications.')
-      setLoading(false)
-      return
-    }
-
-    // Step 2: get the student row ID — needed for INSERT later
-    // RLS on students means this only returns their own row
-    const { data: studentRow, error: studentError } = await supabase
-      .from('students')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-
-    if (studentError || !studentRow) {
-      console.error('Student lookup failed:', { studentError, studentRow, userId: user.id })
-      setError(`No student profile found. ${studentError?.message || 'Please complete your signup first.'}`)
-      setLoading(false)
-      return
-    }
-    setStudentId(studentRow.id)
-
-    // Step 3: fetch all applications for this student, joined with college details
-    // Explicitly filter by student_id + RLS for double protection
-    const { data: appRows, error: appError } = await supabase
-      .from('applications')
-      .select(`
-        id,
-        status,
-        notes,
-        checklist_state,
-        last_updated,
-        college_id,
-        colleges (
-          name,
-          location,
-          type,
-          deadlines
-        )
-      `)
-      .eq('student_id', studentRow.id)
-      .order('last_updated', { ascending: false })
-
-    if (appError) {
-      setError(`Failed to load applications: ${appError.message}`)
-      setLoading(false)
-      return
-    }
-    setApps(appRows.map(normaliseApp))
-
-    // Step 4: fetch all colleges for the add-application modal dropdown
-    // Public read — no auth needed, but will be empty until the table is seeded
-    const { data: collegeRows } = await supabase
-      .from('colleges')
-      .select('id, name, type, location')
-      .order('name')
-
-    if (collegeRows) setAllColleges(collegeRows)
-
-    setLoading(false)
-  }, [])
-
-  // Run loadData once when the component first mounts
-  useEffect(() => { loadData() }, [loadData])
-
-  // ── addApp — INSERT a new application row into Supabase ───────────────────
-  async function addApp() {
-    if (!newApp.college_id || !studentId) return
-    setSaving(true)
-    setSaveError(null)
-
-    // Insert the row and immediately select it back with the college join
-    // so we can add it to local state without a full re-fetch
-    const { data, error: insertError } = await supabase
-      .from('applications')
-      .insert({
-        student_id: studentId,
-        college_id: newApp.college_id,
-        status:     'Researching',
-        notes:      newApp.notes || null,
-      })
-      .select(`
-        id, status, notes, checklist_state, last_updated, college_id,
-        colleges ( name, location, type, deadlines )
-      `)
-      .single()
-
-    if (insertError) {
-      setSaveError(insertError.message)
-      setSaving(false)
-      return
-    }
-
-    // Prepend the new app to local state (newest first, no full re-fetch needed)
-    setApps(prev => [normaliseApp(data), ...prev])
-    setNewApp({ college_id: '', notes: '' })
-    setSaving(false)
-    setShowAdd(false)
+  const selected = plans.filter(plan => plan.is_selected)
+  const visible = plans.filter(plan => nameOf(plan).toLowerCase().includes(query.toLowerCase()) && (filter === 'all' || plan.status === filter))
+  const offers = plans.filter(plan => plan.status === 'Offer').length
+  async function run(action) {
+    setSaving(true); setActionError('')
+    try { await action(); return true } catch (err) { setActionError(err.message || 'Your change could not be saved. Please try again.'); return false } finally { setSaving(false) }
   }
-
-  // ── moveApp — UPDATE status with optimistic UI ────────────────────────────
-  async function moveApp(id, newStatus) {
-    // Capture old status so we can roll back if Supabase rejects the update
-    const app = apps.find(a => a.id === id)
-    const oldStatus = app?.status
-
-    // Optimistic update — move the card instantly in the UI
-    setApps(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a))
-
-    const { error: updateError } = await supabase
-      .from('applications')
-      .update({ status: newStatus })
-      .eq('id', id)
-
-    // Roll back to original status if the update failed
-    if (updateError) {
-      setApps(prev => prev.map(a => a.id === id ? { ...a, status: oldStatus } : a))
-      setError(`Failed to move card: ${updateError.message}`)
-      return
-    }
-
-    // Create notifications if status changes to Applied or Interview
-    if ((newStatus === 'Applied' || newStatus === 'Interview') && studentId) {
-      await createDeadlineNotifications(supabase, studentId, app.college_id)
-    }
-
-    // Show rejection recovery modal if status changes to Rejected
-    if (newStatus === 'Rejected' && !dismissedRejections.has(app.college_id)) {
-      setRejectionCollege(app.college_id)
-    }
-
-    // Navigate to offer celebration if status changes to Offer
-    if (newStatus === 'Offer') {
-      setTimeout(() => navigate(`/offer/${app.college_id}`), 500)
-    }
+  async function changeStatus(plan, status) {
+    const saved = await run(() => updatePlan({ ...plan, status }))
+    if (saved && status === 'Offer') navigate(`/offer/${plan.college_id}`)
   }
-
-  // ── handleAddFromRecovery — add college and close modal ──────────────────
-  async function handleAddFromRecovery(collegeId) {
-    if (!studentId) return
-
-    try {
-      const { error } = await supabase.from('applications').insert({
-        student_id: studentId,
-        college_id: collegeId,
-        status: 'Researching',
-        notes: '',
-      })
-
-      if (error) {
-        setError(`Failed to add college: ${error.message}`)
-        return
-      }
-
-      // Reload applications
-      loadData()
-
-      // Close modal and mark as dismissed
-      handleCloseRejectionModal()
-    } catch (err) {
-      setError(err.message)
-    }
+  async function saveDetails(event) {
+    event.preventDefault()
+    if (await run(() => updatePlan(editing))) setEditing(null)
   }
+  const openDetails = plan => { setActionError(''); setEditing({ ...plan, notes: plan.notes || '', checklist: { ...(plan.checklist || {}) } }) }
+  const actionButton = 'inline-flex items-center justify-center gap-2 rounded-full bg-[#225feb] px-5 py-3 text-xs font-semibold text-white transition hover:bg-[#174ed0] disabled:opacity-50'
 
-  // ── handleCloseRejectionModal — dismiss rejection and save to localStorage ──
-  function handleCloseRejectionModal() {
-    if (rejectionCollege) {
-      const updated = new Set(dismissedRejections)
-      updated.add(rejectionCollege)
-      setDismissedRejections(updated)
-      localStorage.setItem('dismissedRejections', JSON.stringify(Array.from(updated)))
-    }
-    setRejectionCollege(null)
-  }
-
-  // ── deleteApp — DELETE with optimistic removal ────────────────────────────
-  async function deleteApp(id) {
-    // Snapshot the full list so we can restore it if the delete fails
-    const snapshot = [...apps]
-    setApps(prev => prev.filter(a => a.id !== id))
-
-    const { error: deleteError } = await supabase
-      .from('applications')
-      .delete()
-      .eq('id', id)
-
-    // Restore snapshot if delete failed
-    if (deleteError) {
-      setApps(snapshot)
-      setError(`Failed to delete: ${deleteError.message}`)
-    }
-  }
-
-  // ── Derived state ──────────────────────────────────────────────────────────
-
-  // Group apps by status for column rendering: { Researching: [...], Applied: [...] }
-  const byStatus = STATUSES.reduce((acc, s) => {
-    acc[s] = apps.filter(a => a.status === s)
-    return acc
-  }, {})
-
-  // Next action hints for each status
-  const nextActions = {
-    'Researching': 'Study materials',
-    'Applied': 'Await response',
-    'Interview': 'Prepare talking points',
-    'Offer': 'Congratulations',
-    'Rejected': null
-  }
-
-  // Colleges the user isn't already tracking — shown in the add modal dropdown
-  const trackedIds      = new Set(apps.map(a => a.college_id))
-  const addableColleges = allColleges.filter(c => !trackedIds.has(c.id))
-
-  // ── Render ─────────────────────────────────────────────────────────────────
-  return (
-    <Layout>
-      {/* Two-column layout: kanban + right ad sidebar (demo mode only) */}
-      <div className="flex items-start">
-      <div className="flex-1 min-w-0 px-6 py-8">
-
-        {/* ── Page header + Add button ── */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">My Applications</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {loading
-                ? 'Loading…'
-                : `${apps.length} college${apps.length !== 1 ? 's' : ''} tracked`}
-            </p>
-          </div>
-          <button
-            onClick={() => setShowAdd(true)}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add College
-          </button>
-        </div>
-
-        {/* ── Error banner — dismissible ── */}
-        {error && (
-          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex items-center justify-between">
-            <span>{error}</span>
-            <button onClick={() => setError(null)} className="ml-4 text-red-400 hover:text-red-600 font-bold">✕</button>
-          </div>
-        )}
-
-        {/* ── Loading spinner ── */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <div className="w-8 h-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
-            <p className="text-sm text-gray-400">Loading your applications…</p>
-          </div>
-
-        ) : (
-          <>
-            {/* ── Status summary pills ── */}
-            <div className="flex gap-3 mb-6 overflow-x-auto pb-1">
-              {STATUSES.map(s => (
-                <div key={s}
-                  className={`shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border ${STATUS_META[s].border} bg-white`}>
-                  <div className={`w-2 h-2 rounded-full ${STATUS_META[s].dot}`} />
-                  <span className="text-xs font-medium text-gray-700">{s}</span>
-                  <span className={`text-sm font-bold ${STATUS_META[s].color.split(' ')[1]}`}>
-                    {byStatus[s].length}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* ── Progress Summary Cards ── */}
-            {apps.length > 0 && (
-              <div className="grid md:grid-cols-4 gap-3 mb-8">
-                {[
-                  { label: 'Applied', count: byStatus['Applied'].length, color: 'bg-blue-100 text-blue-700' },
-                  { label: 'Target', count: apps.length, color: 'bg-indigo-100 text-indigo-700' },
-                  { label: 'In Progress', count: byStatus['Interview'].length, color: 'bg-amber-100 text-amber-700' },
-                  { label: 'Offers', count: byStatus['Offer'].length, color: 'bg-green-100 text-green-700' },
-                ].map((stat, idx) => (
-                  <div key={idx} className={`${stat.color} rounded-lg p-3 text-center border border-current/20`}>
-                    <p className="text-2xl font-bold">{stat.count}</p>
-                    <p className="text-xs font-medium mt-1">{stat.label}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* ── Empty state ── */}
-            {apps.length === 0 ? (
-              <div className="text-center py-32">
-                <GraduationCap className="w-16 h-16 text-slate-300 mx-auto mb-6" />
-                <h2 className="text-xl text-slate-600 font-semibold mb-2">No applications yet</h2>
-                <p className="text-slate-400 mb-8">Add colleges from the directory to start tracking your MBA journey.</p>
-                <button
-                  onClick={() => navigate('/colleges')}
-                  className="px-6 py-3 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors">
-                  Browse colleges →
-                </button>
-              </div>
-
-            ) : (
-              /* ── Kanban board — horizontally scrollable ── */
-              <div className="flex gap-4 overflow-x-auto pb-4">
-                {STATUSES.map(status => (
-                  <div key={status} className="w-56 shrink-0 flex flex-col gap-3">
-
-                    {/* Column header: dot + name + count */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${STATUS_META[status].dot}`} />
-                        <span className="text-xs font-semibold text-gray-700">{status}</span>
-                      </div>
-                      <span className="text-xs font-bold text-gray-400">{byStatus[status].length}</span>
-                    </div>
-
-                    {/* Dashed drop zone */}
-                    <div className={`min-h-[120px] rounded-xl border-2 border-dashed ${STATUS_META[status].border} p-2 space-y-2`}>
-                      {byStatus[status].map(app => (
-                        <AppCard key={app.id} app={app} onMove={moveApp} onDelete={deleteApp} nextActions={nextActions} />
-                      ))}
-                      {byStatus[status].length === 0 && (
-                        <div className="h-16 flex items-center justify-center">
-                          <p className="text-xs text-gray-300">Empty</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ── Rejection Recovery modal ── */}
-        {rejectionCollege && (
-          <RejectionRecoveryModal
-            studentId={studentId}
-            collegeId={rejectionCollege}
-            onClose={handleCloseRejectionModal}
-            onAddCollege={handleAddFromRecovery}
-          />
-        )}
-
-        {/* ── Add College modal ── */}
-        {showAdd && (
-          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 w-full max-w-sm shadow-xl">
-              <h3 className="text-sm font-semibold text-gray-900 mb-4">Add College to Tracker</h3>
-
-              {/* Save error */}
-              {saveError && (
-                <p className="mb-3 text-xs text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
-                  {saveError}
-                </p>
-              )}
-
-              <div className="space-y-3">
-                {/* College selector */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">College *</label>
-                  {addableColleges.length === 0 ? (
-                    // Colleges table not yet seeded — show friendly message
-                    <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
-                      <p className="text-xs text-amber-700 font-medium">No colleges available yet</p>
-                      <p className="text-xs text-amber-600 mt-0.5">
-                        The college database needs to be seeded first.
-                        <button onClick={() => navigate('/colleges')} className="ml-1 underline">
-                          Browse the directory →
-                        </button>
-                      </p>
-                    </div>
-                  ) : (
-                    <select
-                      value={newApp.college_id}
-                      onChange={e => setNewApp(n => ({ ...n, college_id: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                      <option value="">Select a college…</option>
-                      {addableColleges.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                {/* Notes */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
-                  <textarea
-                    value={newApp.notes}
-                    onChange={e => setNewApp(n => ({ ...n, notes: e.target.value }))}
-                    rows={2}
-                    placeholder="Why you're applying, things to do…"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
-                </div>
-              </div>
-
-              <div className="flex gap-2 mt-5">
-                <button
-                  onClick={() => { setShowAdd(false); setSaveError(null) }}
-                  className="flex-1 py-2 rounded-lg border border-gray-300 text-xs font-medium text-gray-600 hover:bg-gray-50">
-                  Cancel
-                </button>
-                <button
-                  onClick={addApp}
-                  disabled={!newApp.college_id || saving}
-                  className="flex-1 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed">
-                  {saving ? 'Adding…' : 'Add to Tracker'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      </div>
-    </Layout>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AppCard — single kanban card
-//
-// Props:
-//   app      — flat application object: { id, college, status, notes, deadline, type }
-//   onMove   — (id, newStatus) called when user picks a status from the dropdown
-//   onDelete — (id) called when user confirms deletion
-// ─────────────────────────────────────────────────────────────────────────────
-function AppCard({ app, onMove, onDelete, nextActions = {} }) {
-  const navigate = useNavigate()
-  const isDemo   = useIsDemo()
-
-  // menuOpen — whether the "Move to…" status dropdown is visible
-  const [menuOpen, setMenuOpen]           = useState(false)
-
-  // confirmDelete — shows an inline "Remove this? Yes / No" prompt before deleting
-  const [confirmDelete, setConfirmDelete] = useState(false)
-
-  // sopOpen — whether the SOP checklist is expanded
-  const [sopOpen, setSopOpen] = useState(false)
-
-  // sopState — the 5-item checklist for SOP steps.
-  // Lives in the dedicated checklist_state jsonb column, separate from free-text notes.
-  const [sopState, setSopState] = useState(() => {
-    const sop = app.checklist_state?.sop
-    return Array.isArray(sop) ? sop : [false, false, false, false, false]
-  })
-
-  const days         = daysFromNow(app.deadline)
-  const nextStatuses = STATUSES.filter(s => s !== app.status)
-  const sopDone      = sopState.filter(Boolean).length
-
-  // ── saveSop — updates the SOP state in Supabase ──────────────────────────────
-  async function saveSop(newSop) {
-    setSopState(newSop)
-
-    // Write the checklist to its own column; free-text notes are never touched.
-    const nextState = { ...(app.checklist_state || {}), sop: newSop }
-
-    const { error } = await supabase
-      .from('applications')
-      .update({ checklist_state: nextState })
-      .eq('id', app.id)
-
-    if (error) {
-      console.error('Failed to save SOP checklist:', error)
-    }
-  }
-
-  // ── toggleSopStep — flip a single checklist item ────────────────────────────
-  function toggleSopStep(index) {
-    const newSop = [...sopState]
-    newSop[index] = !newSop[index]
-    saveSop(newSop)
-  }
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-2.5 shadow-sm hover:shadow-md transition-shadow relative">
-
-      {/* College name + delete icon */}
-      <div className="flex items-start justify-between gap-1">
-        <span
-          onClick={() => navigate(`/college/${app.college_id}`)}
-          className="text-xs font-semibold text-gray-900 leading-snug cursor-pointer hover:text-indigo-600 hover:underline transition-colors">
-          {app.college}
-        </span>
-        <button
-          onClick={() => setConfirmDelete(true)}
-          title="Remove application"
-          className="shrink-0 p-0.5 text-gray-300 hover:text-rose-400 transition-colors">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Inline delete confirmation — avoids a separate modal for a small action */}
-      {confirmDelete && (
-        <div className="rounded-lg bg-rose-50 border border-rose-200 p-2 flex items-center justify-between gap-2">
-          <p className="text-xs text-rose-700">Remove this?</p>
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => setConfirmDelete(false)}
-              className="text-xs px-2 py-0.5 rounded bg-white border border-rose-200 text-rose-600 hover:bg-rose-50">
-              No
-            </button>
-            <button
-              onClick={() => onDelete(app.id)}
-              className="text-xs px-2 py-0.5 rounded bg-rose-500 text-white hover:bg-rose-600">
-              Yes
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Deadline urgency chip — hidden for Offer and Rejected cards */}
-      {app.status !== 'Offer' && app.status !== 'Rejected' && days !== null && (
-        <span className={`inline-block text-xs px-2 py-0.5 rounded-lg font-medium
-          ${days < 0  ? 'bg-gray-100 text-gray-500'   :
-            days < 30 ? 'bg-rose-100 text-rose-700'   :
-            days < 90 ? 'bg-amber-100 text-amber-700' :
-                        'bg-emerald-100 text-emerald-700'}`}>
-          {days < 0 ? 'Closed' : days === 0 ? 'Today!' : `${days}d left`}
-        </span>
-      )}
-
-      {/* Terminal status chips */}
-      {app.status === 'Offer' && (
-        <span className="inline-block text-xs px-2 py-0.5 rounded-lg font-medium bg-emerald-100 text-emerald-700">
-          Offer received
-        </span>
-      )}
-      {app.status === 'Rejected' && (
-        <span className="inline-block text-xs px-2 py-0.5 rounded-lg font-medium bg-rose-100 text-rose-500">
-          Not selected
-        </span>
-      )}
-
-      {/* Next Action Hint */}
-      {nextActions[app.status] && (
-        <p className="text-xs text-gray-600 mt-2 italic">{nextActions[app.status]}</p>
-      )}
-
-      {/* Free-text notes — a plain string column now (the SOP checklist lives
-          separately in checklist_state, so notes no longer carries JSON). */}
-      {app.notes && <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">{app.notes}</p>}
-
-      {/* SOP Checklist */}
-      <div className="border-t border-gray-100 pt-2">
-        {/* Collapsed view: show toggle + progress */}
-        {!sopOpen ? (
-          <button
-            onClick={() => setSopOpen(true)}
-            className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-xs text-gray-500 font-medium transition-colors">
-            SOP Checklist {sopDone > 0 && <span className="text-gray-400">· {sopDone}/5 done</span>}
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-        ) : (
-          /* Expanded view: checklist items */
-          <div className="space-y-1.5">
-            {[
-              'Research college thoroughly',
-              'First SOP draft written',
-              'Peer review done',
-              'Mentor review done',
-              'Final SOP submitted',
-            ].map((step, i) => (
-              <label key={i} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={sopState[i] || false}
-                  onChange={() => toggleSopStep(i)}
-                  className="w-3.5 h-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className={`text-xs ${sopState[i] ? 'text-gray-500 line-through' : 'text-gray-600'}`}>
-                  {step}
-                </span>
-              </label>
-            ))}
-            <button
-              onClick={() => setSopOpen(false)}
-              className="w-full mt-2 text-xs text-gray-400 hover:text-gray-600 transition-colors">
-              ✕ close
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Apply Now button — demo accounts only */}
-      {isDemo ? (
-        <button
-          onClick={() => navigate(`/apply/${app.id}`)}
-          className="w-full px-2 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-xs font-medium text-emerald-700 transition-colors border border-emerald-200">
-          Apply Now →
-        </button>
-      ) : (
-        <button
-          disabled
-          title="Coming soon"
-          className="w-full px-2 py-1.5 rounded-lg bg-gray-50 text-xs font-medium text-gray-400 cursor-not-allowed opacity-50">
-          Apply Now →
-        </button>
-      )}
-
-      {/* Move to… dropdown */}
-      <div className="relative">
-        <button
-          onClick={() => setMenuOpen(o => !o)}
-          className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-xs text-gray-500 font-medium transition-colors">
-          Move to…
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
-        {/* Dropdown — floats above the button */}
-        {menuOpen && (
-          <div className="absolute bottom-full mb-1 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
-            {nextStatuses.map(s => (
-              <button
-                key={s}
-                onClick={() => { onMove(app.id, s); setMenuOpen(false) }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors">
-                <div className={`w-1.5 h-1.5 rounded-full ${STATUS_META[s].dot}`} />
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
+  return <Layout><div className="mx-auto max-w-[1500px] px-5 py-8 sm:px-8 sm:py-10">
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-5"><div><p className="mb-3 text-[10px] font-semibold uppercase tracking-[.22em] text-[#225feb]">Your application workspace</p><h1 className="text-3xl font-semibold tracking-[-.045em] text-[#10264c] sm:text-[42px]">Every possibility. In view.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-[#7c8ca5]">Give every college a plan, and every next step a place.</p></div><Link to="/colleges" className="inline-flex items-center gap-2 rounded-full border border-[#dce4f0] bg-white px-5 py-3 text-xs font-semibold text-[#10264c] transition hover:border-[#225feb]"><Plus className="h-4 w-4"/>Add a college</Link></div>
+    <div className="mb-8 grid gap-4 lg:grid-cols-[1.5fr_1fr]"><div className="relative overflow-hidden rounded-[24px] bg-[#10264c] px-7 py-7 text-white sm:px-8"><div className="absolute -right-12 -top-24 h-64 w-64 rounded-full border-[40px] border-white/[.035]"/><p className="text-[10px] font-medium uppercase tracking-[.2em] text-[#9ab6e0]">One form. More possibilities.</p><h2 className="relative mt-4 text-2xl font-medium tracking-[-.035em]">Your shortlist, ready for its next step.</h2><p className="mt-3 max-w-md text-xs leading-6 text-[#afc1df]">Select colleges below to bring their shared and specific questions into your application form.</p><Link to="/application-builder" className="relative mt-5 inline-flex items-center gap-2 text-xs font-semibold text-white">Open application form <ArrowUpRight className="h-4 w-4"/></Link></div><div className="grid grid-cols-3 items-center rounded-[24px] border border-[#e5ebf4] bg-white px-3 py-7 text-center sm:px-6">{[{ label: 'In your plan', value: plans.length }, { label: 'Selected', value: selected.length }, { label: 'Offers recorded', value: offers }].map(({ label, value }) => <div key={label} className="border-r border-[#edf1f7] px-2 last:border-0"><p className="text-[32px] font-medium tracking-[-.05em] text-[#10264c]">{value}</p><p className="mt-2 text-[10px] leading-4 text-[#8796ad]">{label}</p></div>)}</div></div>
+    {(error || actionError) && <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-xs leading-5 text-red-700"><span>{actionError || error}</span><button onClick={() => { setActionError(''); run(() => refreshPlans()) }} className="font-semibold underline">Retry loading</button></div>}
+    {!loading && !user ? <div className="rounded-[24px] border border-[#e5ebf4] bg-white px-6 py-16 text-center"><GraduationCap className="mx-auto h-9 w-9 text-[#225feb]"/><h2 className="mt-5 text-2xl font-medium tracking-tight">A place for your next chapter.</h2><p className="mt-3 text-sm text-[#7c8ca5]">Sign in to save and manage your college plans.</p><Link to="/login" className={`${actionButton} mt-6`}>Sign in <ArrowRight className="h-4 w-4"/></Link></div> : loading ? <div className="flex items-center justify-center gap-3 rounded-[24px] bg-white py-24 text-sm text-[#7c8ca5]"><Loader2 className="h-5 w-5 animate-spin text-[#225feb]"/>Loading your plans…</div> : <>
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-4"><div className="relative w-full sm:max-w-xs"><Search className="absolute left-4 top-3.5 h-4 w-4 text-[#9cabc0]"/><input aria-label="Search your college plans" value={query} onChange={event => setQuery(event.target.value)} placeholder="Find a college in your plan" className="w-full rounded-full border border-[#e1e8f2] bg-white py-3 pl-11 pr-4 text-xs text-[#10264c] outline-none focus:border-[#225feb]"/></div><div className="flex items-center gap-3"><SlidersHorizontal className="hidden h-4 w-4 text-[#8796ad] sm:block"/><select aria-label="Filter application status" value={filter} onChange={event => setFilter(event.target.value)} className="max-w-[180px] rounded-xl border border-[#e1e8f2] bg-white px-3 py-2.5 text-xs text-[#62738c]"><option value="all">All statuses</option>{STATUSES.map(status => <option key={status}>{status}</option>)}</select><div className="flex rounded-xl border border-[#e1e8f2] bg-white p-1">{[{ value: 'list', label: 'List view', icon: List }, { value: 'board', label: 'Board view', icon: LayoutGrid }].map(({ value, label, icon: Icon }) => <button key={value} type="button" aria-label={label} aria-pressed={view === value} onClick={() => setView(value)} className={`rounded-lg p-2 ${view === value ? 'bg-[#edf3ff] text-[#225feb]' : 'text-[#9ba9bd]'}`}><Icon className="h-4 w-4"/></button>)}</div></div></div>
+    {plans.length === 0 ? <div className="rounded-[24px] border border-dashed border-[#ced9ea] bg-white px-6 py-20 text-center"><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#edf3ff]"><Bookmark className="h-6 w-6 text-[#225feb]"/></div><h2 className="mt-6 text-2xl font-medium tracking-[-.035em]">Start with a possibility.</h2><p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-[#7c8ca5]">Explore Delhi NCR colleges and add the ones you want to consider. Your plans will live here.</p><Link to="/colleges" className={`${actionButton} mt-6`}>Explore colleges <ArrowRight className="h-4 w-4"/></Link></div> : visible.length === 0 ? <div className="rounded-2xl border border-[#e5ebf4] bg-white p-12 text-center text-sm text-[#7c8ca5]">No colleges match this search. <button onClick={() => { setQuery(''); setFilter('all') }} className="font-semibold text-[#225feb]">Clear filters</button></div> : view === 'list' ? <div className="overflow-hidden rounded-[24px] border border-[#e5ebf4] bg-white"><div className="hidden grid-cols-[minmax(240px,1.5fr)_minmax(170px,1fr)_minmax(140px,1fr)_40px] gap-4 border-b border-[#edf1f7] px-6 py-4 text-[10px] font-semibold uppercase tracking-[.12em] text-[#98a6bb] xl:grid"><span>College / programme</span><span>Your progress</span><span>Deadline</span><span/></div>{visible.map(plan => <div key={plan.id} className="grid gap-4 border-b border-[#edf1f7] px-5 py-5 last:border-0 sm:px-6 xl:grid-cols-[minmax(240px,1.5fr)_minmax(170px,1fr)_minmax(140px,1fr)_40px] xl:items-center"><div className="flex items-center gap-4"><button disabled={saving} onClick={() => run(() => toggleSelection(collegeOf(plan)))} aria-label={`${plan.is_selected ? 'Deselect' : 'Select'} ${nameOf(plan)} for application form`} aria-pressed={Boolean(plan.is_selected)} className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border ${plan.is_selected ? 'border-[#225feb] bg-[#225feb] text-white' : 'border-[#dce4ef] text-transparent hover:border-[#225feb]'}`}><Check className="h-3.5 w-3.5"/></button><div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f0f4fa] text-[11px] font-semibold text-[#557098]">{collegeOf(plan).shortName || nameOf(plan).split(' ').map(word => word[0]).slice(0, 3).join('')}</div><div className="min-w-0"><Link to={`/college/${plan.college_id}`} className="text-sm font-semibold leading-5 text-[#10264c] hover:text-[#225feb]">{nameOf(plan)}</Link><p className="mt-1.5 text-[11px] text-[#98a6bb]">{collegeOf(plan).city || collegeOf(plan).location || 'Delhi NCR'}</p></div></div><div className="flex flex-wrap items-center gap-3"><select disabled={saving} value={plan.status || 'Researching'} onChange={event => changeStatus(plan, event.target.value)} aria-label={`Status for ${nameOf(plan)}`} className={`max-w-full rounded-full border-0 px-3 py-2 text-[10px] font-semibold outline-none ring-offset-2 focus:ring-2 focus:ring-[#225feb] ${STATUS_COLORS[plan.status] || STATUS_COLORS.Researching}`}>{STATUSES.map(status => <option key={status} value={status}>{status}</option>)}</select></div><p className="inline-flex items-center gap-2 text-[11px] text-[#7c8ca5]"><CalendarDays className="h-3.5 w-3.5"/>{deadlineLabel(plan)}</p><button onClick={() => openDetails(plan)} aria-label={`Edit ${nameOf(plan)} plan`} className="inline-flex items-center gap-2 text-xs font-semibold text-[#225feb] xl:justify-center"><span className="xl:hidden">Notes & checklist</span><ChevronRight className="h-4 w-4"/></button></div>)}</div> : <div className="flex gap-4 overflow-x-auto pb-6" aria-label="Application status board">{STATUSES.map(status => <section key={status} className="w-[280px] shrink-0 rounded-[22px] bg-[#edf1f7] p-3"><div className="flex items-center justify-between px-2 pb-4 pt-2"><h2 className="text-xs font-semibold text-[#526982]">{status}</h2><span className="text-[11px] text-[#9aabc0]">{visible.filter(plan => (plan.status || 'Researching') === status).length}</span></div><div className="space-y-3">{visible.filter(plan => (plan.status || 'Researching') === status).map(plan => <article key={plan.id} className="rounded-2xl border border-[#e2e8f1] bg-white p-4"><div className="mb-4 flex items-center justify-between"><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#f1f5fb]"><GraduationCap className="h-4 w-4 text-[#6a83aa]"/></div><button disabled={saving} onClick={() => run(() => toggleSelection(collegeOf(plan)))} aria-label={`${plan.is_selected ? 'Deselect' : 'Select'} ${nameOf(plan)}`} aria-pressed={Boolean(plan.is_selected)} className={`rounded-lg p-2 ${plan.is_selected ? 'bg-[#edf3ff] text-[#225feb]' : 'text-[#c0ccdc]'}`}><CheckSquare className="h-4 w-4"/></button></div><Link to={`/college/${plan.college_id}`} className="text-sm font-semibold leading-6 text-[#10264c]">{nameOf(plan)}</Link><p className="mt-3 text-[10px] text-[#8b9bb1]">{deadlineLabel(plan)}</p><select disabled={saving} value={status} onChange={event => changeStatus(plan, event.target.value)} aria-label={`Status for ${nameOf(plan)}`} className="mt-4 w-full rounded-lg border border-[#e5ebf4] bg-white p-2 text-[10px] text-[#647b9d]">{STATUSES.map(option => <option key={option}>{option}</option>)}</select><button onClick={() => openDetails(plan)} className="mt-4 inline-flex items-center gap-2 text-[10px] font-semibold text-[#225feb]">Notes & checklist <ArrowUpRight className="h-3 w-3"/></button></article>)}{!visible.some(plan => (plan.status || 'Researching') === status) && <p className="px-2 py-6 text-center text-[11px] text-[#9cabc0]">Room for your next update.</p>}</div></section>)}</div>}
+    {selected.length > 0 && <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#dbe6fc] bg-[#edf3ff] px-5 py-4"><p className="text-xs font-medium text-[#526c98]"><span className="font-semibold text-[#225feb]">{selected.length} college{selected.length === 1 ? '' : 's'}</span> selected for your application form.</p><Link to="/application-builder" className="inline-flex items-center gap-2 text-xs font-semibold text-[#225feb]">Prepare my form <ArrowRight className="h-4 w-4"/></Link></div>}
+    <p className="mt-5 max-w-3xl text-[10px] leading-5 text-[#91a0b6]">“Submitted to Unidex” means your information is saved with us. Mark “Applied” only after you have submitted through the college's official admission process. Status updates here are recorded by you.</p>
+    {plans.some(plan => plan.status === 'Rejected') && <div className="mt-7 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#e5ebf4] bg-white p-6"><div><p className="text-sm font-medium">There are still possibilities ahead.</p><p className="mt-2 text-xs text-[#7c8ca5]">Revisit your preferences and compare other Delhi NCR programmes.</p></div><Link to="/colleges" className="text-xs font-semibold text-[#225feb]">Explore alternatives <ArrowRight className="ml-1 inline h-3.5 w-3.5"/></Link></div>}
+    {(legacy.length > 0 || legacyError) && <details className="mt-9 rounded-2xl border border-[#e5ebf4] bg-white px-6 py-5"><summary className="cursor-pointer text-xs font-semibold text-[#657c9e]">Earlier tracker records {legacy.length ? `(${legacy.length})` : ''}</summary><p className="mb-4 mt-3 text-[11px] leading-5 text-[#91a0b6]">Your original applications are preserved here as read-only records. Add colleges from the new directory to use the shared application workspace.</p>{legacyError && <p role="status" className="py-2 text-xs text-amber-700">{legacyError}</p>}{legacy.map(record => <div key={record.id} className="border-t border-[#edf1f7] py-4"><div className="flex flex-wrap justify-between gap-3"><span className="text-xs font-medium">{record.colleges?.name || 'Earlier college record'}</span><span className="text-[10px] text-[#8796ad]">{record.status}</span></div>{record.notes && <p className="mt-2 text-[11px] leading-5 text-[#8796ad]">{record.notes}</p>}</div>)}</details>}
+    </>}
+    {editing && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#10264c]/40 p-4 backdrop-blur-sm" onClick={event => { if (event.target === event.currentTarget && !saving) setEditing(null) }}><section role="dialog" aria-modal="true" aria-labelledby="plan-dialog-title" className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-[26px] bg-white p-6 shadow-2xl sm:p-8"><div className="flex items-start justify-between gap-4"><div><p className="text-[10px] uppercase tracking-[.16em] text-[#225feb]">Make it your plan</p><h2 id="plan-dialog-title" className="mt-3 text-xl font-semibold tracking-tight">{nameOf(editing)}</h2></div><button disabled={saving} onClick={() => setEditing(null)} aria-label="Close plan details" className="rounded-full bg-[#f4f7fb] p-2 text-[#8394ac]"><X className="h-4 w-4"/></button></div><form onSubmit={saveDetails} className="mt-7 space-y-6"><div><label htmlFor="plan-notes" className="text-xs font-semibold text-[#617696]">Your notes</label><textarea id="plan-notes" value={editing.notes} onChange={event => setEditing({ ...editing, notes: event.target.value })} rows={3} placeholder="A thought, a question, a next step…" className="mt-2 w-full resize-y rounded-xl border border-[#dce4f0] px-4 py-3 text-sm leading-6 outline-none focus:border-[#225feb]"/></div><fieldset><legend className="mb-3 text-xs font-semibold text-[#617696]">Preparation checklist</legend><div className="space-y-3">{CHECKLIST.map(([key, label]) => <label key={key} className="flex items-center gap-3 text-xs text-[#7c8ca5]"><input type="checkbox" checked={Boolean(editing.checklist[key])} onChange={event => setEditing({ ...editing, checklist: { ...editing.checklist, [key]: event.target.checked } })} className="h-4 w-4 rounded accent-[#225feb]"/>{label}</label>)}</div></fieldset><div className="rounded-xl bg-[#f6f8fc] p-4"><label htmlFor="plan-date" className="text-xs font-semibold text-[#617696]">Your deadline reminder</label><input id="plan-date" type="date" value={editing.checklist.deadline?.date || ''} onChange={event => setEditing({ ...editing, checklist: { ...editing.checklist, deadline: event.target.value ? { date: event.target.value, source: 'user', note: editing.checklist.deadline?.note || '' } : null } })} className="mt-3 w-full rounded-lg border border-[#dce4f0] bg-white px-3 py-2.5 text-xs text-[#617696]"/><p className="mt-2 text-[10px] leading-5 text-[#91a0b6]">Saved as a date you entered. Confirm the deadline on the college's official website before applying.</p></div>{actionError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-xs text-red-700">{actionError}</p>}<div className="flex items-center justify-between gap-4"><button type="button" disabled={saving} onClick={() => setConfirmRemove(editing)} className="inline-flex items-center gap-2 text-xs text-[#a27979]"><Trash2 className="h-3.5 w-3.5"/>Remove plan</button><button disabled={saving} type="submit" className={actionButton}>{saving ? <Loader2 className="h-4 w-4 animate-spin"/> : <Check className="h-4 w-4"/>}Save changes</button></div></form></section></div>}
+    {confirmRemove && <div className="fixed inset-0 z-[70] grid place-items-center bg-[#10264c]/45 p-5 backdrop-blur-sm"><section role="alertdialog" aria-modal="true" aria-labelledby="remove-title" className="w-full max-w-sm rounded-3xl bg-white p-7"><h2 id="remove-title" className="text-xl font-semibold tracking-tight">Remove this plan?</h2><p className="mt-3 text-sm leading-6 text-[#7c8ca5]">Your notes and checklist for {nameOf(confirmRemove)} will be removed. Saved application submissions remain in your account.</p><div className="mt-6 flex justify-end gap-4"><button disabled={saving} onClick={() => setConfirmRemove(null)} className="text-xs font-semibold text-[#7c8ca5]">Keep plan</button><button disabled={saving} onClick={async () => { if (await run(() => removePlan(confirmRemove.id))) { setConfirmRemove(null); setEditing(null) } }} className="rounded-full bg-red-600 px-5 py-3 text-xs font-semibold text-white disabled:opacity-50">{saving ? 'Removing…' : 'Remove'}</button></div></section></div>}
+  </div></Layout>
 }
