@@ -3,18 +3,21 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowRight, Check, Eye, EyeOff, LoaderCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getAuthErrorMessage } from '../lib/authErrors'
+import { readGoogleCallback, resolveGoogleCallback, startGoogleSignIn } from '../lib/googleAuth'
 import { AuthShell, inputClass, primaryClass } from '../components/Brand'
 
 export default function Login() {
-  const { pathname } = useLocation()
+  const location = useLocation()
+  const callback = readGoogleCallback(location)
   // These aliases share a component type; remount the form when the route changes
   // so a previous reset/login mode and its sensitive inputs cannot carry across.
-  return <LoginForm key={pathname} />
+  return <LoginForm key={`${location.pathname}:${callback.isCallback ? `google:${callback.destination}:${Boolean(callback.error)}` : 'form'}`} />
 }
 
 function LoginForm() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { isCallback: googleCallback, destination: googleDestination, error: googleError } = readGoogleCallback(location)
   const callbackHasError = location.pathname === '/reset-password' &&
     [new URLSearchParams(location.search), new URLSearchParams(location.hash.replace(/^#/, ''))]
       .some(params => params.has('error') || params.has('error_code'))
@@ -23,16 +26,25 @@ function LoginForm() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(() => callbackHasError ? 'This reset link is invalid or has expired. Request a new link below.' : '')
-  const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(() => googleCallback && !googleError)
+  const [error, setError] = useState(() => callbackHasError ? 'This reset link is invalid or has expired. Request a new link below.' : googleError)
+  const [message, setMessage] = useState(() => googleCallback && !googleError ? 'Completing your Google sign-in…' : '')
   const [recoverySession, setRecoverySession] = useState(false)
+
+  useEffect(() => {
+    if (!googleCallback || googleError) return
+    return resolveGoogleCallback(supabase, () => {
+      setLoading(false)
+      navigate(googleDestination, { replace: true })
+    }, message => { setLoading(false); setMessage(''); setError(message) })
+  }, [googleCallback, googleDestination, googleError, navigate])
 
   useEffect(() => {
     document.title = mode === 'login' ? 'Sign in · Unidex' : 'Reset your password · Unidex'
   }, [mode])
 
   useEffect(() => {
+    if (googleCallback) return
     let active = true
     let recoveryEventReceived = false
     const invalidLinkMessage = 'This reset link is invalid or has expired. Request a new link below.'
@@ -61,7 +73,7 @@ function LoginForm() {
       })
     }
     return () => { active = false; subscription.unsubscribe() }
-  }, [location.pathname, callbackHasError, mode])
+  }, [location.pathname, callbackHasError, mode, googleCallback])
 
   function changeMode(next) { setMode(next); setError(''); setMessage(''); setPassword(''); setConfirmPassword('') }
 
@@ -95,8 +107,7 @@ function LoginForm() {
   async function handleGoogle() {
     setError(''); setLoading(true)
     try {
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/profile` } })
-      if (oauthError) throw oauthError
+      await startGoogleSignIn(supabase, { next: '/profile' })
     } catch (err) { setError(getAuthErrorMessage(err) || err.message) }
     finally { setLoading(false) }
   }

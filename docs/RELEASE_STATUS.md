@@ -69,3 +69,11 @@ The OpenAI/variance-review build was published successfully through Sites. Sourc
 ## Signup release fix
 
 The live legacy `students` table does not have a unique constraint on `user_id`. Signup no longer depends on an upsert using that conflict target: authenticated users proceed to canonical admissions onboarding, while confirmation-required users receive verification instructions. Display name and referral metadata are retained in Auth metadata. Ten isolated signup flow checks, a production build, all 151 existing tests, full lint and baseline-to-head whitespace check passed after this fix. No legacy schema mutation was made.
+
+## Animation, campus-photo and Google callback follow-up
+
+The hero now has a visible animated profile-to-application sequence, moving connector trails, floating cards, pause controls and reduced-motion support. College initials have been replaced by responsive photo headers: 27 licensed photographs cover the three public featured campuses and 28 NCR catalogue institutions. Missing photographs remain explicitly labelled architectural illustrations; no other campus is substituted. Credits and licenses are stored with the assets.
+
+Google login/signup now use a public same-origin callback with allowlisted destinations and cancellation/error handling. Public provider availability is checked before starting OAuth. The dashboard was inspected after authorized sign-in: Google is disabled and Client IDs/secret are empty; Site URL and redirect entries still point to the previous Vercel origin. Google Cloud console could not be opened in this browser. No provider or redirect settings have been changed. Exact owner setup instructions are in [GOOGLE_AUTH_SETUP.md](GOOGLE_AUTH_SETUP.md); a successful Google login round trip is still required.
+
+Follow-up validation: all 164 tests across 10 suites, full ESLint, production build, whitespace checks and campus asset/source checks passed. Local browser QA remains unavailable under the managed preview rules.
