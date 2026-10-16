@@ -6,7 +6,7 @@ Prepared 16 October 2026. This is an engineering handoff, not product-facing cop
 
 - Baseline: `2ca018a9045bd64db2089a2d0b73eac2d4c962fe`.
 - Working branch: `codex/unidex-admissions-revamp`.
-- Earlier committed revamp source: `5903797` (`Keep newer auth events ahead of initial session lookup`); the OpenAI provider changes require the release owner’s final source revision.
+- Published code release: `acb14661d7b5b097fad3df831474c0712d38aa7b`; merged through PR #5 as `b7df9eeefbe69c10a05c1b32f468a4060102a405`. GitHub source tree matched the validated local release exactly.
 - Revamp worktree: `/workspace/repos/unidex-revamp`.
 - Original checkout `/workspace/repos/unidex-original` remains unchanged.
 - Baseline archive: `/workspace/scratch/b5c56afea89d/unidex-before-revamp-20261016.tar.gz`.
@@ -15,12 +15,12 @@ Prepared 16 October 2026. This is an engineering handoff, not product-facing cop
 
 | Area | State at handoff |
 | --- | --- |
-| Frontend | Premium redesign and admissions workspace implemented. The updated OpenAI/variance-review private build is published at https://unidex-experience.purpleamber128.chatgpt.site. Original production domain unchanged. |
+| Frontend | Premium redesign and admissions workspace implemented. The updated OpenAI/variance-review private build is published at https://unidex-experience.purpleamber128.chatgpt.site. The production merge has a successful Vercel deployment status; live browser/member verification remains outstanding. |
 | Backend migration | `supabase/migrations/20261016_admissions_workspace.sql` applied successfully to the existing project. Six new tables have RLS; the document bucket is private with a 10 MB limit. |
 | New Edge Functions | OpenAI-based `admissions-ocr` deployed successfully: active version 2, platform JWT validation enabled. `OPENAI_OCR_ENABLED` defaults off; its hosted enabled flag and new OpenAI key are not set. `admissions-delete-account` is active, version 1, with platform JWT validation enabled; anonymous invocation returns 401. Preserve existing functions. |
 | OpenAI account/API | A new key named `Unidex OCR` was created securely in Personal / Default and saved in ignored `.env.local`. `GET /v1/models` returned 200. One synthetic-PDF Responses test returned HTTP 429, `credit_balance_exhausted` / `insufficient_quota`; extraction did not complete. No retries or billing changes. |
-| GitHub delivery | Owner installation for `pomo-licious` is now visible. Repository write verified by successfully creating `backup/pre-revamp-20261016` at the original baseline. Revamp publication is in progress. |
-| Production frontend | Not claimed deployed. The user’s existing GitHub `main` workflow auto-deploys to Vercel; direct Vercel access is not required. Merge/push through the authorized repository path after access and checks are complete. |
+| GitHub delivery | Owner installation for `pomo-licious` verified. Baseline preserved in remote `backup/pre-revamp-20261016`; revamp branch published and PR #5 merged into `main`. |
+| Production frontend | The GitHub Vercel status for production merge `b7df9eeefbe69c10a05c1b32f468a4060102a405` is success. The existing `main` workflow handled deployment; no direct Vercel access was used. Public rendering and signed-in end-to-end behavior remain unverified. |
 | Google sign-in | Provider is disabled. Requires a Google OAuth client, Supabase Google-provider configuration and the correct authorized site origins/callback/redirect URLs. No live Google login verified. |
 | Email/session flows | Implementation reviewed locally. The secure login flow returned declined; no live authenticated member journey or password-reset email round trip was verified. |
 | Validation | Final OpenAI-provider checks: 151 tests across 9 suites, full ESLint, production build and diff whitespace check passed. The private preview refresh was published successfully. Built assets contain no OpenAI key. Anonymous profile access, submission and deletion requests returned 401. Browser and authenticated end-to-end checks remain unverified. |
@@ -58,10 +58,14 @@ Before release, verify the deployed origin’s `/reset-password` and onboarding 
 - Backend checks: all six new tables have RLS; private bucket verified; anonymous submission and service-only OCR lease execution denied. Three unauthenticated HTTP checks returned 401. Submission/OCR/deletion logic checked with mocks; no live user data or files were created/deleted. The separate direct synthetic-PDF OpenAI test was attempted once and failed for exhausted quota; no successful extraction or authenticated hosted OCR test.
 - Final frontend checks: 151/151 Vitest tests across 9 suites, full ESLint, production build and diff whitespace check passed. The tests cover OpenAI handler safeguards, profile revision conflicts, empty/matching/variance autofill, record ambiguity/deduplication, stale targets and coherent CGPA scales. OpenAI key absent from built assets. Private preview publication succeeded with owner-only access retained.
 - Desktop/mobile browser verification: unavailable in the managed environment; no browser installed or improvised preview started. Responsive layout and flow received SSR/contract checks only.
-- GitHub repository write access: verified after owner installation; original baseline preserved remotely in `backup/pre-revamp-20261016`. Revamp source publication and production URL verification are in progress. Private review publication succeeded; owner-only audience retained.
+- GitHub delivery: write verified after owner installation; baseline preserved remotely in `backup/pre-revamp-20261016`; PR #5 merged successfully. Vercel reported success for the production merge commit. Public-site retrieval returned the client loading shell; browser rendering and signed-in features have not been verified. Private review remains owner-only.
 - Google OAuth verification: pending provider setup.
 - Authenticated end-to-end verification: pending an authorized test session.
 
 ## Latest review publication
 
-The OpenAI/variance-review build was published successfully through Sites. Source commit: `22af11fd3fe8c655c09ecf4a1bfa53f5b7bb749b`. This private publication does not change the original GitHub repository or www.unidex.co.in. New provider extraction is not live until API credits and hosted secrets/enablement are configured.
+The OpenAI/variance-review build was published successfully through Sites. Source commit: `22af11fd3fe8c655c09ecf4a1bfa53f5b7bb749b`. This private publication preceded the GitHub release. The revamp has since been merged to `main` through https://github.com/pomo-licious/unidex/pull/5, and its production Vercel deployment status is success. New provider extraction is not live until API credits and hosted secrets/enablement are configured.
+
+## Signup release fix
+
+The live legacy `students` table does not have a unique constraint on `user_id`. Signup no longer depends on an upsert using that conflict target: authenticated users proceed to canonical admissions onboarding, while confirmation-required users receive verification instructions. Display name and referral metadata are retained in Auth metadata. Ten isolated signup flow checks, a production build, all 151 existing tests, full lint and baseline-to-head whitespace check passed after this fix. No legacy schema mutation was made.
