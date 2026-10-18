@@ -3,6 +3,27 @@
 export const COLLEGE_IMAGES = [
   {
     "ids": [
+      "ncr-mdi-gurgaon"
+    ],
+    "names": [
+      "MDI Gurgaon",
+      "MDI Gurugram",
+      "Management Development Institute (MDI) Gurgaon",
+      "Management Development Institute, Gurgaon",
+      "Management Development Institute Gurgaon"
+    ],
+    "src": "/assets/colleges/mdi-gurgaon.webp",
+    "width": 500,
+    "height": 158,
+    "alt": "MDI Gurgaon \u2014 red-brick academic building and landscaped courtyard at its Gurugram campus",
+    "credit": "Iceman7676",
+    "license": "Public domain",
+    "licenseUrl": "https://commons.wikimedia.org/wiki/File:MDI_Panoramic.jpg#Licensing",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:MDI_Panoramic.jpg",
+    "objectPosition": "50% 50%"
+  },
+  {
+    "ids": [
       "ncr-fms-delhi"
     ],
     "names": [
