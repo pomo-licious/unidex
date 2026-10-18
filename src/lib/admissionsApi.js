@@ -1,17 +1,22 @@
 import { supabase } from './supabase'
+import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, isDocumentType } from './admissionsDocumentTypes'
+import { normalizeAiImports, validateAdmissionsProfile } from './admissionsProfile'
 
 const BUCKET = 'unidex-admissions-private'
 const MAX_BYTES = 10 * 1024 * 1024
-const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+const ALLOWED_TYPES = DOCUMENT_MIME_TYPES
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const attemptIds = new Map()
 
 export class AdmissionsError extends Error {
-  constructor(message, { code = 'ADMISSIONS_ERROR', cause, details } = {}) {
+  constructor(message, { code = 'ADMISSIONS_ERROR', cause, details, status, stopBatch = false } = {}) {
     super(message)
     this.name = 'AdmissionsError'
     this.code = code
     this.cause = cause
     this.details = details
+    this.status = status
+    this.stopBatch = stopBatch
   }
 }
 
@@ -29,8 +34,8 @@ function fail(error, action) {
 
 async function currentUser(expectedUserId) {
   const { data, error } = await supabase.auth.getUser()
-  if (error || !data?.user) throw new AdmissionsError('Sign in to save your admissions workspace.', { code: 'AUTH_REQUIRED', cause: error })
-  if (expectedUserId && data.user.id !== expectedUserId) throw new AdmissionsError('Your account changed. Reload this page before saving your changes.', { code: 'ACCOUNT_CHANGED' })
+  if (error || !data?.user) throw new AdmissionsError('Sign in to save your admissions workspace.', { code: 'AUTH_REQUIRED', cause: error, stopBatch: true })
+  if (expectedUserId && data.user.id !== expectedUserId) throw new AdmissionsError('Your account changed. Reload this page before saving your changes.', { code: 'ACCOUNT_CHANGED', stopBatch: true })
   return data.user
 }
 
@@ -43,7 +48,26 @@ async function ownedDocument(document, expectedUserId) {
   if (!document?.id) throw new AdmissionsError('Select an uploaded document first.', { code: 'INVALID_INPUT' })
   const { data, error } = await supabase.from('student_admissions_documents').select('*').eq('id', document.id).eq('user_id', user.id).single()
   if (error || !data) throw fail(error || new Error('Document not found.'), 'Could not load document')
+  if (data.storage_bucket !== BUCKET || typeof data.storage_path !== 'string' || !data.storage_path.startsWith(`${user.id}/`)) throw new AdmissionsError('This document is not in your private storage.', { code: 'DOCUMENT_OWNERSHIP_INVALID', stopBatch: true })
   return data
+}
+
+function isPrivatePhoto(document, userId) {
+  return document?.user_id === userId && document.document_type === 'photo' && IMAGE_MIME_TYPES.includes(document.mime_type) && document.storage_bucket === BUCKET && typeof document.storage_path === 'string' && document.storage_path.startsWith(`${userId}/`) && document.size_bytes > 0 && document.size_bytes <= MAX_BYTES
+}
+
+export async function getAdmissionsProfilePhoto(profileOrDocumentId, expectedUserId) {
+  const user = await currentUser(expectedUserId)
+  const id = typeof profileOrDocumentId === 'string' ? profileOrDocumentId : profileOrDocumentId?.profile_photo_document_id
+  if (!id || !UUID.test(id)) return null
+  const { data: document, error } = await supabase.from('student_admissions_documents').select('*').eq('id', id).eq('user_id', user.id).maybeSingle()
+  if (error) throw fail(error, 'Could not load your profile photograph')
+  if (!isPrivatePhoto(document, user.id)) return null
+  const { data, error: signedError } = await supabase.storage.from(BUCKET).createSignedUrl(document.storage_path, 300)
+  if (signedError) throw fail(signedError, 'Could not open your private profile photograph')
+  await currentUser(user.id)
+  if (!data?.signedUrl) return null
+  return { document_id: document.id, file_name: document.file_name, url: data.signedUrl, expires_at: new Date(Date.now() + 300_000).toISOString() }
 }
 
 async function withSignedUrls(documents) {
@@ -95,7 +119,24 @@ export async function loadAdmissionsProfile(expectedUserId) {
 export async function saveAdmissionsProfile(profile, expectedUserId, expectedRevision) {
   requireObject(profile, 'Profile')
   const user = await currentUser(expectedUserId)
-  const row = { user_id: user.id, profile: { ...profile, schema_version: 1 }, schema_version: 1 }
+  const validation = validateAdmissionsProfile(profile)
+  if (!validation.valid) throw new AdmissionsError('Review the highlighted profile details before saving.', { code: 'INVALID_PROFILE', details: validation.errors })
+  const canonicalProfile = { ...profile, schema_version: 1, profile_photo_document_id: profile.profile_photo_document_id || null, ai_imports: normalizeAiImports(profile.ai_imports) }
+  if (JSON.stringify(canonicalProfile).length > 1_000_000) throw new AdmissionsError('Your profile history is too large to save. Contact support before continuing.', { code: 'PROFILE_TOO_LARGE' })
+  if (canonicalProfile.profile_photo_document_id) {
+    const { data: photo, error: photoError } = await supabase.from('student_admissions_documents').select('*').eq('id', canonicalProfile.profile_photo_document_id).eq('user_id', user.id).maybeSingle()
+    if (photoError) throw fail(photoError, 'Could not validate your profile photograph')
+    if (!photo) {
+      // A removed, previously saved photograph must not trap later profile edits.
+      // Only clear a pointer already persisted for this account; reject new/foreign IDs.
+      const { data: existing, error: existingError } = await supabase.from('student_admissions_profiles').select('profile').eq('user_id', user.id).maybeSingle()
+      if (existingError) throw fail(existingError, 'Could not check your saved profile photograph')
+      if (existing?.profile?.profile_photo_document_id === canonicalProfile.profile_photo_document_id) canonicalProfile.profile_photo_document_id = null
+      else throw new AdmissionsError('Choose an image uploaded as a profile photograph in your account.', { code: 'INVALID_PROFILE_PHOTO' })
+    } else if (!isPrivatePhoto(photo, user.id)) throw new AdmissionsError('Choose an image uploaded as a profile photograph in your account.', { code: 'INVALID_PROFILE_PHOTO' })
+  }
+  await currentUser(user.id)
+  const row = { user_id: user.id, profile: canonicalProfile, schema_version: 1 }
   if (expectedRevision !== undefined && (!Number.isInteger(expectedRevision) || expectedRevision < 0)) throw new AdmissionsError('Reload the latest profile before saving reviewed details.', { code: 'INVALID_REVISION' })
   let query
   if (expectedRevision === 0) query = supabase.from('student_admissions_profiles').insert(row).select('profile').single()
@@ -118,7 +159,8 @@ export async function uploadAdmissionsDocument(file, documentType, onProgress, e
   const user = await currentUser(expectedUserId)
   if (!file || !ALLOWED_TYPES.includes(file.type)) throw new AdmissionsError('Upload a PDF, JPG, PNG or WebP file.', { code: 'INVALID_FILE_TYPE' })
   if (!file.size || file.size > MAX_BYTES) throw new AdmissionsError('Documents must be between 1 byte and 10 MB.', { code: 'FILE_TOO_LARGE' })
-  if (!documentType || typeof documentType !== 'string') throw new AdmissionsError('Choose a document category.', { code: 'INVALID_INPUT' })
+  if (!isDocumentType(documentType)) throw new AdmissionsError('Choose a document category.', { code: 'INVALID_INPUT' })
+  if (documentType === 'photo' && !IMAGE_MIME_TYPES.includes(file.type)) throw new AdmissionsError('Profile photographs must be JPG, PNG or WebP images.', { code: 'INVALID_FILE_TYPE' })
   const id = crypto.randomUUID()
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-150) || 'document'
   const path = `${user.id}/${id}/${safeName}`
@@ -141,13 +183,18 @@ export async function uploadAdmissionsDocument(file, documentType, onProgress, e
 export async function extractAdmissionsDocument(document, expectedUserId, openaiDocumentProcessing = false) {
   if (openaiDocumentProcessing !== true) throw new AdmissionsError('Confirm that this document may be sent to OpenAI GPT for extraction before continuing.', { code: 'DOCUMENT_PROCESSING_CONSENT_REQUIRED' })
   const stored = await ownedDocument(document, expectedUserId)
+  if (stored.document_type === 'photo') throw new AdmissionsError('Profile photographs are not sent for text extraction.', { code: 'PHOTO_EXTRACTION_DISABLED' })
   const { data, error } = await supabase.functions.invoke('admissions-ocr', { body: { document_id: stored.id, openai_document_processing: true } })
   if (error) {
-    let message = error.message
-    try { const body = await error.context?.json(); message = body?.error || message } catch { /* Response can be unavailable for network failures. */ }
-    throw fail(new Error(message || 'OCR service unavailable. Configure the authenticated admissions-ocr function.'), 'Could not extract document')
+    let body = {}
+    try { body = await error.context?.json() || {} } catch { /* Response can be unavailable for network failures. */ }
+    const status = error.context?.status || error.status
+    const code = body.code || (status === 401 ? 'AUTH_REQUIRED' : status === 429 ? 'OCR_RATE_LIMITED' : 'OCR_FAILED')
+    const stopBatch = body.stop_batch === true || ['AUTH_REQUIRED', 'ACCOUNT_CHANGED', 'OCR_DISABLED', 'OCR_NOT_CONFIGURED', 'OCR_QUOTA_EXHAUSTED', 'OCR_RATE_LIMITED', 'OCR_PROVIDER_CONFIGURATION', 'OCR_SERVICE_UNAVAILABLE'].includes(code)
+    throw new AdmissionsError(body.error || error.message || 'Document extraction is unavailable. Enter your details manually.', { code, status, stopBatch, cause: error })
   }
-  if (!data?.ok || !data?.document) throw fail(new Error(data?.error || 'OCR returned an invalid response.'), 'Could not extract document')
+  if (!data?.ok || !data?.document) throw new AdmissionsError(data?.error || 'OCR returned an invalid response.', { code: data?.code || 'OCR_FAILED', stopBatch: data?.stop_batch === true })
+  await currentUser(stored.user_id)
   return { ...data.document, signed_url: document.signed_url || null }
 }
 

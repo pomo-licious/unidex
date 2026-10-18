@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 import { webcrypto } from 'node:crypto'
 import vm from 'node:vm'
 import { describe, expect, it } from 'vitest'
+import { normalizeAiImports, validateAdmissionsProfile } from '../src/lib/admissionsProfile'
+import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, isDocumentType } from '../src/lib/admissionsDocumentTypes'
 
 const source = readFileSync(new URL('../src/lib/admissionsApi.js', import.meta.url), 'utf8').replace(/^import .*\r?\n/gm, '').replace(/^export /gm, '')
 const OWNER = '11111111-1111-4111-8111-111111111111'
@@ -23,7 +25,7 @@ function apiHarness(results = [], signedInUser = OWNER) {
       return query
     },
   }
-  const scope = { supabase: db, crypto: webcrypto }
+  const scope = { supabase: db, crypto: webcrypto, normalizeAiImports, validateAdmissionsProfile, DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, isDocumentType }
   vm.runInNewContext(`${source};globalThis.api={loadAdmissionsProfileRecord,saveAdmissionsProfile};`, scope)
   return { api: scope.api, events }
 }

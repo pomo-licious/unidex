@@ -77,3 +77,15 @@ The hero now has a visible animated profile-to-application sequence, moving conn
 Google login/signup now use a public same-origin callback with allowlisted destinations and cancellation/error handling. Public provider availability is checked before starting OAuth. The dashboard was inspected after authorized sign-in: Google is disabled and Client IDs/secret are empty; Site URL and redirect entries still point to the previous Vercel origin. Google Cloud console could not be opened in this browser. No provider or redirect settings have been changed. Exact owner setup instructions are in [GOOGLE_AUTH_SETUP.md](GOOGLE_AUTH_SETUP.md); a successful Google login round trip is still required.
 
 Follow-up validation: all 164 tests across 10 suites, full ESLint, production build, whitespace checks and campus asset/source checks passed. Local browser QA remains unavailable under the managed preview rules.
+
+## Sign-in, branding and bulk documents follow-up — 18 October 2026
+
+Public header/footer entry points now read **Sign in**. Browser-tab assets use the actual navy/orange Unidex mark with versioned SVG/PNG references and ICO/Apple variants.
+
+The document library adds select all, an explicit named-batch processing/autofill dialog, sequential extraction with partial-failure reporting, combined conflict detection and one revision-guarded profile save. A selected private profile photo can be applied directly. PAN, Aadhaar, passport and other government ID proofs are optional upload categories; numbers are excluded from profile autofill. Batch imports remain unreviewed and retain source baselines. A completion popup recommends cross-checking AI-filled fields; profile corrections show an original/new-value confirmation when appropriate.
+
+The OpenAI function update adds identity-category filtering, photo rejection and machine-readable fatal-error classification for batch handling. GPT inference remains blocked by the previously observed exhausted API credits and unconfigured hosted key/enable flag. No new inference or billing changes have been attempted. Local validation and GitHub deployment results for this follow-up are recorded below when complete.
+
+Backend follow-up deployment verified: `admissions-ocr` is active version 3, JWT verification enabled. Retrieved deployed source matches the validated local file exactly; anonymous POST returns 401. The update preserves the explicit off-by-default extraction gate. No server secrets, enable flag or API billing settings were changed.
+
+Final follow-up validation: all 268 tests across 16 suites pass, full ESLint and the production build pass, and whitespace checks pass. Tests include named-batch consent, conflict preservation, CGPA-scale consistency, original AI baselines, photo ownership/deletion, stable repeated-row provenance, profile revision races, guarded onboarding/application saves and retry consistency. Independent code review found no remaining concrete high/medium issue in this scope. Managed browser QA and an authenticated live GPT round trip remain unperformed; the provider configuration/credit blockers are unchanged.
