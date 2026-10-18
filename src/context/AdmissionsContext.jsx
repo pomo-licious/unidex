@@ -10,6 +10,7 @@ const AdmissionsContext = createContext(null)
 
 export function AdmissionsProvider({ user, children }) {
   const [profile, setProfile] = useState(() => createEmptyProfile(user))
+  const [profileLoad, setProfileLoad] = useState({ userId: null, loaded: false, error: '' })
   const [documents, setDocuments] = useState([])
   const [documentLoad, setDocumentLoad] = useState({ userId: null, loaded: false, error: '' })
   const [plans, setPlans] = useState([])
@@ -22,26 +23,33 @@ export function AdmissionsProvider({ user, children }) {
   const [connectionStatus, setConnectionStatus] = useState(user ? 'loading' : 'guest')
   const authId = useRef(user?.id)
   const loadVersion = useRef(0)
+  const profileLoadVersion = useRef(0)
 
   useEffect(() => {
     authId.current = user?.id
     const version = ++loadVersion.current
+    const profileVersion = ++profileLoadVersion.current
     if (!user) return
-    Promise.allSettled([loadAdmissionsProfile(), listAdmissionsDocuments(), listCollegePlans(), getAdmissionsDraft()])
+    Promise.allSettled([loadAdmissionsProfile(user.id), listAdmissionsDocuments(), listCollegePlans(), getAdmissionsDraft()])
       .then(results => {
         if (version !== loadVersion.current || authId.current !== user.id) return
-        if (results[0].status === 'fulfilled') setProfile(normalizeAdmissionsProfile(results[0].value, user))
+        if (profileVersion === profileLoadVersion.current) {
+          if (results[0].status === 'fulfilled') {
+            setProfile(normalizeAdmissionsProfile(results[0].value, user))
+            setProfileLoad({ userId: user.id, loaded: true, error: '' })
+          } else setProfileLoad({ userId: user.id, loaded: false, error: results[0].reason?.message || 'Your profile could not be loaded.' })
+        }
         if (results[1].status === 'fulfilled') {
           setDocuments(results[1].value || [])
           setDocumentLoad({ userId: user.id, loaded: true, error: '' })
         } else setDocumentLoad({ userId: user.id, loaded: false, error: results[1].reason?.message || 'Your documents could not be loaded.' })
         if (results[2].status === 'fulfilled') setPlans(results[2].value || [])
         if (results[3].status === 'fulfilled') setDraft(results[3].value)
-        const failed = results.filter(result => result.status === 'rejected')
+        const failed = results.filter((result, index) => result.status === 'rejected' && (index !== 0 || profileVersion === profileLoadVersion.current))
         setError(failed.length ? failed[0].reason?.message || 'Your workspace could not be loaded. Please retry.' : '')
         setConnectionStatus(failed.length ? 'error' : 'ready'); setLoading(false)
       })
-    return () => { loadVersion.current += 1; authId.current = null }
+    return () => { loadVersion.current += 1; profileLoadVersion.current += 1; authId.current = null }
   }, [user])
 
   const userId = user?.id
@@ -54,10 +62,36 @@ export function AdmissionsProvider({ user, children }) {
     const id = requireUser(); setPendingProfileWrites(count => count + 1)
     try {
       const saved = await write(id, () => saveAdmissionsProfile(normalizeAdmissionsProfile(next, user), id, expectedRevision))
-      if (authId.current === id) { setProfile(normalizeAdmissionsProfile(saved, user)); setError(''); setConnectionStatus('ready') }
+      if (authId.current === id) {
+        profileLoadVersion.current += 1
+        setProfile(normalizeAdmissionsProfile(saved, user))
+        setProfileLoad({ userId: id, loaded: true, error: '' })
+        setError(''); setConnectionStatus('ready')
+      }
       return saved
     } finally { if (authId.current === id) setPendingProfileWrites(count => count - 1) }
   }, [requireUser, user, write])
+  const retryProfile = useCallback(async () => {
+    const id = requireUser()
+    if (authId.current !== id) throw new Error('Your account changed. Reload before loading your profile.')
+    const version = ++profileLoadVersion.current
+    setProfileLoad({ userId: id, loaded: false, error: '' })
+    try {
+      const result = await loadAdmissionsProfile(id)
+      if (authId.current === id && version === profileLoadVersion.current) {
+        setProfile(normalizeAdmissionsProfile(result, user))
+        setProfileLoad({ userId: id, loaded: true, error: '' })
+        setError(''); setConnectionStatus('ready')
+      }
+      return result
+    } catch (error) {
+      if (authId.current === id && version === profileLoadVersion.current) {
+        setProfileLoad({ userId: id, loaded: false, error: error?.message || 'Your profile could not be loaded.' })
+        setConnectionStatus('error')
+      }
+      throw error
+    }
+  }, [requireUser, user])
   const refreshDocuments = useCallback(async () => {
     const id = requireUser()
     try {
@@ -103,8 +137,11 @@ export function AdmissionsProvider({ user, children }) {
   const documentsLoaded = Boolean(userId && documentLoad.userId === userId && documentLoad.loaded)
   const documentsUserId = documentsLoaded ? documentLoad.userId : null
   const documentsError = documentLoad.userId === userId ? documentLoad.error : ''
-  const value = { user, profile, setProfile, documents, documentsLoaded, documentsUserId, documentsError, plans, draft, loading, saving, error, connectionStatus,
-    saveProfile, refreshDocuments, refreshPlans, saveDraft, updatePlan, addCollege, toggleBookmark, toggleSelection, removePlan }
+  const profileLoaded = Boolean(userId && profileLoad.userId === userId && profileLoad.loaded)
+  const profileUserId = profileLoaded ? profileLoad.userId : null
+  const profileError = profileLoad.userId === userId ? profileLoad.error : ''
+  const value = { user, profile, profileLoaded, profileUserId, profileError, setProfile, documents, documentsLoaded, documentsUserId, documentsError, plans, draft, loading, saving, error, connectionStatus,
+    saveProfile, retryProfile, refreshDocuments, refreshPlans, saveDraft, updatePlan, addCollege, toggleBookmark, toggleSelection, removePlan }
   return <AdmissionsContext.Provider value={value}>{children}</AdmissionsContext.Provider>
 }
 

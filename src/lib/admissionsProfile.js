@@ -1,3 +1,5 @@
+import { normalizeProfileOnboarding } from './admissionsOnboarding'
+
 export const PROFILE_SCHEMA_VERSION = 1
 
 const isRecord = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -66,6 +68,7 @@ export function normalizeAdmissionsProfile(value, user) {
     work_experience: recordRows(value.work_experience),
     profile_photo_document_id: typeof value.profile_photo_document_id === 'string' && UUID.test(value.profile_photo_document_id) ? value.profile_photo_document_id : null,
     ai_imports: normalizeAiImports(value.ai_imports),
+    ...(Object.hasOwn(value, 'onboarding') ? { onboarding: normalizeProfileOnboarding(value.onboarding) } : {}),
     preferences: { ...defaults.preferences, ...(isRecord(value.preferences) ? value.preferences : {}) },
   }
 }

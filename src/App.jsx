@@ -60,7 +60,8 @@ export default function App() {
     <Route path="/signup" element={<Signup />} />
     <Route path="/onboarding" element={protectedPage(<Onboarding />)} />
     <Route path="/profile" element={protectedPage(<Profile />)} />
-    <Route path="/profile/edit" element={protectedPage(<Profile />)} />
+    <Route path="/profile/edit" element={protectedPage(<Profile edit />)} />
+    <Route path="/account" element={protectedPage(<Profile accountOnly />)} />
     <Route path="/colleges" element={<CollegeDirectory user={user} loading={loading} />} />
     <Route path="/college/:id" element={<CollegeProfile user={user} loading={loading} />} />
     <Route path="/tracker" element={protectedPage(<AppTracker />)} />
