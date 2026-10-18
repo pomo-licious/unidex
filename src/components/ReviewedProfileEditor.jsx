@@ -11,7 +11,7 @@ import { loadAdmissionsProfileRecord } from '../lib/admissionsApi'
 export default function ReviewedProfileEditor({ initialProfile, initialBaseProfile, user, saving, error, saveProfile, onSaved, onboarding = false, submitLabel, section = 'all', guided = false, documentsFirstEnabled = true, prepareCandidate, onInvalidSection, onBack }) {
   const [editorBase, setEditorBase] = useState(() => structuredClone(normalizeAdmissionsProfile(initialBaseProfile ?? initialProfile, user)))
   const [trackedBase, setTrackedBase] = useState(() => withProfileReviewRowIds(editorBase))
-  const [draft, setDraft] = useState(() => ({ ...structuredClone(normalizeAdmissionsProfile(initialProfile, user)), exam_scores: structuredClone(trackedBase.exam_scores), work_experience: structuredClone(trackedBase.work_experience) }))
+  const [draft, setDraft] = useState(() => ({ ...structuredClone(normalizeAdmissionsProfile(initialProfile, user)), exam_scores: structuredClone(trackedBase.exam_scores), work_experience: structuredClone(trackedBase.work_experience), professional_qualifications: structuredClone(trackedBase.professional_qualifications) }))
   const [busy, setBusy] = useState(false)
   const [committing, setCommitting] = useState(false)
   const [pending, setPending] = useState(null)

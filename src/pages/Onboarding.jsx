@@ -71,6 +71,11 @@ export default function Onboarding() {
       if (complete) {
         if (!reviewed) throw new Error('Please confirm that you have checked your details before finishing setup.')
         if (!latestProfile.full_name?.trim() || !latestProfile.email?.trim()) throw new Error('Add your full name and email in Personal details before finishing setup.')
+        const ctcIssue = validateAdmissionsProfile(latestProfile, { submission: true }).errors.last_drawn_ctc
+        if (ctcIssue) {
+          setReviewOrigin(true); setViewStep('work'); setReviewed(false)
+          throw new Error(ctcIssue)
+        }
       }
       const next = withProfileSetup(latestProfile, nextStep, { documentsChoice, ...(complete ? { completedAt: new Date().toISOString() } : {}) })
       const saved = await saveProfile(next, { expectedRevision: latest.revision })
@@ -99,7 +104,7 @@ export default function Onboarding() {
     personal: ['Make it yours.', 'Check the essentials, then continue through one small section at a time. Fields filled from documents remain editable.'],
     academics: ['Your education, together.', 'Review what your mark sheets filled in. Add anything that is missing, or leave it for later if you do not have it yet.'],
     exams: ['Add the results you have.', 'Scores help make college comparisons more useful. You can continue without a result and add it when it arrives.'],
-    work: ['Every journey counts.', 'Working professional or fresh graduate, tell us what applies to you. Experience and salary can be left blank.'],
+    work: ['Every journey counts.', 'Working professional or fresh graduate, tell us what applies to you. Fresh graduate? Enter zero months. If you have worked, add your last drawn annual CTC in INR.'],
     preferences: ['What are you looking for?', 'A few preferences help shape your college shortlist. You can change your plans whenever you need to.'],
     review: ['Your profile. Already coming together.', 'Your saved and AI-filled details are shown below. Review them against your records, add anything missing, and finish without entering the same information again.'],
     complete: ['You’re all set to begin.', 'Your profile setup is saved. Your overview brings your next steps, documents and college shortlist into one place.'],

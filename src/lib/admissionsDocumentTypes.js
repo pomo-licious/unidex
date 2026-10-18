@@ -1,7 +1,7 @@
 export const DOCUMENT_TYPES = [
   ['academic_10th', 'Class 10 mark sheet'], ['academic_12th', 'Class 12 mark sheet'],
-  ['academic_graduation', 'Graduation mark sheet'], ['exam_score', 'Entrance exam scorecard'],
-  ['resume', 'Resume / CV'], ['work_experience', 'Work experience / CTC'],
+  ['academic_graduation', 'Graduation mark sheet'], ['professional_qualification', 'Professional qualification / doctorate'], ['exam_score', 'Entrance exam scorecard'],
+  ['resume', 'Resume / CV'], ['work_experience', 'Work experience / CTC'], ['defence_service', 'Defence service / discharge certificate'],
   ['pan_card', 'PAN card'], ['aadhaar_card', 'Aadhaar card'], ['passport', 'Passport'],
   ['government_id', 'Other government ID'], ['photo', 'Profile photograph'], ['other', 'Other document'],
 ]

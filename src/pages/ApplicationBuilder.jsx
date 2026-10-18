@@ -9,7 +9,7 @@ import { useAdmissions } from '../context/AdmissionsContext'
 import { loadAdmissionsProfileRecord, recoverAdmissionsSubmission, submitAdmissionsApplication } from '../lib/admissionsApi'
 import { getProfileProgress, normalizeAdmissionsProfile, validateAdmissionsProfile } from '../lib/admissionsProfile'
 import { DELHI_NCR_COLLEGES } from '../data/delhiNcrColleges'
-import { answerKey, deadlineFor, specificFields, validateCollegeAnswers } from '../lib/admissionsApplication'
+import { answerKey, deadlineFor, specificFields, validateAdmissionsApplicationProfile, validateCollegeAnswers } from '../lib/admissionsApplication'
 import { mergeDraftProfile } from '../lib/admissionsDraft'
 import { getAiImportedFields, withProfileReviewRowIds } from '../lib/admissionsAiReview'
 import { saveReviewedApplicationProfile } from '../lib/admissionsApplicationProfileReview'
@@ -140,7 +140,7 @@ function ApplicationBuilderContent({ recoveredReceipt, recoveryError }) {
     finally { finishAttempt() }
   }
   function validateSubmission() {
-    const validation = validateAdmissionsProfile(common, { submission: true })
+    const validation = validateAdmissionsApplicationProfile(common, selected)
     if (!validation.valid) return Object.values(validation.errors)[0]
     if (!selected.length) return 'Select at least one college before submitting.'
     if (selected.length > 50) return 'Select up to 50 colleges for one submission.'

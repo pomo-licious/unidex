@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { getAiImportedFields } from '../src/lib/admissionsAiReview'
-import { appendAdmissionsAiImports, getSafeAdmissionsDocumentSuggestions, planAdmissionsBatchAutofill, runAdmissionsDocumentBatch } from '../src/lib/admissionsBatchReview'
+import { appendAdmissionsAiImports, canReuseAdmissionsAiExtraction, getSafeAdmissionsDocumentSuggestions, planAdmissionsBatchAutofill, runAdmissionsDocumentBatch } from '../src/lib/admissionsBatchReview'
 const ids = ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333']
 const doc = (index, data, type = 'other') => ({ id: ids[index], file_name: `Document ${index + 1}.pdf`, document_type: type, extracted_data: data })
 const photo = index => ({ id: ids[index], file_name: `Photo ${index + 1}.png`, document_type: 'photo', mime_type: 'image/png' })
@@ -170,5 +170,86 @@ describe('cancellation preserves only confirmed local batch results', () => {
     const result = await runAdmissionsDocumentBatch([doc(0, null), doc(1, null)], { extract, processingApproved: true, signal: controller.signal })
     expect(result.results.map(item => item.status)).toEqual(['not_attempted', 'not_attempted'])
     expect(result.readyDocuments).toHaveLength(0)
+  })
+})
+
+describe('complete profile document batch', () => {
+  it('fills complementary professional marks and institution facts once across files', () => {
+    const result = planAdmissionsBatchAutofill({}, [doc(0, { professional_qualifications: [{ qualification: 'CA', institution: 'ICAI', completion_year: 2021, percentage: 61 }] }), doc(1, { professional_qualifications: [{ qualification: 'CA', institution: 'ICAI', completion_year: 2021, status: 'completed' }] })])
+    expect(result.profile.professional_qualifications).toMatchObject([{ qualification: 'CA', institution: 'ICAI', completion_year: 2021, percentage: 61, status: 'completed' }])
+  })
+  it('tracks professional qualification marks to the original document source', () => {
+    const result = planAdmissionsBatchAutofill({}, [doc(0, { professional_qualifications: [{ qualification: 'CA', institution: 'ICAI', percentage: 61 }] })])
+    expect(getAiImportedFields(result.profile).find(field => field.path.at(-1) === 'percentage')).toMatchObject({ path: ['professional_qualifications', 0, 'percentage'], aiValue: 61, documentId: ids[0], reviewed: false })
+  })
+  it('withholds contradictory qualification records without discarding independent school marks', () => {
+    const result = planAdmissionsBatchAutofill({}, [doc(0, { academic_10th: { percentage: 85 }, professional_qualifications: [{ qualification: 'CA', institution: 'ICAI', completion_year: 2021, percentage: 61 }] }), doc(1, { professional_qualifications: [{ qualification: 'CA', institution: 'ICAI', completion_year: 2021, percentage: 70 }] })])
+    expect(result.profile).toMatchObject({ academic_10th: { percentage: 85 } })
+  })
+  it('safely withholds a professional CGPA above its grading scale while importing its institution', () => {
+    const result = planAdmissionsBatchAutofill({}, [doc(0, { professional_qualifications: [{ qualification: 'PhD', institution: 'Synthetic University', cgpa: 8, cgpa_scale: 4 }] })])
+    expect(result.profile.professional_qualifications[0]).toMatchObject({ qualification: 'PhD', institution: 'Synthetic University' })
+  })
+  it('keeps every source document pending review after defence and qualification autofill', () => {
+    const result = planAdmissionsBatchAutofill({}, [doc(0, { professional_qualifications: [{ qualification: 'CA' }] }), doc(1, { defence_service: { status: 'serving', branch: 'Indian Army', current: true } })])
+    expect(result.profile.ai_imports.every(record => record.reviewed === false)).toBe(true)
+  })
+  it('does not discard school marks because an employment timeline is reversed', () => {
+    const result = planAdmissionsBatchAutofill({}, [doc(0, { academic_10th: { percentage: 85 }, work_experience: [{ company: 'Synthetic Company', start_date: '2024-03', end_date: '2023-02' }] })])
+    expect(result.profile.academic_10th.percentage).toBe(85)
+  })
+  it('reports contradictory employment dates instead of silently dropping them', () => {
+    const result = planAdmissionsBatchAutofill({}, [doc(0, { work_experience: [{ company: 'Synthetic Company', start_date: '2024-03', end_date: '2023-02' }] })])
+    expect(result.conflicts.some(conflict => conflict.kind === 'invalid_record')).toBe(true)
+  })
+  it('protects explicit no-service answers from silently receiving a conflicting service record', () => {
+    const result = planAdmissionsBatchAutofill({ defence_service: { status: 'none' } }, [doc(0, { defence_service: { status: 'serving', branch: 'Indian Army', rank: 'Captain' } })])
+    expect(result.profile.defence_service).toEqual({ status: 'none' })
+  })
+  it('withholds contradictory veteran/current flags while retaining independently readable rank', () => {
+    const result = planAdmissionsBatchAutofill({}, [doc(0, { defence_service: { status: 'veteran', current: true, rank: 'Major' } })])
+    expect(result.profile.defence_service).toEqual({ rank: 'Major' })
+  })
+  it('keeps independent details when a qualification would exceed the supported profile row limit', () => {
+    const profile = { professional_qualifications: Array.from({ length: 20 }, (_, index) => ({ qualification: 'Other', title: `Prior qualification ${index}`, institution: 'Synthetic Institute' })) }
+    const result = planAdmissionsBatchAutofill(profile, [doc(0, { full_name: 'Synthetic Applicant', professional_qualifications: [{ qualification: 'CA', institution: 'ICAI' }] })])
+    expect({ name: result.profile.full_name, rows: result.profile.professional_qualifications.length, limit: result.conflicts.some(conflict => conflict.kind === 'record_limit') }).toEqual({ name: 'Synthetic Applicant', rows: 20, limit: true })
+  })
+})
+
+
+describe('expanded extraction cache safety', () => {
+  const current = { extraction_model: 'cloudflare:@cf/google/gemma-4-26b-a4b-it', extracted_data: { schema_version: 3, full_name: 'Synthetic Applicant' }, status: 'needs_review' }
+  it('reuses a current expanded result without another provider call', () => {
+    expect(canReuseAdmissionsAiExtraction(current)).toBe(true)
+  })
+  it('rereads same-model documents extracted under the old narrow schema', () => {
+    expect(canReuseAdmissionsAiExtraction({ ...current, extracted_data: { full_name: 'Synthetic Applicant' } })).toBe(false)
+  })
+  it('does not reuse a failed record containing stale prior extraction data', () => {
+    expect(canReuseAdmissionsAiExtraction({ ...current, status: 'error' })).toBe(false)
+  })
+  it('does not count schema metadata and unknown keys as extracted admissions facts', () => {
+    expect(canReuseAdmissionsAiExtraction({ ...current, extracted_data: { schema_version: 3, arbitrary_text: 'Unknown data' } })).toBe(false)
+  })
+})
+
+
+describe('scale-specific exam records', () => {
+  it('keeps explicit classic and focus GMAT results separate in the same year', () => {
+    const result = planAdmissionsBatchAutofill({}, [doc(0, { exam_scores: [{ exam: 'GMAT', exam_version: 'classic', year: 2024, total_score: 700 }] }), doc(1, { exam_scores: [{ exam: 'GMAT', exam_version: 'focus', year: 2024, total_score: 675 }] })])
+    expect(result.profile.exam_scores.map(exam => [exam.exam_version, exam.total_score])).toEqual([['classic', 700], ['focus', 675]])
+  })
+  it('requires review when an edition-free GMAT result could overlap another edition in the same year', () => {
+    const result = planAdmissionsBatchAutofill({}, [doc(0, { exam_scores: [{ exam: 'GMAT', year: 2024, total_score: 700 }] }), doc(1, { exam_scores: [{ exam: 'GMAT', exam_version: 'focus', year: 2024, total_score: 675 }] })])
+    expect(result.conflicts.some(conflict => conflict.kind === 'record_ambiguity')).toBe(true)
+  })
+})
+
+
+describe('normalization contract cache invalidation', () => {
+  it('rereads a briefly deployed version two result after enum and numeric normalization improved', () => {
+    const document = { extraction_model: 'cloudflare:@cf/google/gemma-4-26b-a4b-it', extracted_data: { schema_version: 2, full_name: 'Synthetic Applicant' }, status: 'needs_review' }
+    expect(canReuseAdmissionsAiExtraction(document)).toBe(false)
   })
 })

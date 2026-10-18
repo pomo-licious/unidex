@@ -85,3 +85,26 @@ describe('complete extracted-profile review', () => {
     expect(render({ ...createEmptyProfile(user), total_work_experience_months: 0 })).toContain('Fresh graduates can leave this blank or enter zero total months.')
   })
 })
+
+describe('expanded document review', () => {
+  it('shows professional qualification title, institution, marks and field together', () => {
+    expect(render({ ...profile, professional_qualifications: [{ _row_id: sourceId, qualification: 'CA', title: 'Chartered Accountant', institution: 'ICAI', status: 'completed', completion_year: 2021, percentage: 61.25, field: 'Accountancy' }] })).toContain('Chartered Accountant')
+  })
+  it('shows defence rank and service responsibilities alongside experience', () => {
+    expect(render({ ...profile, defence_service: { status: 'veteran', branch: 'Indian Army', rank: 'Major', start_date: '2005-04', end_date: '2025-03', current: false, leadership_summary: 'Supervised training teams.' } })).toContain('Supervised training teams.')
+  })
+  it('shows explicitly printed GMAT edition for scale-aware matching', () => {
+    expect(render({ ...profile, exam_scores: [{ exam: 'GMAT', exam_version: 'focus', total_score: 675 }] })).toContain('GMAT edition')
+  })
+  it('does not describe missing salary as optional for experienced applicants', () => {
+    expect(render({ ...profile, last_drawn_ctc: '', work_experience: [{ company: 'Synthetic Company', months: 24 }], total_work_experience_months: 24 })).toContain('Required for applicants with work experience')
+  })
+  it('shows uploaded documents that have not yet received extraction or student review', () => {
+    const html = renderToStaticMarkup(<MemoryRouter><ExtractedProfileReview profile={profile} user={user} documents={[{ id: sourceId, file_name: 'Unprocessed CA record.pdf', document_type: 'professional_qualification', status: 'uploaded' }]} onEdit={() => {}}/></MemoryRouter>)
+    expect(html).toContain('Unprocessed CA record.pdf')
+  })
+  it('keeps a source warning visible for a failed important document', () => {
+    const html = renderToStaticMarkup(<MemoryRouter><ExtractedProfileReview profile={profile} user={user} documents={[{ id: sourceId, file_name: 'Service record.pdf', document_type: 'defence_service', status: 'error' }]} onEdit={() => {}}/></MemoryRouter>)
+    expect(html).toContain('Extraction failed · retry needed')
+  })
+})

@@ -175,3 +175,46 @@ it('autofills an explicit percentage while leaving an unapproved conflicting CGP
   const model = buildAdmissionsDocumentReview({ academic_graduation: { percentage: 85, cgpa: 8.5, cgpa_scale: 10 } }, profile)
   expect(applyAdmissionsDocumentReview(profile, model).profile.academic_graduation).toEqual({ percentage: 85, cgpa: 3.7, cgpa_scale: 4 })
 })
+
+describe('professional qualifications and defence document review', () => {
+  it('fills a professional qualification with its own marks without overwriting graduation', () => {
+    const profile = { academic_graduation: { degree: 'B.Com', percentage: 80 } }
+    const model = buildAdmissionsDocumentReview({ professional_qualifications: [{ qualification: 'CA', institution: 'ICAI', completion_year: 2021, percentage: 62 }] }, profile)
+    expect(applyAdmissionsDocumentReview(profile, model).profile).toMatchObject({ academic_graduation: { percentage: 80 }, professional_qualifications: [{ qualification: 'CA', institution: 'ICAI', percentage: 62 }] })
+  })
+  it('preserves the exact CGPA and denominator for a doctorate', () => {
+    const model = buildAdmissionsDocumentReview({ professional_qualifications: [{ qualification: 'PhD', title: 'Doctor of Philosophy', institution: 'Synthetic University', cgpa: 3.8, cgpa_scale: 4 }] }, {})
+    expect(applyAdmissionsDocumentReview({}, model).profile.professional_qualifications[0]).toMatchObject({ cgpa: 3.8, cgpa_scale: 4 })
+  })
+  it('does not replace an existing professional result without approval', () => {
+    const profile = { professional_qualifications: [{ qualification: 'CA', institution: 'ICAI', completion_year: 2021, percentage: 62 }] }
+    const model = buildAdmissionsDocumentReview({ professional_qualifications: [{ qualification: 'CA', institution: 'ICAI', completion_year: 2021, percentage: 65 }] }, profile)
+    expect(applyAdmissionsDocumentReview(profile, model).profile.professional_qualifications[0].percentage).toBe(62)
+  })
+  it('does not attach a professional CGPA scale to a different saved CGPA', () => {
+    const profile = { professional_qualifications: [{ qualification: 'PhD', institution: 'Synthetic University', cgpa: 3.7 }] }
+    const model = select(buildAdmissionsDocumentReview({ professional_qualifications: [{ qualification: 'PhD', institution: 'Synthetic University', cgpa: 8.5, cgpa_scale: 10 }] }, profile), 'cgpa_scale')
+    expect(() => applyAdmissionsDocumentReview(profile, model)).toThrow('do not attach this scale')
+  })
+  it('re-resolves reordered professional records using their stable row identity', () => {
+    const first = { _row_id: '11111111-1111-4111-8111-111111111111', qualification: 'CA', institution: 'ICAI' }, second = { _row_id: '22222222-2222-4222-8222-222222222222', qualification: 'CFA', institution: 'CFA Institute' }
+    const model = buildAdmissionsDocumentReview({ professional_qualifications: [{ qualification: 'CA', institution: 'ICAI', percentage: 61 }] }, { professional_qualifications: [first, second] })
+    expect(applyAdmissionsDocumentReview({ professional_qualifications: [second, first] }, model).profile.professional_qualifications[1].percentage).toBe(61)
+  })
+  it('leaves contradictory professional rows for explicit target selection', () => {
+    const model = buildAdmissionsDocumentReview({ professional_qualifications: [{ qualification: 'CA', institution: 'ICAI', completion_year: 2021, percentage: 62 }, { qualification: 'CA', institution: 'ICAI', completion_year: 2021, percentage: 65 }] }, {})
+    expect(model.records.every(row => row.choice === '')).toBe(true)
+  })
+  it('includes printed defence service facts in field review and excludes unknown identifiers', () => {
+    const model = buildAdmissionsDocumentReview({ defence_service: { status: 'veteran', branch: 'Indian Army', rank: 'Major', current: false, start_date: '2000-04', end_date: '2020-03', leadership_summary: 'Led training.', service_number: 'IC123456' } }, {})
+    expect(applyAdmissionsDocumentReview({}, model).profile.defence_service).toEqual({ status: 'veteran', branch: 'Indian Army', rank: 'Major', current: false, start_date: '2000-04', end_date: '2020-03', leadership_summary: 'Led training.' })
+  })
+  it('imports a legitimate negative scaled section score', () => {
+    const model = buildAdmissionsDocumentReview({ exam_scores: [{ exam: 'CAT', year: 2025, section_scores: { 'VARC scaled score': -1.2 } }] }, {})
+    expect(applyAdmissionsDocumentReview({}, model).profile.exam_scores[0].section_scores['VARC scaled score']).toBe(-1.2)
+  })
+  it('rejects an invalid professional enum rather than aborting other new fields', () => {
+    const model = buildAdmissionsDocumentReview({ full_name: 'Synthetic Applicant', professional_qualifications: [{ qualification: 'Unverified prestige credential' }] }, {})
+    expect(applyAdmissionsDocumentReview({}, model).profile.full_name).toBe('Synthetic Applicant')
+  })
+})

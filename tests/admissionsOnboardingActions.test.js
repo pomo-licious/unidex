@@ -122,6 +122,22 @@ describe('Guided onboarding save actions', () => {
       .toEqual({ step: 'complete', completionIsValid: true, reviewed: false })
   })
 
+  it('opens experience details when an experienced applicant has not supplied last annual CTC', async () => {
+    const profile = { ...baseProfile('review'), total_work_experience_months: 24 }
+    const test = actionsHarness({ step: 'review', profile })
+    test.actions.setReviewed(true); test.render()
+    await test.actions.saveStep('complete', { complete: true }); test.render()
+    expect({ saves: test.workspace.saveProfile.mock.calls.length, step: test.actions.step, hasPrompt: /CTC/i.test(test.actions.actionError), reviewed: test.actions.reviewed }).toEqual({ saves: 0, step: 'work', hasPrompt: true, reviewed: false })
+  })
+
+  it('lets an experienced applicant finish review after adding annual CTC', async () => {
+    const profile = { ...baseProfile('review'), total_work_experience_months: 24, last_drawn_ctc: 1200000 }
+    const test = actionsHarness({ step: 'review', profile })
+    test.actions.setReviewed(true); test.render()
+    await test.actions.saveStep('complete', { complete: true }); test.render()
+    expect(test.actions.step).toBe('complete')
+  })
+
   it('clears the review-edit query only after returning to the saved review and preserves unrelated parameters', async () => {
     const test = actionsHarness({ step: 'personal', query: 'review=1&from=documents' })
     const editingBefore = test.actions.editingReview

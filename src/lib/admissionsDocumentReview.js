@@ -6,11 +6,15 @@ const ACADEMIC = {
   academic_12th: ['board', 'school', 'year', 'percentage', 'cgpa', 'cgpa_scale', 'stream'],
   academic_graduation: ['university', 'college', 'degree', 'branch', 'year_of_passing', 'cgpa', 'cgpa_scale', 'percentage'],
 }
-const EXAMS = ['exam', 'year', 'total_score', 'percentile']
+const EXAMS = ['exam', 'exam_version', 'year', 'total_score', 'percentile']
 const WORK = ['company', 'designation', 'start_date', 'end_date', 'current', 'months', 'last_drawn_ctc']
+const QUALIFICATIONS = ['qualification', 'title', 'institution', 'status', 'completion_year', 'percentage', 'cgpa', 'cgpa_scale', 'field']
+const DEFENCE = ['status', 'branch', 'rank', 'start_date', 'end_date', 'current', 'leadership_summary']
+const ROW_FIELDS = { exam_scores: EXAMS, work_experience: WORK, professional_qualifications: QUALIFICATIONS }
+const rowName = section => section === 'exam_scores' ? 'Exam result' : section === 'professional_qualifications' ? 'Qualification' : 'Experience'
 const GROUPS = { academic_10th: 'Class 10 mark sheet', academic_12th: 'Class 12 mark sheet', academic_graduation: 'Graduation mark sheet' }
-export const DOCUMENT_REVIEW_NUMBERS = new Set(['year', 'year_of_passing', 'percentage', 'cgpa', 'cgpa_scale', 'total_score', 'percentile', 'months', 'last_drawn_ctc', 'total_work_experience_months'])
-export const DOCUMENT_REVIEW_LABELS = { full_name: 'Full name', email: 'Email', phone: 'Phone', date_of_birth: 'Date of birth', gender: 'Gender', nationality: 'Nationality', current_city: 'Current city', board: 'Board', school: 'School', year: 'Year', percentage: 'Percentage', cgpa: 'CGPA', cgpa_scale: 'CGPA grading scale', stream: 'Stream', university: 'University', college: 'College', degree: 'Degree', branch: 'Specialization', year_of_passing: 'Year of completion', exam: 'Entrance exam', total_score: 'Total score', percentile: 'Percentile', company: 'Company', designation: 'Designation', start_date: 'Start date', end_date: 'End date', months: 'Months of experience', current: 'Currently employed here', last_drawn_ctc: 'Annual CTC (₹)', total_work_experience_months: 'Total experience (months)', verbal: 'Verbal score', quantitative: 'Quantitative score', reasoning: 'Reasoning score' }
+export const DOCUMENT_REVIEW_NUMBERS = new Set(['year', 'year_of_passing', 'completion_year', 'percentage', 'cgpa', 'cgpa_scale', 'total_score', 'percentile', 'months', 'last_drawn_ctc', 'total_work_experience_months'])
+export const DOCUMENT_REVIEW_LABELS = { exam_version: 'GMAT edition', qualification: 'Qualification', title: 'Qualification title', institution: 'Awarding institution', status: 'Status', completion_year: 'Year of completion', field: 'Field of study', rank: 'Rank', leadership_summary: 'Leadership / service responsibilities', full_name: 'Full name', email: 'Email', phone: 'Phone', date_of_birth: 'Date of birth', gender: 'Gender', nationality: 'Nationality', current_city: 'Current city', board: 'Board', school: 'School', year: 'Year', percentage: 'Percentage', cgpa: 'CGPA', cgpa_scale: 'CGPA grading scale', stream: 'Stream', university: 'University', college: 'College', degree: 'Degree', branch: 'Specialization', year_of_passing: 'Year of completion', exam: 'Entrance exam', total_score: 'Total score', percentile: 'Percentile', company: 'Company', designation: 'Designation', start_date: 'Start date', end_date: 'End date', months: 'Months of experience', current: 'Currently employed here', last_drawn_ctc: 'Annual CTC (₹)', total_work_experience_months: 'Total experience (months)', verbal: 'Verbal score', quantitative: 'Quantitative score', reasoning: 'Reasoning score' }
 const safeKey = key => typeof key === 'number' || /^[a-zA-Z0-9_ -]{1,80}$/.test(String(key)) && !['__proto__', 'prototype', 'constructor'].includes(String(key))
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 const clone = value => structuredClone(value)
@@ -38,15 +42,17 @@ function typedValue(field) {
   }
   if (numeric(field)) {
     const value = Number(String(field.value).trim())
-    if (!Number.isFinite(value) || value < 0) throw new Error(`Enter a valid non-negative number for ${field.label}.`)
+    if (!Number.isFinite(value) || value < (field.path.includes('section_scores') ? -100 : 0)) throw new Error(`Enter a valid non-negative number for ${field.label}.`)
     const max = ['percentage', 'percentile'].includes(field.key) ? 100 : field.key === 'cgpa' ? 20 : field.key === 'cgpa_scale' ? 100 : ['months', 'total_work_experience_months'].includes(field.key) ? 720 : field.key === 'last_drawn_ctc' ? 1e10 : field.key === 'total_score' ? 2000 : null
     if (max !== null && value > max) throw new Error(`${field.label} must not exceed ${max}.`)
-    if (['year', 'year_of_passing'].includes(field.key) && (!Number.isInteger(value) || value < 1950 || value > new Date().getUTCFullYear() + 6)) throw new Error(`Check the year for ${field.label}.`)
-    if (field.key === 'cgpa_scale' && value === 0) throw new Error('A CGPA grading scale must be greater than zero.')
+    if (['year', 'year_of_passing', 'completion_year'].includes(field.key) && (!Number.isInteger(value) || value < 1950 || value > new Date().getUTCFullYear() + (field.key === 'completion_year' ? (field.record?.source.status || field.record?.baseRecord?.status) === 'pursuing' ? 10 : 0 : 6))) throw new Error(`Check the year for ${field.label}.`)
+    if (field.key === 'cgpa_scale' && value < 1) throw new Error('A CGPA grading scale must be greater than zero.')
     return value
   }
   if (typeof field.value !== 'string') throw new Error(`Check the extracted value for ${field.label}.`)
   const value = field.value.trim()
+  const choices = field.key === 'qualification' ? ['CA', 'CS', 'CMA', 'CPA', 'ACCA', 'CFA', 'PhD', 'Other'] : field.key === 'exam_version' ? ['focus', 'classic'] : field.key === 'status' ? field.path[0] === 'defence_service' ? ['none', 'serving', 'veteran'] : ['completed', 'pursuing'] : null
+  if (choices && !choices.includes(value)) throw new Error(`Check the extracted ${field.label.toLowerCase()}.`)
   if (field.key.includes('date')) {
     const month = /^\d{4}-\d{2}$/.test(value)
     if (month && ['start_date', 'end_date'].includes(field.key)) {
@@ -90,18 +96,20 @@ function dateCompatible(a, b) {
 function candidates(section, source, rows) {
   return rows.map((row, index) => ({ row, index })).filter(({ row }) => {
     if (!record(row)) return false
-    if (section === 'exam_scores') return hasDocumentReviewValue(source.exam) && text(row.exam) === text(source.exam) && (!hasDocumentReviewValue(source.year) || !hasDocumentReviewValue(row.year) || Number(row.year) === Number(source.year))
+    if (section === 'professional_qualifications') return hasDocumentReviewValue(source.qualification) && text(row.qualification) === text(source.qualification) && (!hasDocumentReviewValue(source.institution) || !hasDocumentReviewValue(row.institution) || text(row.institution) === text(source.institution)) && (!hasDocumentReviewValue(source.completion_year) || !hasDocumentReviewValue(row.completion_year) || Number(row.completion_year) === Number(source.completion_year)) && (!hasDocumentReviewValue(source.title) || !hasDocumentReviewValue(row.title) || text(row.title) === text(source.title))
+    if (section === 'exam_scores') return hasDocumentReviewValue(source.exam) && text(row.exam) === text(source.exam) && (!hasDocumentReviewValue(source.exam_version) || !hasDocumentReviewValue(row.exam_version) || text(row.exam_version) === text(source.exam_version)) && (!hasDocumentReviewValue(source.year) || !hasDocumentReviewValue(row.year) || Number(row.year) === Number(source.year))
     return hasDocumentReviewValue(source.company) && text(row.company) === text(source.company) && (!hasDocumentReviewValue(source.designation) || !hasDocumentReviewValue(row.designation) || text(row.designation) === text(source.designation)) && dateCompatible(source.start_date, row.start_date)
   })
 }
 function identity(section, source) {
-  if (section === 'exam_scores') return hasDocumentReviewValue(source.exam) && hasDocumentReviewValue(source.year) ? `${text(source.exam)}|${source.year}` : null
+  if (section === 'professional_qualifications') return hasDocumentReviewValue(source.qualification) && hasDocumentReviewValue(source.institution) && hasDocumentReviewValue(source.completion_year) ? `${text(source.qualification)}|${text(source.institution)}|${source.completion_year}|${text(source.title)}` : null
+  if (section === 'exam_scores') return hasDocumentReviewValue(source.exam) && hasDocumentReviewValue(source.year) ? `${text(source.exam)}|${source.year}|${text(source.exam_version)}` : null
   return hasDocumentReviewValue(source.company) && hasDocumentReviewValue(source.designation) && hasDocumentReviewValue(source.start_date) ? `${text(source.company)}|${text(source.designation)}|${String(source.start_date).slice(0, 7)}` : null
 }
 function sameSuggestion(section, left, right) {
   const canonical = source => {
     const result = {}
-    for (const key of section === 'exam_scores' ? EXAMS : WORK) {
+    for (const key of ROW_FIELDS[section]) {
       if (!hasDocumentReviewValue(source[key])) continue
       const raw = source[key]
       result[key] = DOCUMENT_REVIEW_NUMBERS.has(key) && Number.isFinite(Number(raw)) ? Number(raw) : key === 'current' && ['true', 'false'].includes(String(raw)) ? String(raw) === 'true' : raw
@@ -111,21 +119,23 @@ function sameSuggestion(section, left, right) {
   }
   return exact(canonical(left), canonical(right))
 }
-function rowLabel(section, row, index) { return section === 'exam_scores' ? `${row.exam || 'Unnamed exam'} · ${row.year || 'year not recorded'} (record ${index + 1})` : `${row.company || 'Unnamed company'} · ${row.designation || 'role not recorded'} · ${row.start_date || 'start date not recorded'} (record ${index + 1})` }
+function rowLabel(section, row, index) { if (section === 'professional_qualifications') return `${row.title || row.qualification || 'Unnamed qualification'} · ${row.institution || 'institution not recorded'} · ${row.completion_year || 'year not recorded'} (record ${index + 1})`; return section === 'exam_scores' ? `${row.exam || 'Unnamed exam'}${row.exam_version ? ` (${row.exam_version})` : ''} · ${row.year || 'year not recorded'} (record ${index + 1})` : `${row.company || 'Unnamed company'} · ${row.designation || 'role not recorded'} · ${row.start_date || 'start date not recorded'} (record ${index + 1})` }
 function rowChoices(section, rows) { return rows.map((row, index) => ({ value: `existing:${index}`, label: rowLabel(section, row, index), baseRecord: clone(row) })) }
 function makeRecord(section, source, sourceIndex, rows, duplicateConflict) {
   const matches = candidates(section, source, rows)
-  const missingIdentity = section === 'exam_scores' ? !hasDocumentReviewValue(source.exam) : !hasDocumentReviewValue(source.company)
+  const missingIdentity = section === 'exam_scores' ? !hasDocumentReviewValue(source.exam) : section === 'professional_qualifications' ? !hasDocumentReviewValue(source.qualification) : !hasDocumentReviewValue(source.company)
   const ambiguous = matches.length > 1 || duplicateConflict || missingIdentity
   const choice = ambiguous ? '' : matches.length === 1 ? `existing:${matches[0].index}` : 'new'
-  return { id: `${section}.${sourceIndex}`, section, sourceIndex, source: clone(source), group: section === 'exam_scores' ? `Exam result ${sourceIndex + 1}` : `Experience ${sourceIndex + 1}`, choice, baseRecord: choice.startsWith('existing:') ? clone(matches[0].row) : null, baseMatchingRecords: matches.map(item => clone(item.row)), reason: duplicateConflict ? 'Some extracted rows may describe the same record but provide different or incomplete details. Choose a target and approve only the intended values.' : missingIdentity ? 'The document does not identify this record clearly. Choose its target.' : matches.length > 1 ? 'Several saved records could match. Choose the correct one; none was selected automatically.' : '', options: [...rowChoices(section, rows), { value: 'new', label: section === 'exam_scores' ? 'Create a new exam result' : 'Create a new experience record' }] }
+  return { id: `${section}.${sourceIndex}`, section, sourceIndex, source: clone(source), group: `${rowName(section)} ${sourceIndex + 1}`, choice, baseRecord: choice.startsWith('existing:') ? clone(matches[0].row) : null, baseMatchingRecords: matches.map(item => clone(item.row)), reason: duplicateConflict ? 'Some extracted rows may describe the same record but provide different or incomplete details. Choose a target and approve only the intended values.' : missingIdentity ? 'The document does not identify this record clearly. Choose its target.' : matches.length > 1 ? 'Several saved records could match. Choose the correct one; none was selected automatically.' : '', options: [...rowChoices(section, rows), { value: 'new', label: `Create a new ${rowName(section).toLowerCase()} record` }] }
 }
 function fieldFor(path, value, group, profile, row = null, source = null) {
   const key = path.at(-1)
   const target = row ? row.choice.startsWith('existing:') ? [row.section, Number(row.choice.split(':')[1]), ...path.slice(2)] : null : path
   const current = target ? get(profile, target) : undefined
-  const academicPath = path.length === 2 && path[0].startsWith('academic_') ? path[0] : null
-  return decorate({ id: path.join('.'), path, key, group, label: DOCUMENT_REVIEW_LABELS[key] || String(key).replaceAll('_', ' '), value: typeof value === 'boolean' ? value : String(value), originalValue: clone(value), current: clone(current), baseValue: clone(current), record: row, sourceScale: academicPath ? source?.cgpa_scale : undefined, currentScale: academicPath ? profile?.[academicPath]?.cgpa_scale : undefined, sourceCgpa: academicPath ? source?.cgpa : undefined, currentCgpa: academicPath ? profile?.[academicPath]?.cgpa : undefined })
+  const academicPath = path.length === 2 && path[0].startsWith('academic_') ? [path[0]] : row?.section === 'professional_qualifications' && target ? target.slice(0, 2) : null
+  const currentAcademic = academicPath ? get(profile, academicPath) : undefined
+  const gradeSource = source || row?.source
+  return decorate({ id: path.join('.'), path, key, group, label: path[0] === 'defence_service' && key === 'branch' ? 'Service branch' : path[0] === 'defence_service' && key === 'current' ? 'Currently serving' : DOCUMENT_REVIEW_LABELS[key] || String(key).replaceAll('_', ' '), value: typeof value === 'boolean' ? value : String(value), originalValue: clone(value), current: clone(current), baseValue: clone(current), record: row, sourceScale: gradeSource?.cgpa_scale, currentScale: currentAcademic?.cgpa_scale, sourceCgpa: gradeSource?.cgpa, currentCgpa: currentAcademic?.cgpa })
 }
 
 export function buildAdmissionsDocumentReview(suggestions = {}, profile = {}) {
@@ -133,7 +143,8 @@ export function buildAdmissionsDocumentReview(suggestions = {}, profile = {}) {
   const append = (path, value, group, row = null, source = null) => { if (path.every(safeKey) && hasDocumentReviewValue(value) && typeof value !== 'object') fields.push(fieldFor(path, value, group, profile, row, source)) }
   PERSONAL.forEach(key => append([key], suggestions[key], 'Personal information'))
   Object.entries(ACADEMIC).forEach(([section, keys]) => keys.forEach(key => append([section, key], suggestions[section]?.[key], GROUPS[section], null, suggestions[section])))
-  for (const section of ['exam_scores', 'work_experience']) {
+  DEFENCE.forEach(key => append(['defence_service', key], suggestions.defence_service?.[key], 'Defence service'))
+  for (const section of Object.keys(ROW_FIELDS)) {
     const rows = Array.isArray(profile[section]) ? profile[section].filter(record) : []
     const sources = (Array.isArray(suggestions[section]) ? suggestions[section] : []).map((value, index) => ({ value, index })).filter(item => record(item.value))
     const unique = []
@@ -146,7 +157,7 @@ export function buildAdmissionsDocumentReview(suggestions = {}, profile = {}) {
       const duplicateConflict = unique.some(item => item.index !== index && (key !== null && identity(section, item.value) === key || candidates(section, source, [item.value]).length && candidates(section, item.value, [source]).length))
       const row = makeRecord(section, source, index, rows, duplicateConflict)
       records.push(row)
-      ;(section === 'exam_scores' ? EXAMS : WORK).forEach(key => append([section, index, key], source[key], row.group, row))
+      ;(ROW_FIELDS[section]).forEach(key => append([section, index, key], source[key], row.group, row))
       if (section === 'exam_scores') Object.entries(record(source.section_scores) ? source.section_scores : {}).forEach(([key, value]) => append([section, index, 'section_scores', key], value, row.group, row))
     }
   }
@@ -164,13 +175,14 @@ export function retargetAdmissionsDocumentReview(model, recordId, choice, profil
   const fields = model.fields.map(field => {
     if (field.record?.id !== recordId) return field
     const current = index === null ? undefined : get(baseRecord, field.path.slice(2))
-    return decorate({ ...field, record: updated, current: clone(current), baseValue: clone(current) })
+    return decorate({ ...field, record: updated, current: clone(current), baseValue: clone(current), ...(row.section === 'professional_qualifications' ? { currentScale: baseRecord?.cgpa_scale, currentCgpa: baseRecord?.cgpa } : {}) })
   })
   return { ...model, fields, records: model.records.map(item => item.id === recordId ? updated : item) }
 }
 function resolveExistingRecord(section, baseRecord, profile) {
   const rows = (Array.isArray(profile[section]) ? profile[section] : []).filter(record)
-  let matches = hasDocumentReviewValue(baseRecord?.id) ? rows.map((value, index) => ({ row: value, index })).filter(item => item.row.id === baseRecord.id) : candidates(section, baseRecord || {}, rows)
+  const stableId = baseRecord?._row_id || baseRecord?._unidex_row_id || baseRecord?.id
+  let matches = hasDocumentReviewValue(stableId) ? rows.map((value, index) => ({ row: value, index })).filter(item => (item.row._row_id || item.row._unidex_row_id || item.row.id) === stableId) : candidates(section, baseRecord || {}, rows)
   if (matches.length > 1) {
     const exactMatches = matches.filter(item => exact(item.row, baseRecord))
     if (exactMatches.length === 1) matches = exactMatches
@@ -199,7 +211,7 @@ export function applyAdmissionsDocumentReview(profile, model) {
     if (target.mode === 'new') {
       if (!Array.isArray(next[row.section])) next[row.section] = []
       target.index = next[row.section].length
-      next[row.section].push(row.section === 'work_experience' ? { id: crypto.randomUUID() } : {})
+      next[row.section].push(row.section === 'work_experience' ? { id: crypto.randomUUID() } : row.section === 'professional_qualifications' ? { _row_id: crypto.randomUUID() } : {})
     }
     recordTargets.set(row.id, target)
   }
@@ -218,21 +230,23 @@ export function applyAdmissionsDocumentReview(profile, model) {
   writes.forEach(({ target, value }) => set(next, target, value))
   // A CGPA and its denominator are one fact. Never attach one half of a
   // conflicting pair to a previously saved value from a different scale.
-  for (const section of Object.keys(ACADEMIC)) {
-    const valueField = model.fields.find(field => field.path[0] === section && field.key === 'cgpa')
-    const scaleField = model.fields.find(field => field.path[0] === section && field.key === 'cgpa_scale')
+  const gradeGroups = [...Object.keys(ACADEMIC).map(section => ({ sourcePath: [section], targetPath: [section] })), ...model.records.filter(row => row.section === 'professional_qualifications' && recordTargets.has(row.id)).map(row => ({ sourcePath: [row.section, row.sourceIndex], targetPath: [row.section, recordTargets.get(row.id).index] }))]
+  for (const { sourcePath, targetPath } of gradeGroups) {
+    const valueField = model.fields.find(field => exact(field.path.slice(0, -1), sourcePath) && field.key === 'cgpa')
+    const scaleField = model.fields.find(field => exact(field.path.slice(0, -1), sourcePath) && field.key === 'cgpa_scale')
     const valueChosen = selected.includes(valueField), scaleChosen = selected.includes(scaleField)
     if (!valueChosen && !scaleChosen) continue
     const sourceValue = valueField ? typedValue(valueField) : undefined
     const sourceScale = scaleField ? typedValue(scaleField) : undefined
-    const savedValue = profile[section]?.cgpa, savedScale = profile[section]?.cgpa_scale
+    const savedValue = get(profile, targetPath)?.cgpa, savedScale = get(profile, targetPath)?.cgpa_scale
     if (valueChosen && hasDocumentReviewValue(savedScale) && !hasDocumentReviewValue(sourceScale)) throw new Error('The extracted CGPA has no confirmed grading scale. Confirm the value and grading scale together in your profile.')
-    if (valueChosen && hasDocumentReviewValue(sourceScale) && Number(next[section]?.cgpa_scale) !== Number(sourceScale)) throw new Error('Approve the CGPA and its extracted grading scale together so the saved pair stays consistent.')
-    if (scaleChosen && hasDocumentReviewValue(savedValue) && (!hasDocumentReviewValue(sourceValue) || Number(next[section]?.cgpa) !== Number(sourceValue))) throw new Error('Approve the CGPA value with its grading scale; do not attach this scale to a different saved CGPA.')
+    if (valueChosen && hasDocumentReviewValue(sourceScale) && Number(get(next, targetPath)?.cgpa_scale) !== Number(sourceScale)) throw new Error('Approve the CGPA and its extracted grading scale together so the saved pair stays consistent.')
+    if (scaleChosen && hasDocumentReviewValue(savedValue) && (!hasDocumentReviewValue(sourceValue) || Number(get(next, targetPath)?.cgpa) !== Number(sourceValue))) throw new Error('Approve the CGPA value with its grading scale; do not attach this scale to a different saved CGPA.')
     if (scaleChosen && hasDocumentReviewValue(savedScale) && Number(savedScale) !== Number(sourceScale) && hasDocumentReviewValue(savedValue) && !valueChosen) throw new Error('Changing a CGPA denominator requires explicitly approving the CGPA value and grading scale together.')
   }
   if (Array.isArray(reviewedData.exam_scores)) reviewedData.exam_scores = reviewedData.exam_scores.filter(Boolean)
   if (Array.isArray(reviewedData.work_experience)) reviewedData.work_experience = reviewedData.work_experience.filter(Boolean)
+  if (Array.isArray(reviewedData.professional_qualifications)) reviewedData.professional_qualifications = reviewedData.professional_qualifications.filter(Boolean)
   const validation = writes.length ? validateAdmissionsProfile(next) : { valid: true }
   if (!validation.valid) throw new Error(Object.values(validation.errors)[0])
   return { profile: next, reviewedData, appliedFields: writes.map(({ target, value, sourcePath, originalValue }) => ({ path: clone(target), value: clone(value), sourcePath: clone(sourcePath), originalValue: clone(originalValue) })), appliedCount: writes.length, matchedCount: matched.length, excludedCount: model.fields.length - selected.length - matched.length }

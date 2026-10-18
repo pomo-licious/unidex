@@ -1,76 +1,88 @@
 # Delhi NCR college catalogue
 
-`src/data/delhiNcrColleges.js` imports the existing Business Idea research into the admissions experience. It does not seed, update or query the production database.
+The website imports the current **version 7** of `Delhi_NCR_MBA_PGDM_Database_2026_Final.xlsx`, Library identity `libfile_cd4f5961026c8191af6ad127e6240c5e`. Its public-source audit is dated **18 October 2026**. The source workbook remains unchanged and is not committed to Git.
 
-## Provenance
+Source fingerprint: `9d069dc833727be077817551a60b16ce6c2c8adb011d42da5a84a89befc623eb` (SHA-256). Import date does not replace individual evidence dates, cohorts or admission cycles.
 
-- Authoritative source: `/Business Idea/Delhi_NCR_MBA_PGDM_Database_2026_Final.xlsx`, version 2, Library identity `libfile_cd4f5961026c8191af6ad127e6240c5e`.
-- The workbook's current contents were materialized and read on 16 October 2026. Its continuation audit is dated 7 October 2026. Original field verification dates are retained; import date is not substituted for a source audit date.
-- The source contains 205 programme records under 169 distinct institution names. Of these, 199 programme records under 163 institutions are marked `Active / credible inventory`. Those 163 institutions form the default catalogue. This is a researched inventory, not a claim of regulator-complete coverage.
-- The six requested core cities contain 191 active programme records under 156 institutions: Delhi, Gurugram, Noida, Greater Noida, Ghaziabad and Faridabad. Seven additional institutions in Sonipat, Rohtak and Jhajjar are marked `broader_ncr`.
-- Workbook sheets inspected: College Master, Exam & Cutoff View, Source Tracker, Executive Summary, Assumptions, Data Gaps, Change Log and the programme-linked fee/placement views.
-- The older `Delhi_NCR_MBA_PGDM_Database_2026.xlsx` was found but not used as the authoritative source because the Final version records subsequent corrections and held leads.
+## Reconciliation
+
+| Inventory | Institutions | Programme records |
+| --- | ---: | ---: |
+| Complete workbook | 173 | 216 |
+| Active website catalogue | 157 | 199 |
+| Active six-city core | 148 | 189 |
+| Active broader NCR references | 9 | 10 |
+| Held or unconfirmed, audit only | 16 | 17 |
+
+The six-city core is Delhi, Gurugram, Noida, Greater Noida, Ghaziabad and Faridabad. Broader NCR records retain their geographic label. These are researched inventory counts, not a claim of regulator-complete statutory NCR coverage.
+
+Every workbook programme identifier occurs exactly once across active programmes and held records. Institutions have one discovery card with programme child records. Existing institution IDs and `programme-ncr-...` programme IDs are preserved when the source identity is unchanged. The new JSS University record remains separate from the held legacy JSS Academy of Technical Education MBA; their approval, intake, fees and placements are not combined.
+
+## Reproducible import
+
+- `scripts/data/delhi-ncr-workbook-v7.json.gz` deterministically compresses (gzip, timestamp zero) the complete current-facts snapshot. Its decompressed JSON preserves every nonempty row and original Excel row number from the 13 current workbook sheets. It includes all 70 College Master columns and the linked fee, career, contact, exam, shortlist, estimate, gap and commercial views. Cached workbook values are read; the unchanged workbook remains the formula authority.
+- `docs/data/delhi-ncr-workbook-v7-audit.json.gz` retains the Source Tracker's 4,805 evidence rows and Change Log's 7,133 correction rows, plus headers/context. This historical audit is outside public assets and JavaScript imports.
+- `scripts/data/delhi-ncr-verified-rules.json` preserves stable identities and limited verified admissions rules. Its separate `currentOfficialChecks` records explicit current-source overlays without silently rewriting workbook evidence.
+- `src/data/delhiNcrColleges.js` is the generated discovery, matching and application contract, including held audit summaries. Its ordered college records are split into generated modules under `src/data/delhiNcrCatalogue/`, each at most 250,000 UTF-8 bytes. The public exports and catalogue values are unchanged; regeneration only removes stale files matching `part-\d{2}.generated.js` in that generated directory.
+- `public/data/college-research/{collegeId}.json` retains all 70 current master columns and linked student-facing views for one institution, with scoped programme fields and source sheet/row lineage. Full research loads on request through `loadCollegeResearch`; it is not bundled into the homepage or matching calculation.
+
+Regenerate from the checked-in source snapshot:
+
+```sh
+node scripts/generate-delhi-ncr-catalogue.mjs
+```
+
+To re-read the actual version 7 workbook first (Python with read-only `openpyxl` required):
+
+```sh
+python scripts/import-delhi-ncr-workbook.py /absolute/path/Delhi_NCR_MBA_PGDM_Database_2026_Final.xlsx
+```
+
+The generator refuses duplicate programme/institution IDs and fails if version 7 totals do not reconcile. Programme-labelled paragraphs are separated rather than copied from the reference programme. Non-reference programme research views leave the master numeric reference columns blank; their own amounts remain in explicitly labelled published-detail cells.
+
+Internal partnership, referral and salary-growth assumptions remain in the repository research snapshot. They are not advertised as a college agreement, actual referral income, admission probability or forecast salary.
 
 ## Data contract
 
-`DELHI_NCR_COLLEGES` is an array of institution records. `id` is a stable readable catalogue identifier independent of a Supabase college UUID. `sourceInstitutionRecordId` preserves the representative workbook row identifier.
+`DELHI_NCR_COLLEGES` is an institution array. `id` is a stable catalogue identifier independent of a Supabase UUID. `sourceInstitutionRecordId` points to the consolidated workbook row. `programmes` contains active child records whose `sourceRecordId` identifies the workbook programme.
 
-Each institution has `programmeNames` for display and `programmes` for programme-specific matching, planning and forms. A programme preserves the original workbook `sourceRecordId`, with an application-local `id` such as `programme-ncr-009`.
+Top-level programme facts mirror `representativeProgrammeId`. A selected programme must use its own facts and ID; executive, international, healthcare and newly approved programmes must not inherit flagship eligibility, fee, deadline or placement rules. `acceptedExams` is programme-specific; `allAcceptedExams` is a discovery union only. `acceptedExamsLabel` preserves restrictions such as international/NRI-only GMAT routes.
 
-Top-level eligibility, exam, fee, placement, deadline and form fields mirror `programmes[0]`, whose identity is recorded as `representativeProgrammeId`. Applications selecting a different programme must use that programme's own fields and preserve its identifier in the application snapshot. The executive experience/fee rules must never inherit the institution's full-time programme rules.
+Programme records preserve fee/placement labels, scopes, evidence, sources, checked dates, cohort, eligibility, entrance conditions, intake, recruiters, published roles, inferred career paths, ranking context, office contact and application signals. Complete cells and caveats are available in on-demand research. Linked views include Career Outcomes & Outlook, Admissions & Placement Contacts, Fee & ROI View, Exam & Cutoff View, Data Gaps and Fee Estimates.
 
-`acceptedExams` describes the representative programme; `allAcceptedExams` is the institution-wide union for discovery only. Neither means every exam is valid for every programme, applicant category, test year or admission cycle. `acceptedExamsLabel` retains the published route conditions.
+Missing or noncomparable numeric values are null, never zero. A numeric reference does not establish a current payable invoice or an individual salary outcome.
 
-Null numeric values mean unavailable, unverified or not comparable. They do not mean zero. `feesLabel`, `averageCtcLabel`, `feeScope`, `placementScope`, evidence fields, source URLs and dates retain the distinctions needed to interpret the original research.
+## Evidence boundaries
 
-## Values deliberately withheld from scoring
+- Expected CAT/XAT bands remain screening-estimate text, not official numeric selection thresholds or admission probabilities.
+- Approximate and conditional fees are not exact budget constraints. FMS has `feesInr: null`; its conditional four-semester ₹2,43,272 calculation remains in `feeEstimate`. The institute-published approximate IMM ₹17.25 lakh reference similarly stays separate. `publishedFeeReferenceInr` retains an explicitly numeric workbook reference even where approximate status prevents use in `feesInr`. Living costs, refundable deposits, travel, application charges and revisions retain their original scope.
+- `averageCtcInr` is withheld for pooled, undated, headline, secondary, interim, proxy or otherwise noncomparable evidence. `reportedMeanReferenceInr`, original labels and separate `ctcReference` preserve the research. Highest packages, peer estimates and future salary scenarios never substitute for an average.
+- No comparable verified average entrant GMAT or average work-experience benchmarks are established across the imported programmes. `matchingBenchmarks` remains null; no average or admission probability is invented. More experience and higher prior salary are not assumed to improve every application.
+- Explicit minimum graduation, degree-duration, school-mark and work-experience rules retain their sources and cycle flags. The current MDI IB rule stays programme-specific; older executive rules remain subject to a cycle check.
+- MERI's official page lists completed ICAI CA or ICSI CS final examinations as alternative eligibility routes, but cites older exam years. It is marked `official_previous_cycle_requires_confirmation`, not a current selection bonus or a CMA route. The current university brochure controls.
+- Jindal's unversioned GMAT 450 label remains research text, not a numeric rule that could be applied to GMAT Focus. Other specifically sourced criteria retain raw-score versus percentile units.
 
-- The workbook expressly calls expected CAT bands screening estimates. Those remain `examCutoffLabel` text. No estimated band or arbitrary tier was converted into an official numeric cutoff.
-- `examCriteria` contains only the official published Jindal MBA exam minimums rechecked in this session. A raw GRE, GMAT or NMAT score is never treated as a percentile.
-- Minimum graduation percentages are numeric only for the specifically sourced FMS full-time MBA, IIT Delhi full-time MBA, MDI full-time programmes, BIMTECH and Jindal MBA records. Unknown requirements remain null. Category-specific FMS and IIT exceptions are separately preserved.
-- Inherited approximate fees, third-party estimates, incomplete totals and conflicting schedules are not exposed as verified numeric fees. Their source labels remain available for review.
-- Average CTC is numeric only where the workbook identifies a published programme/cohort mean. Pooled-campus, top-percentile, interim, third-party, incomplete-scope and stale figures remain null in that field. The published label and evidence still identify what was originally reported.
-- No salary, referral agreement, application deadline, ranking, new programme or admission probability was invented. Prior salary is student profile information; this catalogue does not claim that colleges officially weight it.
+## Current official overlays
 
-## Official checks on 16 October 2026
-
-| Institution / programme | Fields checked | Source and interpretation |
+| Programme | Source | Interpretation |
 | --- | --- | --- |
-| MDI Gurgaon: PGDM, HRM, Business Analytics and International Business | Current deadline, academic eligibility, programme preferences; IB degree and experience rules | [Official PGDM-IB admissions page](https://mdi.ac.in/admissions/post-graduate-diploma-in-management-international-business-pgdm-ib) publishes the shared 2027–29 application deadline as 28 November 2026 at 17:00 IST. The four imported full-time programmes share that deadline. IB separately requires a four-year degree and one year of post-degree experience by 31 January 2027. The page's fee/installment text contains earlier-cycle labels, so it did not overwrite historical fee values. |
-| BIMTECH: General, International Business, Insurance Business Management, Retail Management | 2027–29 exams, minimum graduation marks and full-course tuition | [Official admissions page](https://www.bimtech.ac.in/admissions) distinguishes accepted tests by programme. MAT is included for Insurance and Retail; it is not assigned to General or IB. The current published tuition is ₹14 lakh for each programme; housing, mess and refundable security are extra. No current closing date was inferred. |
-| Jindal Global Business School: full-time MBA | Graduation and exam minimums, fee basis, application result-status handling | [Official full-time MBA page](https://jgu.edu.in/jgbs/admissions/full-time-mba-programme) publishes 50 percentile for CAT/MAT/XAT/CMAT/ATMA, GRE 295, GMAT 450 and NMAT 160. It permits an awaited exam result. Annual tuition is ₹7.5 lakh; the displayed two-year base of ₹15 lakh excludes annual increases, accommodation and services. The page mixes cycle labels, so no deadline is asserted. |
-| FMS Delhi: full-time MBA | General and reserved-category graduation rules; statement-of-purpose interview component | [Official 2026–28 bulletin](https://www.fms.edu/static/programmes/MBA_2026.pdf), page 6. This remains a previous-cycle rule, explicitly identified as such; it is not presented as a verified 2027–29 application window. |
-| IIT Delhi: full-time MBA | Minimum graduation mark, category relaxation | [Official admissions page](https://dms.iitd.ac.in/admission-mba/) was reconfirmed through the official-domain search index. Direct opening timed out twice, so `eligibilityVerificationStatus` identifies a search reconfirmation rather than a complete current-page audit. |
+| MDI PGDM, HRM and Business Analytics | [Current official PGDM page](https://mdi.ac.in/admissions/post-graduate-diploma-in-management-pgdm), checked 18 October 2026 | 2027–29 schedule totals ₹26,55,310 including ₹27,500 security. Displayed net reference is ₹26,27,810, with gross/security separately retained. Instalment dates establish the named cycle; fees remain subject to revision. IB and executive programmes do not inherit this amount. |
+| MDI PGDM, HRM, Business Analytics and IB | [Official IB page](https://mdi.ac.in/admissions/post-graduate-diploma-in-management-international-business-pgdm-ib), checked 16 October 2026 | Preserved deadline: 28 November 2026, 17:00 IST, 2027–29 intake. IB separately requires a four-year bachelor degree and one year post-degree work by 31 January 2027. Test routes remain programme-specific. |
+| BIMTECH variants | [Official admissions page](https://www.bimtech.ac.in/admissions), checked 16 October 2026 | Preserved programme-specific tests and graduation rules. MAT is retained for Insurance/Retail, not General/IB. Latest workbook fees/scopes supersede older imported amounts. |
+| MERI MBA | [Official institute page](https://meri.edu.in/meri/ipu-mba-admission-2/), reopened 18 October 2026 | CA/CS final alternative retained as historical official text needing current confirmation; older CAT/CMAT years are not adopted as current admissions. |
 
-Sources linked by the original workbook remain available in each programme's `sourceUrls`. Those include both primary evidence and clearly identifiable discovery sources; presence in that list does not mean every field was independently reverified today.
+Workbook primary and discovery sources remain distinguishable. A source URL does not mean every field was independently reverified during this import.
 
-## Deadline handling
+## Deadlines, forms and held records
 
-Only the four imported MDI full-time programmes have `verificationStatus: 'verified_current_cycle'` and a concrete `date`. Their `closesAt` carries `+05:30` and `timeZone` is `Asia/Kolkata`, avoiding UTC/local-date drift.
+Only sourced current-cycle deadlines have a concrete date. Preserved MDI deadlines include `closesAt: 2026-11-28T17:00:00+05:30` and `timeZone: Asia/Kolkata`. Unknown windows have `date: null` and `verificationStatus: confirmation_required`. Historical admission-closed, counselling and vacancy signals are context, not current availability claims.
 
-Every other deadline has `date: null`, `verificationStatus: 'confirmation_required'`, an explicit confirmation label and its admissions source URL. Historical workbook vacancy signals are retained separately as `applicationSignal`; they do not establish current availability.
+Unknown official form schemas stay `requirementsStatus: pending_verification`. The limited MDI preference selector has its official source; FMS SOP and Jindal result-status fields remain preparation aids. Capturing a Unidex draft does not mean a college has received or accepted an official submission.
 
-## Institution-specific forms
+All 16 held institutions / 17 programmes stay in `DELHI_NCR_EXCLUDED_RECORDS`, excluded from discovery and matching. Version 7 now also holds Prakash Deep, AAFT Noida, legacy JSSATE MBA and other previously retained records. Unknown identities, approvals and operations are not repaired by guessing a website or transferring another campus's outcomes.
 
-Unknown official form schemas have `requirementsStatus: 'pending_verification'` and no asserted required institution-specific fields. The shared Unidex application can collect the student's general profile and college-specific drafts, but capturing a draft is separate from an institution accepting a submission.
-
-The verified MDI programme-preference selector is required because the official shared application instructs applicants to select their programmes. FMS statement-of-purpose preparation and Jindal result-status fields are optional. These limited fields do not claim to reproduce complete institution application forms; those records have at most partially verified requirements.
-
-## Held and weak records
-
-The following six source rows remain in `DELHI_NCR_EXCLUDED_RECORDS` for audit only. They are not in `DELHI_NCR_COLLEGES`:
-
-| Source ID | Institution | Source status |
-| --- | --- | --- |
-| NCR-062 | Dr. Akhilesh Das Gupta Institute of Professional Studies | Verification required — exclude |
-| NCR-096 | I.T.S Institute of Management, Greater Noida | Verification required — exclude |
-| NCR-130 | Rishi Chadha Vishvas Girls Institute of Technology – MBA | Verification lead — exclude |
-| NCR-150 | DPG Institute of Technology and Management | Verification lead — exclude |
-| NCR-163 | Faridabad College of Engineering and Management (formerly DITMR) | Verification lead — exclude |
-| NCR-170 | Rishihood University – School of Entrepreneurship | Verification lead — exclude |
-
-The inherited active record NCR-128, Prakash Deep Institute of Management and Technology, lacks a verified official website. It is retained to preserve the researched inventory, with `website: null`, no accepted-exam assertion and `dataStatus: 'identity_verification_required'`. Third-party listings found during the current search did not establish present primary-source admissions status. Discovery should show its need for confirmation and avoid presenting it as a verified recommendation.
+IIM Lucknow's Noida IPMX is a possible workbook coverage gap; its [official programme page](https://iiml.ac.in/ipmx) merits a separately verified supplement. No invented NCR ID, fee, eligibility or deadline was attached to IIM Rohtak, and this release keeps the 173-institution source inventory exact.
 
 ## Validation
 
-The import reconciles 163 unique institution IDs, 199 programme records, 156 core institutions, 191 core programmes and six excluded programme rows. Numeric facts are finite positive values or null. Every concrete deadline has a current official-source record. Source programme identifiers remain unique. The source workbook was not modified.
+Tests reconcile all 216 programme identities, 173 source institutions, 157 active cards, 199 active programmes, 148 active core institutions, 189 active core programmes, 16 held institutions and 17 held programmes. They cover stable IDs, numeric versus conditional fees, MDI programme isolation, JSS identity separation, absence of fabricated averages, numeric-reference isolation, all 70 on-demand research columns, historical audit retention and research-loader cancellation/identity checks.

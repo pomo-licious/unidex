@@ -1,6 +1,10 @@
 import { isAiImportPath, normalizeAiImports } from './admissionsProfile'
 import { applyAdmissionsDocumentReview, buildAdmissionsDocumentReview, comparableDocumentValues, DOCUMENT_REVIEW_NUMBERS, hasDocumentReviewValue } from './admissionsDocumentReview'
 
+export const ADMISSIONS_EXTRACTION_SCHEMA_VERSION = 3
+export const canReuseAdmissionsAiExtraction = document => document?.extraction_model === 'cloudflare:@cf/google/gemma-4-26b-a4b-it' && document?.extracted_data?.schema_version === ADMISSIONS_EXTRACTION_SCHEMA_VERSION && !['extracting', 'processing', 'error', 'failed'].includes(document?.status) && buildAdmissionsDocumentReview(getSafeAdmissionsDocumentSuggestions(document), {}).fields.length > 0
+const ROW_SECTIONS = ['exam_scores', 'work_experience', 'professional_qualifications']
+
 const text = value => String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase()
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 const keyOf = path => JSON.stringify(path)
@@ -22,11 +26,13 @@ function normalized(field, value) {
   return field.key === 'current' ? String(value) === 'true' : text(value)
 }
 function overlap(section, a, b) {
-  if (section === 'exam_scores') return hasDocumentReviewValue(a.exam) && text(a.exam) === text(b.exam) && (!hasDocumentReviewValue(a.year) || !hasDocumentReviewValue(b.year) || Number(a.year) === Number(b.year))
+  if (section === 'professional_qualifications') return hasDocumentReviewValue(a.qualification) && text(a.qualification) === text(b.qualification) && (!hasDocumentReviewValue(a.institution) || !hasDocumentReviewValue(b.institution) || text(a.institution) === text(b.institution)) && (!hasDocumentReviewValue(a.completion_year) || !hasDocumentReviewValue(b.completion_year) || Number(a.completion_year) === Number(b.completion_year)) && (!hasDocumentReviewValue(a.title) || !hasDocumentReviewValue(b.title) || text(a.title) === text(b.title))
+  if (section === 'exam_scores') return hasDocumentReviewValue(a.exam) && text(a.exam) === text(b.exam) && (!hasDocumentReviewValue(a.exam_version) || !hasDocumentReviewValue(b.exam_version) || text(a.exam_version) === text(b.exam_version)) && (!hasDocumentReviewValue(a.year) || !hasDocumentReviewValue(b.year) || Number(a.year) === Number(b.year))
   return hasDocumentReviewValue(a.company) && text(a.company) === text(b.company) && (!hasDocumentReviewValue(a.designation) || !hasDocumentReviewValue(b.designation) || text(a.designation) === text(b.designation)) && (!hasDocumentReviewValue(a.start_date) || !hasDocumentReviewValue(b.start_date) || (String(a.start_date).length === 7 || String(b.start_date).length === 7 ? String(a.start_date).slice(0, 7) === String(b.start_date).slice(0, 7) : a.start_date === b.start_date))
 }
 function strictIdentity(section, row) {
-  if (section === 'exam_scores') return hasDocumentReviewValue(row.exam) && hasDocumentReviewValue(row.year) ? `${text(row.exam)}|${row.year}` : null
+  if (section === 'professional_qualifications') return hasDocumentReviewValue(row.qualification) && hasDocumentReviewValue(row.institution) && hasDocumentReviewValue(row.completion_year) ? `${text(row.qualification)}|${text(row.institution)}|${row.completion_year}|${text(row.title)}` : null
+  if (section === 'exam_scores') return hasDocumentReviewValue(row.exam) && hasDocumentReviewValue(row.year) ? `${text(row.exam)}|${row.year}|${text(row.exam_version)}` : null
   return hasDocumentReviewValue(row.company) && hasDocumentReviewValue(row.designation) && hasDocumentReviewValue(row.start_date) ? `${text(row.company)}|${text(row.designation)}|${row.start_date}` : null
 }
 const sourceInfo = (document, value) => ({ document_id: document.id, file_name: document.file_name || 'Document', value: structuredClone(value) })
@@ -57,7 +63,7 @@ export function appendAdmissionsAiImports(profile, appliedFields, sourceMap, imp
 }
 
 export function planAdmissionsBatchAutofill(profile, documents, { primaryPhotoDocumentId = null, importedAt = new Date().toISOString() } = {}) {
-  const scalar = new Map(), arraySources = { exam_scores: [], work_experience: [] }, sourceMap = new Map(), suggestions = {}, conflicts = []
+  const scalar = new Map(), arraySources = Object.fromEntries(ROW_SECTIONS.map(section => [section, []])), sourceMap = new Map(), suggestions = {}, conflicts = []
   const usable = documents.filter(document => document.document_type !== 'photo' && object(document.extracted_data)).slice().sort((a, b) => String(a.id).localeCompare(String(b.id)))
   for (const document of usable) {
     const model = buildAdmissionsDocumentReview(getSafeAdmissionsDocumentSuggestions(document), profile)
@@ -74,7 +80,7 @@ export function planAdmissionsBatchAutofill(profile, documents, { primaryPhotoDo
     set(suggestions, group.path, group.candidates[0].value)
     addSources(sourceMap, group.path, group.candidates)
   }
-  for (const section of ['exam_scores', 'work_experience']) {
+  for (const section of ROW_SECTIONS) {
     const groups = []
     for (const row of arraySources[section]) {
       const identity = strictIdentity(section, row.source)
@@ -91,7 +97,7 @@ export function planAdmissionsBatchAutofill(profile, documents, { primaryPhotoDo
     suggestions[section] = []
     for (const group of groups) {
       if (group.blocked) {
-        conflicts.push({ kind: 'record_ambiguity', path: [section], label: section === 'exam_scores' ? 'Exam result' : 'Work experience', values: group.rows.map(row => sourceInfo(row.document, section === 'exam_scores' ? `${row.source.exam || 'Unknown exam'} · ${row.source.year || 'year not shown'}` : `${row.source.company || 'Unknown company'} · ${row.source.designation || 'role not shown'}`)), message: 'These records overlap or disagree. Open individual reviews to choose their correct target; no record was added automatically.' })
+        conflicts.push({ kind: 'record_ambiguity', path: [section], label: section === 'exam_scores' ? 'Exam result' : section === 'professional_qualifications' ? 'Professional qualification' : 'Work experience', values: group.rows.map(row => sourceInfo(row.document, section === 'exam_scores' ? `${row.source.exam || 'Unknown exam'} · ${row.source.year || 'year not shown'}` : section === 'professional_qualifications' ? `${row.source.title || row.source.qualification || 'Unknown qualification'} · ${row.source.institution || 'institution not shown'}` : `${row.source.company || 'Unknown company'} · ${row.source.designation || 'role not shown'}`)), message: 'These records overlap or disagree. Open individual reviews to choose their correct target; no record was added automatically.' })
         continue
       }
       const index = suggestions[section].length, merged = {}
@@ -100,12 +106,13 @@ export function planAdmissionsBatchAutofill(profile, documents, { primaryPhotoDo
     }
   }
   const model = buildAdmissionsDocumentReview(suggestions, profile)
+  const gradeGroups = [...new Set(model.fields.filter(field => ['cgpa', 'cgpa_scale'].includes(field.key)).map(field => keyOf(field.path.slice(0, -1))))].map(key => ({ path: JSON.parse(key), fields: model.fields.filter(field => keyOf(field.path.slice(0, -1)) === key) }))
   // Do not attach a new CGPA to an unknown or contradictory saved denominator.
-  for (const section of ['academic_10th', 'academic_12th', 'academic_graduation']) {
-    const cgpa = model.fields.find(field => field.path[0] === section && field.key === 'cgpa'), scale = model.fields.find(field => field.path[0] === section && field.key === 'cgpa_scale')
-    if (cgpa?.include && hasDocumentReviewValue(profile[section]?.cgpa_scale) && !scale || cgpa?.include && scale && !scale.include && !comparableDocumentValues(scale, scale.value, profile[section]?.cgpa_scale)) {
+  for (const { path, fields } of gradeGroups) {
+    const cgpa = fields.find(field => field.key === 'cgpa'), scale = fields.find(field => field.key === 'cgpa_scale')
+    if (cgpa?.include && hasDocumentReviewValue(cgpa.currentScale) && !scale || cgpa?.include && scale && !scale.include && !comparableDocumentValues(scale, scale.value, cgpa.currentScale)) {
       cgpa.include = false
-      conflicts.push({ kind: 'grading_scale', path: [section, 'cgpa'], label: 'CGPA and grading scale', values: sourceMap.get(keyOf([section, 'cgpa'])) || [], message: 'The value and its grading scale need a paired review. No conversion or replacement was made.' })
+      conflicts.push({ kind: 'grading_scale', path: [...path, 'cgpa'], label: 'CGPA and grading scale', values: sourceMap.get(keyOf([...path, 'cgpa'])) || [], message: 'The value and its grading scale need a paired review. No conversion or replacement was made.' })
     }
   }
   for (const field of model.fields) {
@@ -113,11 +120,41 @@ export function planAdmissionsBatchAutofill(profile, documents, { primaryPhotoDo
     const invalidContact = field.key === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(field.value)) || field.key === 'phone' && !/^\+?[\d\s()-]{7,22}$/.test(String(field.value))
     if (invalidContact) { field.include = false; conflicts.push({ kind: 'invalid', path: field.path, label: field.label, values: sourceMap.get(keyOf(field.path)) || [], message: 'This contact value needs correction before it can be imported.' }) }
   }
-  for (const section of ['academic_10th', 'academic_12th', 'academic_graduation']) {
-    const value = model.fields.find(field => field.path[0] === section && field.key === 'cgpa'), scale = model.fields.find(field => field.path[0] === section && field.key === 'cgpa_scale')
+  for (const { path, fields } of gradeGroups) {
+    const value = fields.find(field => field.key === 'cgpa'), scale = fields.find(field => field.key === 'cgpa_scale')
     if (value?.include && scale?.include && Number(value.value) > Number(scale.value)) {
       value.include = false; scale.include = false
-      conflicts.push({ kind: 'grading_scale', path: [section, 'cgpa'], label: 'CGPA and grading scale', values: sourceMap.get(keyOf([section, 'cgpa'])) || [], message: 'The extracted CGPA exceeds its stated grading scale. Confirm the pair manually.' })
+      conflicts.push({ kind: 'grading_scale', path: [...path, 'cgpa'], label: 'CGPA and grading scale', values: sourceMap.get(keyOf([...path, 'cgpa'])) || [], message: 'The extracted CGPA exceeds its stated grading scale. Confirm the pair manually.' })
+    }
+  }
+  // A single impossible timeline must not discard marks and other readable
+  // records from the same batch. Keep the conflicting facts for manual review.
+  const blocks = []
+  for (const row of model.records.filter(item => item.section === 'work_experience')) {
+    const fields = model.fields.filter(field => field.record?.id === row.id)
+    const nextValue = key => { const field = fields.find(item => item.key === key); return field?.include ? field.value : field?.current ?? row.baseRecord?.[key] }
+    const start = nextValue('start_date'), end = nextValue('end_date')
+    if (hasDocumentReviewValue(start) && hasDocumentReviewValue(end) && String(end).slice(0, 7) < String(start).slice(0, 7)) blocks.push({ fields: fields.filter(field => ['start_date', 'end_date'].includes(field.key)), message: 'These employment dates are in reverse order. Confirm them in the document review; other supported facts can still be imported.' })
+  }
+  const defenceFields = model.fields.filter(field => field.path[0] === 'defence_service')
+  const defenceNext = key => { const field = defenceFields.find(item => item.key === key); return field?.include ? field.value : profile.defence_service?.[key] }
+  if (defenceNext('status') === 'none' && defenceFields.some(field => field.include && field.key !== 'status')) blocks.push({ fields: defenceFields, message: 'The document describes service but your profile records no defence service. Confirm the service record before importing it.' })
+  if (defenceNext('status') === 'veteran' && ['true', true].includes(defenceNext('current'))) blocks.push({ fields: defenceFields.filter(field => ['status', 'current'].includes(field.key)), message: 'Veteran status and currently serving conflict. Confirm these service facts together.' })
+  if (hasDocumentReviewValue(defenceNext('start_date')) && hasDocumentReviewValue(defenceNext('end_date')) && String(defenceNext('end_date')).slice(0, 7) < String(defenceNext('start_date')).slice(0, 7)) blocks.push({ fields: defenceFields.filter(field => ['start_date', 'end_date'].includes(field.key)), message: 'These service dates are in reverse order. Review the original dates before applying them.' })
+  for (const block of blocks) {
+    for (const field of block.fields.filter(field => field.include)) {
+      field.include = false
+      conflicts.push({ kind: 'invalid_record', path: field.path, label: field.label, values: sourceMap.get(keyOf(field.path)) || [], message: block.message })
+    }
+  }
+  for (const [section, max] of [['exam_scores', 20], ['work_experience', 30], ['professional_qualifications', 20]]) {
+    let available = Math.max(0, max - (profile[section] || []).length)
+    for (const row of model.records.filter(item => item.section === section && item.choice === 'new')) {
+      const selectedFields = model.fields.filter(field => field.record?.id === row.id && field.include)
+      if (!selectedFields.length) continue
+      if (available-- > 0) continue
+      for (const field of selectedFields) field.include = false
+      conflicts.push({ kind: 'record_limit', path: [section], label: section.replaceAll('_', ' '), values: selectedFields.flatMap(field => sourceMap.get(keyOf(field.path)) || []), message: `This profile supports up to ${max} records in this section. Review or remove older records before importing more.` })
     }
   }
   for (const field of model.fields) if (['variance', 'ambiguous', 'invalid'].includes(field.status)) conflicts.push({ kind: field.status, path: field.path, label: field.label, current: structuredClone(field.current), values: sourceMap.get(keyOf(field.path)) || [], message: field.reason })
@@ -125,7 +162,7 @@ export function planAdmissionsBatchAutofill(profile, documents, { primaryPhotoDo
   // Translate source-array paths to the resolved target paths returned by the
   // review engine before recording immutable provenance baselines.
   const resolvedSources = new Map(), rowTargets = new Map()
-  const nextIndex = { exam_scores: (profile.exam_scores || []).length, work_experience: (profile.work_experience || []).length }
+  const nextIndex = Object.fromEntries(ROW_SECTIONS.map(section => [section, (profile[section] || []).length]))
   for (const row of model.records) if (model.fields.some(field => field.record?.id === row.id && (field.include || field.status === 'same'))) rowTargets.set(row.id, row.choice === 'new' ? nextIndex[row.section]++ : Number(row.choice.split(':')[1]))
   for (const field of model.fields.filter(item => item.include)) {
     const target = field.record ? [field.record.section, rowTargets.get(field.record.id), ...field.path.slice(2)] : field.path

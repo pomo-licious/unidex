@@ -54,8 +54,8 @@ describe('Delhi NCR programme evidence contract', () => {
     expect(programmes.filter(programme => programme.averageCtcVerificationStatus === 'unverified_or_noncomparable').every(programme => programme.averageCtcInr === null)).toBe(true)
   })
 
-  it('preserves an unknown website without inventing a likely institutional domain', () => {
-    expect(DELHI_NCR_COLLEGES.find(college => college.sourceInstitutionRecordId === 'NCR-128').website).toBeNull()
+  it('moves the unconfirmed Prakash Deep record into the latest workbook hold inventory', () => {
+    expect(DELHI_NCR_EXCLUDED_RECORDS.find(college => college.sourceRecordId === 'NCR-128').reason).toBe('Verification lead — current official admission evidence required')
   })
 
   it('keeps inherited fee estimates separate from verified numeric fees', () => {

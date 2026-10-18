@@ -3,6 +3,7 @@ import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, isDocumentType } from './admissi
 import { normalizeAiImports, validateAdmissionsProfile } from './admissionsProfile'
 import { sanitizeLocalAdmissionsExtraction } from './admissionsLocalExtraction'
 import { prepareAdmissionsAiPages } from './admissionsHostedAi'
+import { canReuseAdmissionsAiExtraction } from './admissionsBatchReview'
 
 const BUCKET = 'unidex-admissions-private'
 const MAX_BYTES = 10 * 1024 * 1024
@@ -232,7 +233,7 @@ export async function extractHostedAdmissionsDocument(document, expectedUserId, 
   const body = { document_id: downloaded.document.id, cloudflare_document_processing: true, ...prepared }
   if (new TextEncoder().encode(JSON.stringify(body)).byteLength > 8 * 1024 * 1024) throw new AdmissionsError('The prepared document is too large for AI processing. Upload a shorter or smaller file.', { code: 'AI_INPUT_TOO_LARGE' })
   const data = await hostedAiResponse(body, { signal })
-  if (!data?.ok || !data.document || data.document.id !== downloaded.document.id || data.document.user_id !== downloaded.document.user_id || !String(data.document.extraction_model || '').startsWith('cloudflare:')) throw new AdmissionsError('The AI service did not confirm saved document details. Please retry.', { code: 'AI_INVALID_RESPONSE', stopBatch: true })
+  if (!data?.ok || !data.document || data.document.id !== downloaded.document.id || data.document.user_id !== downloaded.document.user_id || !canReuseAdmissionsAiExtraction(data.document)) throw new AdmissionsError('The AI service did not confirm saved details using the current extraction format. Refresh and retry this document.', { code: 'AI_INVALID_RESPONSE', stopBatch: true })
   await currentUser(downloaded.document.user_id)
   // Cancellation may arrive after the server saved suggestions. Returning the
   // confirmed row lets the batch report that result without applying a profile.
