@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, isDocumentType } from './admissionsDocumentTypes'
 import { normalizeAiImports, validateAdmissionsProfile } from './admissionsProfile'
 import { sanitizeLocalAdmissionsExtraction } from './admissionsLocalExtraction'
+import { prepareAdmissionsAiPages } from './admissionsHostedAi'
 
 const BUCKET = 'unidex-admissions-private'
 const MAX_BYTES = 10 * 1024 * 1024
@@ -199,6 +200,45 @@ export async function extractAdmissionsDocument(document, expectedUserId, openai
   return { ...data.document, signed_url: document.signed_url || null }
 }
 
+async function hostedAiResponse(body, { signal } = {}) {
+  const { data, error } = await supabase.functions.invoke('admissions-ai-extract', { body, signal })
+  if (error) {
+    requireActiveExtraction(signal)
+    let payload = {}
+    try { payload = await error.context?.json() || {} } catch { /* Preserve a safe network/configuration message. */ }
+    const status = error.context?.status || error.status
+    const code = payload.code || (status === 401 ? 'AUTH_REQUIRED' : status === 429 ? 'AI_RATE_LIMITED' : 'AI_SERVICE_UNAVAILABLE')
+    throw new AdmissionsError(payload.error || 'AI profile building is not connected yet. Your documents remain saved; please try again later.', { code, status, stopBatch: payload.stop_batch === true || ['AUTH_REQUIRED', 'ACCOUNT_CHANGED', 'AI_DISABLED', 'AI_NOT_CONFIGURED', 'AI_FREE_PLAN_REQUIRED', 'AI_QUOTA_EXHAUSTED', 'AI_RATE_LIMITED', 'AI_PROVIDER_CONFIGURATION', 'AI_SERVICE_UNAVAILABLE'].includes(code), cause: error })
+  }
+  return data
+}
+
+export async function getAdmissionsAiStatus(expectedUserId) {
+  const user = await currentUser(expectedUserId)
+  const data = await hostedAiResponse({ action: 'status' })
+  await currentUser(user.id)
+  if (!data?.ok || data.provider !== 'cloudflare' || typeof data.configured !== 'boolean' || typeof data.enabled !== 'boolean' || typeof data.free_plan_confirmed !== 'boolean' || typeof data.model !== 'string') throw new AdmissionsError('AI availability could not be checked. Please retry.', { code: 'AI_INVALID_RESPONSE', stopBatch: true })
+  return data
+}
+
+export async function extractHostedAdmissionsDocument(document, expectedUserId, cloudflareDocumentProcessing = false, { signal, onProgress } = {}) {
+  if (cloudflareDocumentProcessing !== true) throw new AdmissionsError('Approve Cloudflare processing of the selected documents before building your profile.', { code: 'DOCUMENT_PROCESSING_CONSENT_REQUIRED' })
+  requireActiveExtraction(signal)
+  const downloaded = await downloadAdmissionsDocumentForLocalExtraction(document, expectedUserId, { signal })
+  const prepared = await prepareAdmissionsAiPages(downloaded.blob, downloaded.document, { signal, onProgress })
+  await currentUser(downloaded.document.user_id)
+  requireActiveExtraction(signal)
+  onProgress?.({ stage: 'understanding', message: 'AI is reading your document and organising profile details.' })
+  const body = { document_id: downloaded.document.id, cloudflare_document_processing: true, ...prepared }
+  if (new TextEncoder().encode(JSON.stringify(body)).byteLength > 8 * 1024 * 1024) throw new AdmissionsError('The prepared document is too large for AI processing. Upload a shorter or smaller file.', { code: 'AI_INPUT_TOO_LARGE' })
+  const data = await hostedAiResponse(body, { signal })
+  if (!data?.ok || !data.document || data.document.id !== downloaded.document.id || data.document.user_id !== downloaded.document.user_id || !String(data.document.extraction_model || '').startsWith('cloudflare:')) throw new AdmissionsError('The AI service did not confirm saved document details. Please retry.', { code: 'AI_INVALID_RESPONSE', stopBatch: true })
+  await currentUser(downloaded.document.user_id)
+  // Cancellation may arrive after the server saved suggestions. Returning the
+  // confirmed row lets the batch report that result without applying a profile.
+  return { ...data.document, signed_url: document.signed_url || null }
+}
+
 function requireActiveExtraction(signal) {
   if (signal?.aborted) throw new DOMException('Extraction cancelled. Previously saved results remain available.', 'AbortError')
 }
@@ -209,7 +249,8 @@ export async function downloadAdmissionsDocumentForLocalExtraction(document, exp
   requireActiveExtraction(signal)
   const stored = await ownedDocument(document, expectedUserId)
   if (stored.document_type === 'photo') throw new AdmissionsError('Use profile photographs directly without text extraction.', { code: 'PHOTO_EXTRACTION_DISABLED' })
-  if (!ALLOWED_TYPES.includes(stored.mime_type) || !Number.isInteger(Number(stored.size_bytes)) || stored.size_bytes <= 0 || stored.size_bytes > MAX_BYTES || /(^|\/)\.\.?($|\/)|\\/.test(stored.storage_path)) throw new AdmissionsError('This document has invalid file metadata. Upload a supported copy.', { code: 'LOCAL_OCR_INVALID_FILE' })
+  const unsafePath = /(^|\/)\.\.?($|\/)|[%?#\\]/.test(stored.storage_path) || [...stored.storage_path].some(character => character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127)
+  if (!ALLOWED_TYPES.includes(stored.mime_type) || !Number.isInteger(Number(stored.size_bytes)) || stored.size_bytes <= 0 || stored.size_bytes > MAX_BYTES || unsafePath) throw new AdmissionsError('This document has invalid file metadata. Upload a supported copy.', { code: 'LOCAL_OCR_INVALID_FILE' })
   requireActiveExtraction(signal)
   const { data, error } = await supabase.storage.from(BUCKET).download(stored.storage_path, {}, { signal })
   requireActiveExtraction(signal)

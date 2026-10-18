@@ -83,7 +83,7 @@ export default function Privacy() {
                 </li>
                 <li className="flex gap-3">
                   <span className="text-[#225feb]">•</span>
-                  <span>When you choose extraction for a document or a named selection, the free extraction tool reads the files in your browser. This flow does not send document contents to OpenAI, Gemini or another external OCR service. Your uploaded originals remain in your private Unidex storage; detected profile suggestions are saved to your account. If you approve autofill, agreed suggestions may fill empty profile fields while conflicts remain for review. Imported fields retain their source so that you can cross-check and correct them. Automated extraction can make mistakes; your corrections remain under your control.</span>
+                  <span>When hosted AI is configured and you approve Build my profile with AI for a named document selection, your browser prepares page images and our authenticated server sends those pages to Cloudflare Workers AI to read and organise profile details. Your approval also allows agreed suggestions to fill empty profile fields; existing values are preserved and conflicts remain for review. Originals remain in your private Unidex storage, and bounded extracted suggestions and source history are saved to your account. Photos are assigned directly and are not sent for text extraction. Cloudflare states that standard stateless inference is not used for model training and does not retain customer content after processing, subject to its operational, legal and security exceptions. We do not enable AI Gateway logging or caching for this flow. Automated extraction can make mistakes; cross-check the prefilled review and correct anything before applying. If hosted AI is unavailable, no document is silently sent to another provider.</span>
                 </li>
                 <li className="flex gap-3">
                   <span className="text-[#225feb]">•</span>
@@ -117,6 +117,11 @@ export default function Privacy() {
                       <td className="px-4 py-3">Supabase</td>
                       <td className="px-4 py-3">Account, profile, application and document records</td>
                       <td className="px-4 py-3">Authentication, database and private file storage</td>
+                    </tr>
+                    <tr className="border-b border-[#e1e8f3] hover:bg-[#f6f8fc]">
+                      <td className="px-4 py-3">Cloudflare Workers AI (only when you approve AI processing)</td>
+                      <td className="px-4 py-3">Selected document page images and extraction instructions</td>
+                      <td className="px-4 py-3">Hosted document understanding and suggested profile autofill</td>
                     </tr>
                     <tr className="border-b border-[#e1e8f3] hover:bg-[#f6f8fc]">
                       <td className="px-4 py-3">Website hosting provider</td>

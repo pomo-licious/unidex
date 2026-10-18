@@ -1,5 +1,15 @@
 # Unidex admissions revamp — release handoff
 
+## Current hosted AI follow-up — 18 October 2026
+
+The default document flow now prepares pages for Cloudflare Workers AI vision, automatically fills agreed empty profile fields, and opens a comprehensive prefilled review. Five full manual form sections are no longer the required path after a successful AI build. Older local OCR/GPT implementation notes below are historical, not the current UI default.
+
+`admissions-ai-extract` is deployed active version 1 with JWT verification. Retrieved deployed source matches the validated local handler; anonymous status invocation returns 401. It requires a valid account session, explicit Cloudflare document-processing approval, owned canonical private paths, bounded complete page inputs, and server-side enable/free-plan gates. It retains existing request leases, source tracking, conflict handling and revision-safe profile saves. No migration was required.
+
+**Not operationally enabled yet:** no Cloudflare account/token has been configured by this work, and no real provider inference or private student document test has been performed. The default configuration stays disabled. A synthetic record, a one-call verification script, and exact server setup instructions are in [HOSTED_AI_SETUP.md](HOSTED_AI_SETUP.md). No account upgrade, paid fallback, credit purchase or billing change was made.
+
+Verification: 653 tests across 33 suites pass; production build passes. Real synthetic PNG, searchable PDF and scanned PDF page preparation passed with PDF/canvas cleanup and no OCR/provider call. Repository lint and final deployment checks are recorded by the publication process. The hosted model still needs a successful synthetic connection check after credentials are configured.
+
 Prepared 16 October 2026. This is an engineering handoff, not product-facing copy.
 
 ## Source and rollback

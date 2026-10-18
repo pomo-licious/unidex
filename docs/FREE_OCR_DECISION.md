@@ -1,5 +1,7 @@
 # Free document extraction — 18 October 2026
 
+**Superseded default:** the current release uses hosted Cloudflare vision AI with a prefilled review. Its free account connection is pending; it stays disabled until configured. The browser-local OCR below is retained historical code, not the default UI. See [HOSTED_AI_SETUP.md](HOSTED_AI_SETUP.md).
+
 The current document screen uses PDF.js and Tesseract.js in the browser. It makes no OCR or generative-model API request, requires no provider key or credits, and has no paid fallback. Originals are still uploaded to the existing private Unidex storage; the browser downloads only its signed-in owner’s file for extraction and saves bounded supported suggestions back to that account. Raw OCR text is not persisted. Existing hosting/storage/bandwidth and device limits still apply.
 
 ## Options researched

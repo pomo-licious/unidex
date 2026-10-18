@@ -14,9 +14,9 @@ import Onboarding from '../src/pages/Onboarding'
 const user = { id: 'guided-account', email: 'student@example.com', user_metadata: { full_name: 'Applicant Example' } }
 const profile = createEmptyProfile(user)
 const form = props => renderToStaticMarkup(<AdmissionsProfileForm initialProfile={profile} onSave={() => {}} {...props}/>)
-function onboarding(step, overrides = {}) {
+function onboarding(step, overrides = {}, path = '/onboarding') {
   workspace.current = { user, profile: withProfileSetup(profile, step, step === 'complete' ? { completedAt: '2026-10-18T08:00:00.000Z' } : {}), loading: false, saving: false, saveProfile: vi.fn(), profileLoaded: true, profileUserId: user.id, profileError: '', retryProfile: vi.fn(), documents: [], documentsLoaded: true, documentsUserId: user.id, ...overrides }
-  return renderToStaticMarkup(<MemoryRouter><Onboarding/></MemoryRouter>)
+  return renderToStaticMarkup(<MemoryRouter initialEntries={[path]}><Onboarding/></MemoryRouter>)
 }
 afterEach(() => { workspace.current = null })
 
@@ -65,8 +65,20 @@ describe('documents-first guided experience', () => {
   it('does not stack the old documents-first popup over the guided personal step', () => {
     expect(onboarding('personal')).not.toContain('role="dialog"')
   })
-  it('shows incomplete optional academics as information that can be added later', () => {
-    expect(onboarding('review')).toContain('You can add Class 10 marks, Class 12 marks, Graduation details later.')
+  it('shows optional information with section-specific add actions', () => {
+    expect(onboarding('review')).toContain('Add missing information')
+  })
+  it('shows the filled review without making applicants re-enter a form', () => {
+    expect(onboarding('review')).not.toContain('<form')
+  })
+  it('returns explicit section edits directly to review after saving', () => {
+    expect(onboarding('academics', {}, '/onboarding?review=1')).toContain('Save &amp; return to review')
+  })
+  it('keeps sequential saves for applicants who chose manual entry', () => {
+    expect(onboarding('academics')).toContain('Save &amp; continue')
+  })
+  it('does not present a five-section checklist while correcting an AI-filled section', () => {
+    expect(onboarding('academics', {}, '/onboarding?review=1')).toContain('REVIEW · EDIT SELECTED DETAILS')
   })
   it('requires a review affirmation before enabling the finish action', () => {
     expect(onboarding('review')).toMatch(/<button[^>]*disabled=""[^>]*>.*?Finish setup/s)
