@@ -143,3 +143,32 @@ describe('immutable source baselines and photo attribution', () => {
     expect(result.profile.academic_graduation).toEqual({ percentage: 85 })
   })
 })
+
+
+describe('cancellation preserves only confirmed local batch results', () => {
+  it('does not attempt any file after a pre-cancelled batch', async () => {
+    const controller = new AbortController(); controller.abort()
+    const extract = vi.fn()
+    const result = await runAdmissionsDocumentBatch([doc(0, null), doc(1, null)], { extract, processingApproved: true, signal: controller.signal })
+    expect(extract).not.toHaveBeenCalled()
+    expect(result.results.map(item => item.status)).toEqual(['not_attempted', 'not_attempted'])
+    expect(result.readyDocuments).toHaveLength(0)
+    expect(result.cancelled).toBe(true)
+  })
+  it('keeps a confirmed first result but skips later files when cancellation arrives', async () => {
+    const controller = new AbortController()
+    const extract = vi.fn(async document => { controller.abort(); return { ...document, extracted_data: { current_city: 'Delhi' } } })
+    const result = await runAdmissionsDocumentBatch([doc(0, null), doc(1, null)], { extract, processingApproved: true, signal: controller.signal })
+    expect(extract).toHaveBeenCalledTimes(1)
+    expect(result.results.map(item => item.status)).toEqual(['extracted', 'not_attempted'])
+    expect(result.readyDocuments).toHaveLength(1)
+    expect(result.cancelled).toBe(true)
+  })
+  it('does not falsely mark an interrupted file as extracted', async () => {
+    const controller = new AbortController()
+    const extract = vi.fn(async () => { controller.abort(); throw new DOMException('Cancelled', 'AbortError') })
+    const result = await runAdmissionsDocumentBatch([doc(0, null), doc(1, null)], { extract, processingApproved: true, signal: controller.signal })
+    expect(result.results.map(item => item.status)).toEqual(['not_attempted', 'not_attempted'])
+    expect(result.readyDocuments).toHaveLength(0)
+  })
+})

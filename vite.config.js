@@ -20,6 +20,8 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
+            if (id.includes('pdfjs-dist')) return 'vendor-pdf'
+            if (id.includes('tesseract.js') || id.includes('wasm-feature-detect')) return 'vendor-ocr'
             if (id.includes('react')) return 'vendor-react'
             if (id.includes('supabase')) return 'vendor-supabase'
             return 'vendor-other'

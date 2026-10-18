@@ -31,6 +31,37 @@
   },
   {
     "ids": [
+      "ncr-mdi-gurgaon"
+    ],
+    "names": [
+      "MDI Gurgaon",
+      "MDI Gurugram",
+      "Management Development Institute (MDI) Gurgaon",
+      "Management Development Institute, Gurgaon",
+      "Management Development Institute Gurgaon"
+    ],
+    "src": "/assets/colleges/mdi-gurgaon.webp",
+    "width": 500,
+    "height": 158,
+    "alt": "MDI Gurgaon — red-brick academic building and landscaped courtyard at its Gurugram campus",
+    "credit": "Iceman7676",
+    "license": "Public domain",
+    "licenseUrl": "https://commons.wikimedia.org/wiki/File:MDI_Panoramic.jpg#Licensing",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:MDI_Panoramic.jpg",
+    "objectPosition": "50% 50%",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/8/87/MDI_Panoramic.jpg",
+    "downloadedImageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/87/MDI_Panoramic.jpg",
+    "sourceDescription": "English: Panoramic View of MDI Gurgaon",
+    "sourceDate": "2009-11-23",
+    "retrievedOn": "2026-10-18",
+    "sha256": "8d52b46c52faf963c883c820bc08f3360d51d5a05bac46912cd5a08c1fbc214a",
+    "originalSha256": "6756078a70cf8d87b1477779b9361bd2bbe82403cd4021faf10b4465aadeb8c6",
+    "downloadedWidth": 500,
+    "downloadedHeight": 158,
+    "changes": "Converted original JPEG to WebP at native 500 × 158 resolution. CSS display crop only; no generated detail, upscaling or campus substitution."
+  },
+  {
+    "ids": [
       "ncr-iift-delhi"
     ],
     "names": [

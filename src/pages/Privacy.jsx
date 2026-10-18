@@ -83,7 +83,7 @@ export default function Privacy() {
                 </li>
                 <li className="flex gap-3">
                   <span className="text-[#225feb]">•</span>
-                  <span>When you explicitly approve extraction for a document or a named selection of documents, their contents are sent to OpenAI for GPT-based extraction. If you choose bulk autofill, agreed suggestions may fill empty profile fields; conflicting values remain for your review. AI-imported fields retain their source and are marked for cross-checking. Before saving a correction to an AI-imported field, you can compare your change with the original suggestion. Your corrections remain under your control.</span>
+                  <span>When you choose extraction for a document or a named selection, the free extraction tool reads the files in your browser. This flow does not send document contents to OpenAI, Gemini or another external OCR service. Your uploaded originals remain in your private Unidex storage; detected profile suggestions are saved to your account. If you approve autofill, agreed suggestions may fill empty profile fields while conflicts remain for review. Imported fields retain their source so that you can cross-check and correct them. Automated extraction can make mistakes; your corrections remain under your control.</span>
                 </li>
                 <li className="flex gap-3">
                   <span className="text-[#225feb]">•</span>
@@ -128,11 +128,6 @@ export default function Privacy() {
                       <td className="px-4 py-3">Account information used when you choose Google sign-in</td>
                       <td className="px-4 py-3">OAuth authentication</td>
                     </tr>
-                    <tr className="hover:bg-[#f6f8fc]">
-                      <td className="px-4 py-3">OpenAI</td>
-                      <td className="px-4 py-3">Content of the specific document or named batch you approve for extraction</td>
-                      <td className="px-4 py-3">GPT-based extraction and optional empty-field autofill for your review; profile photographs are applied directly and are not sent for text extraction</td>
-                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -176,7 +171,7 @@ export default function Privacy() {
                   </tbody>
                 </table>
               </div>
-              <p className="text-[#8798b2] text-sm mt-4">Removing a document removes its stored file and extraction record. Details previously imported into your profile, their AI-source history, and saved application records containing those details are separate records. You can edit your profile and manage your saved records or request deletion at privacy@unidex.co.in.</p>
+              <p className="text-[#8798b2] text-sm mt-4">Removing a document removes its stored file and extraction record. Details previously imported into your profile, their automated-extraction source history, and saved application records containing those details are separate records. You can edit your profile and manage your saved records or request deletion at privacy@unidex.co.in.</p>
             </section>
 
             {/* Section 6 */}

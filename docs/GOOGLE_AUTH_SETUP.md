@@ -60,3 +60,9 @@ The canonical production origin is `https://www.unidex.co.in`. If the apex domai
 - [Supabase: Redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls)
 
 Configuration follows the current official guides checked on 16 October 2026. Hosted configuration and a real authorized login remain owner setup steps until verified.
+
+## Current check — 18 October 2026
+
+The production project’s public `/auth/v1/settings` endpoint still reports `external.google: false` and email enabled. The frontend callback, user consent redirect and safe destination handling are implemented; a new login screen alone cannot enable the disabled server provider. The Google Cloud Clients console returned “Site Unavailable” in this browser on a direct visit and one reload. Plugin discovery found no connected capability for creating an OAuth web client. No Google credentials or provider settings were changed.
+
+An owner of the Google Cloud project must complete the one-time OAuth Web application creation and enter its client ID/secret directly into Supabase using the exact origin/callback values above. Keep the secret out of chat, source control and frontend variables. The connected Supabase tools cannot update Auth provider credentials. Once configured, the current Sign in with Google action sends the user to Google’s account/consent screen and returns through Supabase; verify an authorized live login before declaring it operational. No paid OCR plan or credit purchase is needed for the browser-local extraction release.

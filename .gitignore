@@ -39,3 +39,6 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Reproducible, pinned OCR runtime assets generated before dev/build
+/public/assets/ocr/

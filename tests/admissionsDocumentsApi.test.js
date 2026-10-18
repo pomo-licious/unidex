@@ -4,6 +4,7 @@ import vm from 'node:vm'
 import { describe, expect, it } from 'vitest'
 import { normalizeAiImports, validateAdmissionsProfile } from '../src/lib/admissionsProfile'
 import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, isDocumentType } from '../src/lib/admissionsDocumentTypes'
+import { sanitizeLocalAdmissionsExtraction } from '../src/lib/admissionsLocalExtraction'
 
 const source = readFileSync(new URL('../src/lib/admissionsApi.js', import.meta.url), 'utf8').replace(/^import .*\r?\n/gm, '').replace(/^export /gm, '')
 const OWNER = '11111111-1111-4111-8111-111111111111'
@@ -12,7 +13,7 @@ const OTHER = '33333333-3333-4333-8333-333333333333'
 const photo = { id: PHOTO, user_id: OWNER, document_type: 'photo', mime_type: 'image/png', size_bytes: 20, storage_bucket: 'unidex-admissions-private', storage_path: `${OWNER}/${PHOTO}/photo.png`, file_name: 'photo.png' }
 
 function harness(options = {}) {
-  const events = { queries: [], signed: [], uploaded: [], functions: 0 }
+  const events = { queries: [], signed: [], uploaded: [], downloaded: [], functions: 0 }
   let authIndex = 0
   const db = {
     auth: { getUser: async () => ({ data: { user: { id: options.authUsers?.[Math.min(authIndex++, options.authUsers.length - 1)] || OWNER } } }) },
@@ -28,7 +29,7 @@ function harness(options = {}) {
           events.queries.push(event)
           const stored = options.document === null ? null : { ...photo, ...options.document }
           const document = stored && (!event.filters.user_id || stored.user_id === event.filters.user_id) ? stored : null
-          return Promise.resolve({ data: table === 'student_admissions_documents' ? event.action === 'insert' ? event.value : document : { profile: event.action === 'read' ? options.currentProfile : event.value?.profile } }).then(resolve)
+          return Promise.resolve({ data: table === 'student_admissions_documents' ? event.action === 'insert' ? event.value : event.action === 'update' ? { ...document, ...event.value } : document : { profile: event.action === 'read' ? options.currentProfile : event.value?.profile } }).then(resolve)
         },
       }
       return query
@@ -36,12 +37,13 @@ function harness(options = {}) {
     storage: { from: bucket => ({
       createSignedUrl: async (path, ttl) => { events.signed.push({ bucket, path, ttl }); return { data: { signedUrl: 'https://synthetic.invalid/private-photo?token=synthetic' } } },
       createSignedUrls: async paths => ({ data: paths.map(path => ({ path, signedUrl: 'https://synthetic.invalid/private-document' })) }),
+      download: async (path, _options, parameters) => { events.downloaded.push({ bucket, path, signal: parameters?.signal }); return { data: options.blob || new Blob(['%PDF-synthetic'], { type: 'application/pdf' }) } },
       upload: async (path, file) => { events.uploaded.push({ path, type: file.type }); return {} },
     }) },
     functions: { invoke: async () => { events.functions++; return { error: { message: 'Edge Function returned a non-2xx status code', context: new Response(JSON.stringify(options.functionFailure || {}), { status: options.functionStatus || 503 }) } } } },
   }
-  const scope = { supabase: db, crypto: webcrypto, normalizeAiImports, validateAdmissionsProfile, DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, isDocumentType }
-  vm.runInNewContext(`${source};globalThis.api={getAdmissionsProfilePhoto,saveAdmissionsProfile,uploadAdmissionsDocument,extractAdmissionsDocument};`, scope)
+  const scope = { supabase: db, crypto: webcrypto, normalizeAiImports, validateAdmissionsProfile, DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, isDocumentType, sanitizeLocalAdmissionsExtraction, DOMException, Uint8Array }
+  vm.runInNewContext(`${source};globalThis.api={getAdmissionsProfilePhoto,saveAdmissionsProfile,uploadAdmissionsDocument,extractAdmissionsDocument,downloadAdmissionsDocumentForLocalExtraction,saveLocalAdmissionsExtraction};`, scope)
   return { api: scope.api, events }
 }
 
@@ -110,5 +112,82 @@ describe('Private profile photographs and document API', () => {
     const test = harness()
     const error = await test.api.extractAdmissionsDocument(photo, OWNER, true).catch(error => error)
     expect({ code: error.code, requests: test.events.functions }).toEqual({ code: 'PHOTO_EXTRACTION_DISABLED', requests: 0 })
+  })
+})
+
+
+describe('Free local extraction storage boundary', () => {
+  const pdf = { ...photo, document_type: 'academic_10th', mime_type: 'application/pdf', size_bytes: 14, file_name: 'marks.pdf', storage_path: `${OWNER}/${PHOTO}/marks.pdf` }
+  it('downloads only the authenticated owned original and never invokes an AI provider', async () => {
+    const test = harness({ document: pdf })
+    const controller = new AbortController()
+    const result = await test.api.downloadAdmissionsDocumentForLocalExtraction(pdf, OWNER, { signal: controller.signal })
+    expect(result.blob.type).toBe('application/pdf')
+    expect(result.document.id).toBe(PHOTO)
+    expect(test.events.downloaded).toEqual([{ bucket: 'unidex-admissions-private', path: pdf.storage_path, signal: controller.signal }])
+    expect(test.events.functions).toBe(0)
+  })
+  it('rejects a forged path before downloading bytes', async () => {
+    const test = harness({ document: { ...pdf, storage_path: `${OTHER}/other.pdf` } })
+    await expect(test.api.downloadAdmissionsDocumentForLocalExtraction(pdf, OWNER)).rejects.toMatchObject({ code: 'DOCUMENT_OWNERSHIP_INVALID' })
+    expect(test.events.downloaded).toHaveLength(0)
+  })
+  it('rejects path traversal even inside the owned prefix', async () => {
+    const test = harness({ document: { ...pdf, storage_path: `${OWNER}/../other.pdf` } })
+    await expect(test.api.downloadAdmissionsDocumentForLocalExtraction(pdf, OWNER)).rejects.toMatchObject({ code: 'LOCAL_OCR_INVALID_FILE' })
+    expect(test.events.downloaded).toHaveLength(0)
+  })
+  it('rejects a file with a mismatched MIME or signature', async () => {
+    for (const blob of [new Blob(['wrong-content!'], { type: 'application/pdf' }), new Blob(['%PDF-synthetic'], { type: 'image/png' })]) {
+      const test = harness({ document: pdf, blob })
+      await expect(test.api.downloadAdmissionsDocumentForLocalExtraction(pdf, OWNER)).rejects.toMatchObject({ code: 'LOCAL_OCR_INVALID_FILE' })
+    }
+  })
+  it('rejects oversized metadata before download', async () => {
+    const test = harness({ document: { ...pdf, size_bytes: 11 * 1024 * 1024 } })
+    await expect(test.api.downloadAdmissionsDocumentForLocalExtraction(pdf, OWNER)).rejects.toMatchObject({ code: 'LOCAL_OCR_INVALID_FILE' })
+    expect(test.events.downloaded).toHaveLength(0)
+  })
+  it('never returns bytes to a switched account', async () => {
+    const test = harness({ document: pdf, authUsers: [OWNER, OTHER] })
+    await expect(test.api.downloadAdmissionsDocumentForLocalExtraction(pdf, OWNER)).rejects.toMatchObject({ code: 'ACCOUNT_CHANGED' })
+  })
+  it('does no download or write after cancellation', async () => {
+    const test = harness({ document: pdf })
+    const controller = new AbortController(); controller.abort()
+    await expect(test.api.downloadAdmissionsDocumentForLocalExtraction(pdf, OWNER, { signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' })
+    await expect(test.api.saveLocalAdmissionsExtraction(pdf, { full_name: 'Student' }, OWNER, { signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' })
+    expect(test.events.downloaded).toHaveLength(0)
+    expect(test.events.queries).toHaveLength(0)
+  })
+  it('saves canonical suggestions as pending review, with no raw text or old human approval', async () => {
+    const test = harness({ document: pdf })
+    const saved = await test.api.saveLocalAdmissionsExtraction(pdf, { full_name: 'Student', raw_text: 'unbounded private text', pan_number: 'ABCDE1234F', academic_10th: { percentage: 88, roll_number: '1234' } }, OWNER, { extractionModel: 'local:tesseract-7.0.0+pdfjs-6.4.299' })
+    expect(saved.extracted_data).toEqual({ full_name: 'Student', academic_10th: { percentage: 88 } })
+    expect(saved.status).toBe('needs_review')
+    expect(saved.reviewed_at).toBeNull()
+    expect(saved.reviewed_data).toBeNull()
+    const write = test.events.queries.find(query => query.action === 'update')
+    expect(write.filters).toEqual({ id: PHOTO, user_id: OWNER })
+    expect(write.value.extraction_model).toBe('local:tesseract-7.0.0+pdfjs-6.4.299')
+    expect(test.events.queries.every(query => query.table === 'student_admissions_documents')).toBe(true)
+    expect(test.events.functions).toBe(0)
+  })
+  it('persists only common printed identity facts from ID proofs', async () => {
+    const test = harness({ document: { ...pdf, document_type: 'aadhaar_card' } })
+    const saved = await test.api.saveLocalAdmissionsExtraction(pdf, { full_name: 'Student', date_of_birth: '2000-01-02', phone: '9999999999', academic_10th: { percentage: 98 }, aadhaar_number: '123456789012', current_city: 'Delhi' }, OWNER)
+    expect(saved.extracted_data).toEqual({ full_name: 'Student', date_of_birth: '2000-01-02', current_city: 'Delhi' })
+  })
+  it('refuses new persistence when the account changed before the write', async () => {
+    const test = harness({ document: pdf, authUsers: [OWNER, OTHER] })
+    await expect(test.api.saveLocalAdmissionsExtraction(pdf, { full_name: 'Student' }, OWNER)).rejects.toMatchObject({ code: 'ACCOUNT_CHANGED' })
+    expect(test.events.queries.filter(query => query.action === 'update')).toHaveLength(0)
+  })
+  it('keeps photos out of local OCR and extraction records', async () => {
+    const test = harness()
+    await expect(test.api.downloadAdmissionsDocumentForLocalExtraction(photo, OWNER)).rejects.toMatchObject({ code: 'PHOTO_EXTRACTION_DISABLED' })
+    await expect(test.api.saveLocalAdmissionsExtraction(photo, {}, OWNER)).rejects.toMatchObject({ code: 'PHOTO_EXTRACTION_DISABLED' })
+    expect(test.events.downloaded).toHaveLength(0)
+    expect(test.events.queries.filter(query => query.action === 'update')).toHaveLength(0)
   })
 })

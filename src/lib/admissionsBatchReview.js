@@ -149,15 +149,16 @@ export function planAdmissionsBatchAutofill(profile, documents, { primaryPhotoDo
 export function shouldStopAdmissionsBatch(error) {
   return error?.stopBatch === true || [401, 403, 429].includes(Number(error?.status)) || ['AUTH_REQUIRED', 'ACCOUNT_CHANGED', 'OCR_DISABLED', 'OCR_NOT_CONFIGURED', 'OCR_RATE_LIMITED', 'OCR_QUOTA_EXHAUSTED', 'OCR_PROVIDER_CONFIGURATION'].includes(error?.code)
 }
-export async function runAdmissionsDocumentBatch(documents, { extract, processingApproved = false, reextract = false, onProgress = () => {} } = {}) {
+export async function runAdmissionsDocumentBatch(documents, { extract, processingApproved = false, reextract = false, onProgress = () => {}, signal } = {}) {
   const results = [], readyDocuments = []
   let stopReason = null
   for (const document of documents) {
     let result
-    if (document.document_type === 'photo') { result = { document, status: 'photo' }; readyDocuments.push(document) }
+    if (signal?.aborted) result = { document, status: 'not_attempted', error: 'Cancelled. This file was not processed.', code: 'LOCAL_OCR_CANCELLED' }
+    else if (document.document_type === 'photo') { result = { document, status: 'photo' }; readyDocuments.push(document) }
     else if (!reextract && object(document.extracted_data)) { result = { document, status: 'reused' }; readyDocuments.push(document) }
     else if (stopReason) result = { document, status: 'not_attempted', error: stopReason.message, code: stopReason.code }
-    else if (!processingApproved) result = { document, status: 'not_attempted', error: 'OpenAI processing approval was not given for these files.', code: 'CONSENT_REQUIRED' }
+    else if (!processingApproved) result = { document, status: 'not_attempted', error: 'Processing approval was not given for these files.', code: 'CONSENT_REQUIRED' }
     else {
       onProgress({ results: [...results], current: document })
       try {
@@ -165,11 +166,11 @@ export async function runAdmissionsDocumentBatch(documents, { extract, processin
         if (!updated?.id || !object(updated.extracted_data)) throw new Error('No extraction result was confirmed for this document.')
         result = { document: updated, status: 'extracted' }; readyDocuments.push(updated)
       } catch (error) {
-        result = { document, status: 'failed', error: error?.message || 'Extraction failed.', code: error?.code || 'OCR_FAILED' }
+        result = { document, status: error?.name === 'AbortError' ? 'not_attempted' : 'failed', error: error?.message || 'Extraction failed.', code: error?.name === 'AbortError' ? 'LOCAL_OCR_CANCELLED' : error?.code || 'OCR_FAILED' }
         if (shouldStopAdmissionsBatch(error)) stopReason = { message: result.error, code: result.code }
       }
     }
     results.push(result); onProgress({ results: [...results], current: null })
   }
-  return { results, readyDocuments, stopReason }
+  return { results, readyDocuments, stopReason, cancelled: signal?.aborted === true }
 }

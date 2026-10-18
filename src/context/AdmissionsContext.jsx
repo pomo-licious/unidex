@@ -11,6 +11,7 @@ const AdmissionsContext = createContext(null)
 export function AdmissionsProvider({ user, children }) {
   const [profile, setProfile] = useState(() => createEmptyProfile(user))
   const [documents, setDocuments] = useState([])
+  const [documentLoad, setDocumentLoad] = useState({ userId: null, loaded: false, error: '' })
   const [plans, setPlans] = useState([])
   const [draft, setDraft] = useState(null)
   const [loading, setLoading] = useState(Boolean(user))
@@ -30,7 +31,10 @@ export function AdmissionsProvider({ user, children }) {
       .then(results => {
         if (version !== loadVersion.current || authId.current !== user.id) return
         if (results[0].status === 'fulfilled') setProfile(normalizeAdmissionsProfile(results[0].value, user))
-        if (results[1].status === 'fulfilled') setDocuments(results[1].value || [])
+        if (results[1].status === 'fulfilled') {
+          setDocuments(results[1].value || [])
+          setDocumentLoad({ userId: user.id, loaded: true, error: '' })
+        } else setDocumentLoad({ userId: user.id, loaded: false, error: results[1].reason?.message || 'Your documents could not be loaded.' })
         if (results[2].status === 'fulfilled') setPlans(results[2].value || [])
         if (results[3].status === 'fulfilled') setDraft(results[3].value)
         const failed = results.filter(result => result.status === 'rejected')
@@ -55,9 +59,15 @@ export function AdmissionsProvider({ user, children }) {
     } finally { if (authId.current === id) setPendingProfileWrites(count => count - 1) }
   }, [requireUser, user, write])
   const refreshDocuments = useCallback(async () => {
-    const id = requireUser(), result = await listAdmissionsDocuments()
-    if (authId.current === id) setDocuments(result || [])
-    return result
+    const id = requireUser()
+    try {
+      const result = await listAdmissionsDocuments()
+      if (authId.current === id) { setDocuments(result || []); setDocumentLoad({ userId: id, loaded: true, error: '' }) }
+      return result
+    } catch (error) {
+      if (authId.current === id) setDocumentLoad({ userId: id, loaded: false, error: error?.message || 'Your documents could not be loaded.' })
+      throw error
+    }
   }, [requireUser])
   const refreshPlans = useCallback(async () => {
     const id = requireUser(), result = await listCollegePlans()
@@ -90,7 +100,10 @@ export function AdmissionsProvider({ user, children }) {
     const userId = requireUser(); await write(userId, () => removeCollegePlan(id, userId))
     if (authId.current === userId) setPlans(current => current.filter(plan => plan.id !== id))
   }, [requireUser, write])
-  const value = { user, profile, setProfile, documents, plans, draft, loading, saving, error, connectionStatus,
+  const documentsLoaded = Boolean(userId && documentLoad.userId === userId && documentLoad.loaded)
+  const documentsUserId = documentsLoaded ? documentLoad.userId : null
+  const documentsError = documentLoad.userId === userId ? documentLoad.error : ''
+  const value = { user, profile, setProfile, documents, documentsLoaded, documentsUserId, documentsError, plans, draft, loading, saving, error, connectionStatus,
     saveProfile, refreshDocuments, refreshPlans, saveDraft, updatePlan, addCollege, toggleBookmark, toggleSelection, removePlan }
   return <AdmissionsContext.Provider value={value}>{children}</AdmissionsContext.Provider>
 }
