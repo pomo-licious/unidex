@@ -56,12 +56,13 @@ export function documentSetupErrorMessage(error) {
   return `Some saved profile details need attention.${details ? ` ${details}` : ''} Choose Back to setup to correct them, then continue.`
 }
 
-export async function saveDocumentSetupProgress({ user, documentsChoice, loadProfileRecord, saveProfile, refreshProfile }) {
+export async function saveDocumentSetupProgress({ user, documentsChoice, loadProfileRecord, saveProfile, refreshProfile, nextStep = 'personal' }) {
   if (!user?.id) throw new Error('Please sign in again before continuing profile setup.')
+  if (!['personal', 'review'].includes(nextStep)) throw new Error('Choose profile review or manual profile setup.')
   const record = await loadProfileRecord(user.id)
   const latest = normalizeAdmissionsProfile(record.profile, user)
-  if (needsProfileSetup(latest) && SETUP_STEPS.indexOf(getProfileSetupStep(latest)) <= SETUP_STEPS.indexOf('personal')) {
-    const next = withProfileSetup(latest, 'personal', { documentsChoice })
+  if (needsProfileSetup(latest) && SETUP_STEPS.indexOf(getProfileSetupStep(latest)) <= SETUP_STEPS.indexOf(nextStep)) {
+    const next = withProfileSetup(latest, nextStep, { documentsChoice })
     const saved = await saveProfile(next, { expectedRevision: record.revision })
     if (!saved || typeof saved !== 'object' || Array.isArray(saved)) throw new Error('Your setup progress was not confirmed as saved. Please retry before continuing.')
   }

@@ -5,7 +5,6 @@ import { documentSetupContinuationIssue, documentSetupErrorMessage, isGuidedDocu
 
 const workspace = vi.hoisted(() => ({ current: null }))
 vi.mock('../src/context/AdmissionsContext', () => ({ useAdmissions: () => workspace.current }))
-vi.mock('../src/lib/admissionsLocalOcr', () => ({ extractLocalAdmissionsFile: vi.fn() }))
 vi.mock('../src/components/Layout', () => ({ default: ({ children }) => <main data-workspace-layout="true">{children}</main> }))
 import DocumentUpload from '../src/pages/DocumentUpload'
 
@@ -90,7 +89,7 @@ describe('saving guided document progress', () => {
 
 describe('guided document page', () => {
   it('replaces workspace navigation with visible steps and an optional manual route', () => {
-    expect(render()).toMatch(/Profile setup progress[\s\S]*Add what you have[\s\S]*Class 10 mark sheet[\s\S]*Add documents later &amp; enter details/)
+    expect(render()).toMatch(/Profile setup progress[\s\S]*Add what you have[\s\S]*Class 10 mark sheet[\s\S]*Build my profile with AI[\s\S]*Enter details manually/)
   })
   it('offers a guarded return to setup without requiring a metadata save', () => {
     expect(render()).toMatch(/<button[^>]*disabled=""[^>]*>Back to setup<\/button>/)

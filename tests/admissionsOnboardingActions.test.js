@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
+import { URLSearchParams } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import { profileFingerprint } from '../src/lib/admissionsAiReview'
 import { SETUP_STEPS, getProfileSetupStep, withProfileSetup } from '../src/lib/admissionsOnboarding'
@@ -10,7 +11,7 @@ const componentSource = readFileSync(new URL('../src/pages/Onboarding.jsx', impo
 const bodyStart = componentSource.indexOf('export default function Onboarding() {') + 'export default function Onboarding() {'.length
 const bodyEnd = componentSource.indexOf('\n  if (loading', bodyStart)
 if (bodyStart < 37 || bodyEnd < bodyStart) throw new Error('The onboarding action harness must be updated for the component structure.')
-const actionSource = `function Onboarding() {${componentSource.slice(bodyStart, bodyEnd)}\nreturn { saveStep, retry, step, busy, actionError, reviewed, setReviewed, setViewStep }; }`
+const actionSource = `function Onboarding() {${componentSource.slice(bodyStart, bodyEnd)}\nreturn { saveStep, retry, step, busy, actionError, reviewed, setReviewed, setViewStep, editingReview, setReviewOrigin, editReviewSection }; }`
 const owner = { id: 'synthetic-owner', email: 'owner@example.invalid' }
 const baseProfile = step => normalizeAdmissionsProfile(withProfileSetup({ full_name: 'Synthetic Applicant', email: owner.email }, step), owner)
 const deferred = () => {
@@ -22,9 +23,10 @@ const deferred = () => {
 // Exercise the component's real async handlers; JSX and visual assertions are
 // covered separately. The controlled hooks make pending requests and unmounts
 // deterministic without starting a browser or accessing a member account.
-function actionsHarness({ step = 'welcome', profile = baseProfile(step), revision = 7, latest = profile, load, save, retry } = {}) {
+function actionsHarness({ step = 'welcome', profile = baseProfile(step), revision = 7, latest = profile, load, save, retry, query = '' } = {}) {
   const hooks = [], effects = []
-  let cursor = 0
+  let cursor = 0, searchParams = new URLSearchParams(query)
+  const setSearchParams = vi.fn(next => { searchParams = new URLSearchParams(typeof next === 'function' ? next(searchParams) : next) })
   const workspace = {
     user: owner, profile, loading: false, saving: false, error: '', profileLoaded: true, profileUserId: owner.id,
     documents: [], documentsLoaded: true, documentsUserId: owner.id,
@@ -41,8 +43,9 @@ function actionsHarness({ step = 'welcome', profile = baseProfile(step), revisio
   }
   const loadRecord = vi.fn(load || (async () => ({ profile: latest, revision })))
   const scope = {
-    document: {}, details: ['personal', 'academics', 'exams', 'work', 'preferences'],
+    document: {}, URLSearchParams, details: ['personal', 'academics', 'exams', 'work', 'preferences'],
     useNavigate: () => vi.fn(), useAdmissions: () => workspace,
+    useSearchParams: () => [searchParams, setSearchParams],
     useState(initial) {
       const index = cursor++
       if (!(index in hooks)) hooks[index] = initial
@@ -63,7 +66,8 @@ function actionsHarness({ step = 'welcome', profile = baseProfile(step), revisio
   vm.runInNewContext(`${actionSource};globalThis.renderActions=Onboarding`, scope)
   const cleanups = []
   const test = {
-    workspace, loadRecord,
+    workspace, loadRecord, setSearchParams,
+    query: () => searchParams.toString(),
     render() {
       cursor = 0
       test.actions = scope.renderActions()
@@ -116,6 +120,21 @@ describe('Guided onboarding save actions', () => {
     const [saved] = test.workspace.saveProfile.mock.calls[0]
     expect({ step: test.actions.step, completionIsValid: Number.isFinite(Date.parse(saved.onboarding.completed_at)), reviewed: test.actions.reviewed })
       .toEqual({ step: 'complete', completionIsValid: true, reviewed: false })
+  })
+
+  it('clears the review-edit query only after returning to the saved review and preserves unrelated parameters', async () => {
+    const test = actionsHarness({ step: 'personal', query: 'review=1&from=documents' })
+    const editingBefore = test.actions.editingReview
+    await test.actions.saveStep('review'); test.render()
+    expect({ editingBefore, editingAfter: test.actions.editingReview, step: test.actions.step, query: test.query(), options: test.setSearchParams.mock.calls[0][1] })
+      .toEqual({ editingBefore: true, editingAfter: false, step: 'review', query: 'from=documents', options: { replace: true } })
+  })
+
+  it('preserves the review-edit query while a section save fails', async () => {
+    const test = actionsHarness({ step: 'personal', query: 'review=1', save: async () => { throw new Error('Save unavailable') } })
+    await test.actions.saveStep('review'); test.render()
+    expect({ editing: test.actions.editingReview, step: test.actions.step, query: test.query(), error: test.actions.actionError })
+      .toEqual({ editing: true, step: 'personal', query: 'review=1', error: 'Save unavailable' })
   })
 
   it('keeps the current step and exposes a save failure without invoking navigation', async () => {
