@@ -41,7 +41,7 @@ export default function Privacy() {
                     </tr>
                     <tr className="border-b border-[#e1e8f3] hover:bg-[#f6f8fc]">
                       <td className="px-4 py-3">Document data</td>
-                      <td className="px-4 py-3">Uploaded academic documents, scorecards, CVs and photographs; extraction results and your corrections</td>
+                      <td className="px-4 py-3">Uploaded academic documents, scorecards, CVs, photographs and optional PAN, Aadhaar, passport or other government ID proofs; extraction results and your corrections</td>
                       <td className="px-4 py-3">Private document storage and, when requested, OCR extraction for your review</td>
                     </tr>
                     <tr className="border-b border-[#e1e8f3] hover:bg-[#f6f8fc]">
@@ -62,7 +62,7 @@ export default function Privacy() {
                   </tbody>
                 </table>
               </div>
-              <p className="text-[#8798b2] text-sm mt-4">The application does not request payment card or bank account details. Last-drawn annual CTC is optional compensation information and is saved if you enter or approve it. Upload only documents relevant to your application.</p>
+              <p className="text-[#8798b2] text-sm mt-4">The application does not request payment card or bank account details. Last-drawn annual CTC is optional compensation information and is saved if you enter or approve it. Upload only documents relevant to your application. Identity-proof uploads are optional. OCR uses their printed common profile details; government ID numbers are not autofilled. Your selected profile photograph is served through private, time-limited links.</p>
             </section>
 
             {/* Section 2 */}
@@ -83,7 +83,7 @@ export default function Privacy() {
                 </li>
                 <li className="flex gap-3">
                   <span className="text-[#225feb]">•</span>
-                  <span>When you explicitly approve extraction for a specific document, its content is sent to OpenAI for GPT-based extraction. Extraction results and your corrections are linked to your account. You review and approve details before adding them to your profile.</span>
+                  <span>When you explicitly approve extraction for a document or a named selection of documents, their contents are sent to OpenAI for GPT-based extraction. If you choose bulk autofill, agreed suggestions may fill empty profile fields; conflicting values remain for your review. AI-imported fields retain their source and are marked for cross-checking. Before saving a correction to an AI-imported field, you can compare your change with the original suggestion. Your corrections remain under your control.</span>
                 </li>
                 <li className="flex gap-3">
                   <span className="text-[#225feb]">•</span>
@@ -130,8 +130,8 @@ export default function Privacy() {
                     </tr>
                     <tr className="hover:bg-[#f6f8fc]">
                       <td className="px-4 py-3">OpenAI</td>
-                      <td className="px-4 py-3">Content of the specific document you approve for extraction</td>
-                      <td className="px-4 py-3">GPT-based extraction of suggested fields for your review; photographs are not sent for text extraction</td>
+                      <td className="px-4 py-3">Content of the specific document or named batch you approve for extraction</td>
+                      <td className="px-4 py-3">GPT-based extraction and optional empty-field autofill for your review; profile photographs are applied directly and are not sent for text extraction</td>
                     </tr>
                   </tbody>
                 </table>
@@ -176,7 +176,7 @@ export default function Privacy() {
                   </tbody>
                 </table>
               </div>
-              <p className="text-[#8798b2] text-sm mt-4">Removing a document removes its stored file and extraction record. Details previously approved into your profile, and saved application records containing those details, are separate records. You can edit your profile and manage your saved records or request deletion at privacy@unidex.co.in.</p>
+              <p className="text-[#8798b2] text-sm mt-4">Removing a document removes its stored file and extraction record. Details previously imported into your profile, their AI-source history, and saved application records containing those details are separate records. You can edit your profile and manage your saved records or request deletion at privacy@unidex.co.in.</p>
             </section>
 
             {/* Section 6 */}

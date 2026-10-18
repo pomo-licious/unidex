@@ -125,7 +125,7 @@ function fieldFor(path, value, group, profile, row = null, source = null) {
   const target = row ? row.choice.startsWith('existing:') ? [row.section, Number(row.choice.split(':')[1]), ...path.slice(2)] : null : path
   const current = target ? get(profile, target) : undefined
   const academicPath = path.length === 2 && path[0].startsWith('academic_') ? path[0] : null
-  return decorate({ id: path.join('.'), path, key, group, label: DOCUMENT_REVIEW_LABELS[key] || String(key).replaceAll('_', ' '), value: typeof value === 'boolean' ? value : String(value), current: clone(current), baseValue: clone(current), record: row, sourceScale: academicPath ? source?.cgpa_scale : undefined, currentScale: academicPath ? profile?.[academicPath]?.cgpa_scale : undefined, sourceCgpa: academicPath ? source?.cgpa : undefined, currentCgpa: academicPath ? profile?.[academicPath]?.cgpa : undefined })
+  return decorate({ id: path.join('.'), path, key, group, label: DOCUMENT_REVIEW_LABELS[key] || String(key).replaceAll('_', ' '), value: typeof value === 'boolean' ? value : String(value), originalValue: clone(value), current: clone(current), baseValue: clone(current), record: row, sourceScale: academicPath ? source?.cgpa_scale : undefined, currentScale: academicPath ? profile?.[academicPath]?.cgpa_scale : undefined, sourceCgpa: academicPath ? source?.cgpa : undefined, currentCgpa: academicPath ? profile?.[academicPath]?.cgpa : undefined })
 }
 
 export function buildAdmissionsDocumentReview(suggestions = {}, profile = {}) {
@@ -212,7 +212,7 @@ export function applyAdmissionsDocumentReview(profile, model) {
     const pathKey = target.join('.')
     if (seen.has(pathKey) && !comparableDocumentValues(field, seen.get(pathKey), value)) throw new Error(`Two selected suggestions disagree about ${field.label}. Approve only the intended value.`)
     seen.set(pathKey, value)
-    if (field.include && !comparableDocumentValues(field, latest, value)) writes.push({ target, value })
+    if (field.include && !comparableDocumentValues(field, latest, value)) writes.push({ target, value, sourcePath: clone(field.path), originalValue: clone(field.originalValue) })
     set(reviewedData, field.path, value)
   }
   writes.forEach(({ target, value }) => set(next, target, value))
@@ -235,5 +235,5 @@ export function applyAdmissionsDocumentReview(profile, model) {
   if (Array.isArray(reviewedData.work_experience)) reviewedData.work_experience = reviewedData.work_experience.filter(Boolean)
   const validation = writes.length ? validateAdmissionsProfile(next) : { valid: true }
   if (!validation.valid) throw new Error(Object.values(validation.errors)[0])
-  return { profile: next, reviewedData, appliedCount: writes.length, matchedCount: matched.length, excludedCount: model.fields.length - selected.length - matched.length }
+  return { profile: next, reviewedData, appliedFields: writes.map(({ target, value, sourcePath, originalValue }) => ({ path: clone(target), value: clone(value), sourcePath: clone(sourcePath), originalValue: clone(originalValue) })), appliedCount: writes.length, matchedCount: matched.length, excludedCount: model.fields.length - selected.length - matched.length }
 }

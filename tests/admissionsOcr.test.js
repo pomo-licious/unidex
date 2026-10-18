@@ -24,7 +24,7 @@ const rawExtraction = {
 function harness(options = {}) {
   const image = options.mime === 'image/png'
   const bytes = options.invalidMagic ? new TextEncoder().encode('invalid fixture') : image ? new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]) : new TextEncoder().encode('%PDF-1.7\nsynthetic fixture')
-  const document = { id: DOCUMENT, user_id: options.otherOwner ? OTHER : OWNER, document_type: 'resume', file_name: image ? 'synthetic.png' : 'synthetic.pdf', mime_type: image ? 'image/png' : 'application/pdf', size_bytes: bytes.length, storage_bucket: 'unidex-admissions-private', storage_path: `${options.otherOwner ? OTHER : OWNER}/${DOCUMENT}/fixture` }
+  const document = { id: DOCUMENT, user_id: options.otherOwner ? OTHER : OWNER, document_type: options.documentType || 'resume', file_name: image ? 'synthetic.png' : 'synthetic.pdf', mime_type: image ? 'image/png' : 'application/pdf', size_bytes: bytes.length, storage_bucket: 'unidex-admissions-private', storage_path: `${options.otherOwner ? OTHER : OWNER}/${DOCUMENT}/fixture` }
   const events = { reads: 0, downloads: 0, leases: 0, writes: [], provider: [] }
   const db = {
     auth: { getUser: async () => ({ data: { user: { id: OWNER } } }) },
@@ -61,7 +61,7 @@ function harness(options = {}) {
         ? { status: 'completed', output: [{ type: 'message', content: [{ type: 'refusal', refusal: 'Synthetic refusal' }] }] }
         : options.incomplete
           ? { status: 'incomplete', output: [] }
-          : { status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(rawExtraction) }] }] }
+          : { status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(options.rawExtraction || rawExtraction) }] }] }
       return new Response(JSON.stringify(payload), { status: 200 })
     },
   }
@@ -79,7 +79,7 @@ describe('Authenticated OpenAI admissions extraction', () => {
   it('blocks a disabled provider before reading private documents', async () => {
     const test = harness({ disabled: true })
     const result = await test.run()
-    expect({ status: result.status, reads: test.events.reads, downloads: test.events.downloads, provider: test.events.provider.length }).toEqual({ status: 503, reads: 0, downloads: 0, provider: 0 })
+    expect({ status: result.status, code: result.body.code, stopBatch: result.body.stop_batch, reads: test.events.reads, downloads: test.events.downloads, provider: test.events.provider.length }).toEqual({ status: 503, code: 'OCR_DISABLED', stopBatch: true, reads: 0, downloads: 0, provider: 0 })
   })
 
   it('requires document-specific provider consent before private access', async () => {
@@ -97,7 +97,7 @@ describe('Authenticated OpenAI admissions extraction', () => {
   it('stops a rate-limited request before storage and provider processing', async () => {
     const test = harness({ rateLimited: true })
     const result = await test.run()
-    expect({ status: result.status, downloads: test.events.downloads, provider: test.events.provider.length }).toEqual({ status: 429, downloads: 0, provider: 0 })
+    expect({ status: result.status, code: result.body.code, stopBatch: result.body.stop_batch, downloads: test.events.downloads, provider: test.events.provider.length }).toEqual({ status: 429, code: 'OCR_RATE_LIMITED', stopBatch: true, downloads: 0, provider: 0 })
   })
 
   it('sends a stateless strict-schema inline PDF request to Responses', async () => {
@@ -136,18 +136,38 @@ describe('Authenticated OpenAI admissions extraction', () => {
     const access = harness({ providerError: true })
     const rate = harness({ providerRate: true })
     const [denied, limited] = await Promise.all([access.run(), rate.run()])
-    expect({ denied: { status: denied.status, error: denied.body.error }, limited: { status: limited.status, error: limited.body.error }, rateRequests: rate.events.provider.length }).toEqual({ denied: { status: 502, error: 'OpenAI extraction configuration or model access needs attention. Contact support or enter your details manually.' }, limited: { status: 502, error: 'OpenAI extraction is temporarily rate limited. Try later or enter your details manually.' }, rateRequests: 1 })
+    expect({ denied: { status: denied.status, error: denied.body.error, code: denied.body.code }, limited: { status: limited.status, error: limited.body.error, code: limited.body.code }, rateRequests: rate.events.provider.length }).toEqual({ denied: { status: 503, error: 'OpenAI extraction configuration or model access needs attention. Contact support or enter your details manually.', code: 'OCR_PROVIDER_CONFIGURATION' }, limited: { status: 429, error: 'OpenAI extraction is temporarily rate limited. Try later or enter your details manually.', code: 'OCR_RATE_LIMITED' }, rateRequests: 1 })
   })
 
   it('does not retry exhausted API credits or mislabel them as temporary rate limiting', async () => {
     const test = harness({ providerCredits: true })
     const result = await test.run()
-    expect({ status: result.status, error: result.body.error, requests: test.events.provider.length }).toEqual({ status: 502, error: 'OpenAI document extraction is unavailable because the service’s API credits or spending allowance need attention. Contact support or enter details manually.', requests: 1 })
+    expect({ status: result.status, error: result.body.error, code: result.body.code, stopBatch: result.body.stop_batch, requests: test.events.provider.length }).toEqual({ status: 503, error: 'OpenAI document extraction is unavailable because the service’s API credits or spending allowance need attention. Contact support or enter details manually.', code: 'OCR_QUOTA_EXHAUSTED', stopBatch: true, requests: 1 })
   })
 
   it('rejects a mismatched file signature before sending anything to OpenAI', async () => {
     const test = harness({ invalidMagic: true })
     const result = await test.run()
     expect({ status: result.status, provider: test.events.provider.length, state: test.events.writes[0].patch.status }).toEqual({ status: 502, provider: 0, state: 'error' })
+  })
+
+  it('discards identity numbers accidentally returned as phone, marks or digit-containing text', async () => {
+    const test = harness({ documentType: 'aadhaar_card', rawExtraction: { ...rawExtraction, full_name: 'Synthetic Applicant', date_of_birth: '2000-04-18', nationality: 'Indian', current_city: '123456789012', phone: '123456789012' } })
+    const { body } = await test.run()
+    expect(body.extracted).toEqual({ full_name: 'Synthetic Applicant', date_of_birth: '2000-04-18', nationality: 'Indian' })
+  })
+
+  it('applies the limited identity output policy to every optional identity category', async () => {
+    const results = await Promise.all(['pan_card', 'aadhaar_card', 'passport', 'government_id'].map(async documentType => {
+      const { body } = await harness({ documentType }).run()
+      return Object.keys(body.extracted)
+    }))
+    expect(results).toEqual([['full_name'], ['full_name'], ['full_name'], ['full_name']])
+  })
+
+  it('blocks profile photographs before obtaining a provider lease', async () => {
+    const test = harness({ documentType: 'photo', mime: 'image/png' })
+    const result = await test.run()
+    expect({ status: result.status, code: result.body.code, leases: test.events.leases, provider: test.events.provider.length }).toEqual({ status: 400, code: 'PHOTO_EXTRACTION_DISABLED', leases: 0, provider: 0 })
   })
 })

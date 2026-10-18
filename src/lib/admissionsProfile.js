@@ -2,6 +2,42 @@ export const PROFILE_SCHEMA_VERSION = 1
 
 const isRecord = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 const recordRows = value => Array.isArray(value) ? value.filter(isRecord) : []
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const PERSONAL_IMPORT_FIELDS = ['full_name', 'email', 'phone', 'date_of_birth', 'gender', 'nationality', 'current_city', 'total_work_experience_months', 'last_drawn_ctc']
+const ACADEMIC_IMPORT_FIELDS = {
+  academic_10th: ['board', 'school', 'year', 'percentage', 'cgpa', 'cgpa_scale'],
+  academic_12th: ['board', 'school', 'year', 'percentage', 'cgpa', 'cgpa_scale', 'stream'],
+  academic_graduation: ['university', 'college', 'degree', 'branch', 'year_of_passing', 'percentage', 'cgpa', 'cgpa_scale'],
+}
+const safeKey = value => typeof value === 'string' && !['__proto__', 'constructor', 'prototype'].includes(value)
+const rowIndex = (value, max) => Number.isInteger(value) && value >= 0 && value < max
+
+export function isAiImportPath(path) {
+  if (!Array.isArray(path) || !path.length || path.length > 4 || path.some(part => typeof part === 'string' && !safeKey(part))) return false
+  const [section, index, field, key] = path
+  if (path.length === 1) return PERSONAL_IMPORT_FIELDS.includes(section)
+  if (path.length === 2) return Object.hasOwn(ACADEMIC_IMPORT_FIELDS, section) && ACADEMIC_IMPORT_FIELDS[section].includes(index)
+  if (section === 'exam_scores' && rowIndex(index, 20)) {
+    if (path.length === 3) return ['exam', 'year', 'total_score', 'percentile'].includes(field)
+    return field === 'section_scores' && safeKey(key) && /^[A-Za-z0-9_ -]{1,80}$/.test(key)
+  }
+  return path.length === 3 && section === 'work_experience' && rowIndex(index, 30) && ['company', 'designation', 'start_date', 'end_date', 'current', 'months', 'last_drawn_ctc'].includes(field)
+}
+
+const isImportValue = value => value === null || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value)) || (typeof value === 'string' && value.length <= 1000)
+const isImportField = field => isRecord(field) && isAiImportPath(field.path) && isImportValue(field.value)
+const isImportTimestamp = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 19) === value.slice(0, 19)
+
+export function normalizeAiImports(value) {
+  return recordRows(value).slice(-100).flatMap(entry => {
+    if (!UUID.test(entry.document_id || '') || typeof entry.file_name !== 'string' || !entry.file_name.trim() || !isImportTimestamp(entry.imported_at) || typeof entry.reviewed !== 'boolean') return []
+    const fields = recordRows(entry.fields).filter(isImportField).slice(0, 200).map(field => ({ path: [...field.path], value: field.value }))
+    if (!fields.length) return []
+    const fileName = entry.file_name.replace(/\p{Cc}/gu, '').trim().slice(0, 255)
+    if (!fileName) return []
+    return [{ document_id: entry.document_id, file_name: fileName, fields, imported_at: entry.imported_at, reviewed: entry.reviewed }]
+  })
+}
 
 export function createEmptyProfile(user) {
   return {
@@ -13,6 +49,7 @@ export function createEmptyProfile(user) {
     academic_12th: { board: '', school: '', year: '', percentage: '', cgpa: '', cgpa_scale: '', stream: '' },
     academic_graduation: { university: '', college: '', degree: '', branch: '', year_of_passing: '', cgpa: '', cgpa_scale: '', percentage: '' },
     exam_scores: [], work_experience: [], total_work_experience_months: '', last_drawn_ctc: '',
+    profile_photo_document_id: null, ai_imports: [],
     preferences: { preferred_cities: ['Delhi NCR'], max_fees_inr: '', study_mode: 'Full time', programme: 'MBA/PGDM', college_types: [], specialization: '' },
   }
 }
@@ -27,6 +64,8 @@ export function normalizeAdmissionsProfile(value, user) {
     academic_graduation: { ...defaults.academic_graduation, ...(isRecord(value.academic_graduation) ? value.academic_graduation : {}) },
     exam_scores: recordRows(value.exam_scores),
     work_experience: recordRows(value.work_experience),
+    profile_photo_document_id: typeof value.profile_photo_document_id === 'string' && UUID.test(value.profile_photo_document_id) ? value.profile_photo_document_id : null,
+    ai_imports: normalizeAiImports(value.ai_imports),
     preferences: { ...defaults.preferences, ...(isRecord(value.preferences) ? value.preferences : {}) },
   }
 }
@@ -50,8 +89,11 @@ export function getProfileProgress(profile = {}) {
 }
 
 export function validateAdmissionsProfile(profile = {}, { submission = false } = {}) {
+  const original = profile
   profile = normalizeAdmissionsProfile(profile)
   const errors = {}
+  if (original?.profile_photo_document_id != null && original.profile_photo_document_id !== '' && (typeof original.profile_photo_document_id !== 'string' || !UUID.test(original.profile_photo_document_id))) errors.profile_photo_document_id = 'Choose an uploaded profile photograph.'
+  if (original?.ai_imports !== undefined && (!Array.isArray(original.ai_imports) || original.ai_imports.length > 100 || original.ai_imports.some(entry => !isRecord(entry) || !UUID.test(entry.document_id || '') || typeof entry.file_name !== 'string' || !entry.file_name.trim() || entry.file_name.length > 255 || !isImportTimestamp(entry.imported_at) || typeof entry.reviewed !== 'boolean' || !Array.isArray(entry.fields) || !entry.fields.length || entry.fields.length > 200 || entry.fields.some(field => !isImportField(field))))) errors.ai_imports = 'AI import history is invalid or too large. Reload the latest profile before saving.'
   const numberInRange = (value, min, max, path, label) => {
     if (present(value) && (!Number.isFinite(Number(value)) || Number(value) < min || Number(value) > max)) errors[path] = `${label} must be between ${min} and ${max}.`
   }
