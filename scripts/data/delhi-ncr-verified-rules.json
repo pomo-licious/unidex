@@ -1,0 +1,639 @@
+{
+  "institutionIds": {
+    "NCR-001": "ncr-fms-delhi",
+    "NCR-003": "ncr-iit-delhi-dms",
+    "NCR-005": "ncr-iift-delhi",
+    "NCR-007": "ncr-xlri-delhi-ncr",
+    "NCR-009": "ncr-mdi-gurgaon",
+    "NCR-012": "ncr-iim-rohtak",
+    "NCR-013": "ncr-imt-ghaziabad",
+    "NCR-014": "ncr-imi-delhi",
+    "NCR-017": "ncr-fore-delhi",
+    "NCR-018": "ncr-jamia-millia-islamia",
+    "NCR-020": "ncr-bimtech-greater-noida",
+    "NCR-021": "ncr-great-lakes-gurgaon",
+    "NCR-023": "ncr-lbsim-delhi",
+    "NCR-024": "ncr-jaipuria-noida",
+    "NCR-025": "ncr-soil-gurgaon",
+    "NCR-027": "ncr-masters-union",
+    "NCR-028": "ncr-jims-rohini",
+    "NCR-029": "ncr-ndim-delhi",
+    "NCR-030": "ncr-du-financial-studies",
+    "NCR-031": "ncr-du-business-economics",
+    "NCR-032": "ncr-delhi-school-economics-commerce",
+    "NCR-033": "ncr-ggsipu-usms",
+    "NCR-034": "ncr-dtu-delhi-school-management",
+    "NCR-035": "ncr-dtu-usme",
+    "NCR-036": "ncr-nsut-management",
+    "NCR-037": "ncr-igdtuw-management",
+    "NCR-038": "ncr-school-of-management-dr-b-r-ambedkar-university-delhi",
+    "NCR-039": "ncr-school-of-management-and-business-studies-jamia-hamdard",
+    "NCR-040": "ncr-department-of-business-and-sustainability-teri-school-of-advanced-studies",
+    "NCR-041": "ncr-school-of-pharmaceutical-management-dpsru",
+    "NCR-042": "ncr-jims-kalkaji",
+    "NCR-043": "ncr-fortune-institute-of-international-business-fiib",
+    "NCR-044": "ncr-iilm-institute-for-higher-education-lodhi-road",
+    "NCR-045": "ncr-fostiima-business-school",
+    "NCR-046": "ncr-delhi-school-of-business-vips-tc",
+    "NCR-047": "ncr-asia-pacific-institute-of-management",
+    "NCR-048": "ncr-apeejay-school-of-management",
+    "NCR-049": "ncr-empi-business-school",
+    "NCR-050": "ncr-imm-business-school",
+    "NCR-051": "ncr-usha-and-lakshmi-mittal-institute-of-management",
+    "NCR-052": "ncr-new-delhi-institute-for-information-technology-management-ndiit",
+    "NCR-053": "ncr-bharati-vidyapeeth-institute-of-management-and-research-bvimr",
+    "NCR-054": "ncr-rukmini-devi-institute-of-advanced-studies-rdias",
+    "NCR-055": "ncr-maharaja-agrasen-institute-of-technology-department-of-management",
+    "NCR-056": "ncr-delhi-institute-of-advanced-studies-dias",
+    "NCR-057": "ncr-gitarattan-international-business-school",
+    "NCR-058": "ncr-institute-of-information-technology-management-janakpuri",
+    "NCR-059": "ncr-tecnia-institute-of-advanced-studies",
+    "NCR-060": "ncr-banarsidas-chandiwala-institute-of-professional-studies",
+    "NCR-061": "ncr-bhagwan-parshuram-institute-of-technology-school-of-business-administration",
+    "NCR-063": "ncr-management-education-research-institute-meri",
+    "NCR-064": "ncr-guru-nanak-institute-of-management",
+    "NCR-065": "ncr-international-institute-of-health-management-research-iihmr-delhi",
+    "NCR-066": "ncr-periyar-management-and-computer-college",
+    "NCR-067": "ncr-sri-sharada-institute-of-indian-management-research",
+    "NCR-068": "ncr-amity-noida-business-school",
+    "NCR-069": "ncr-amity-international-business-school",
+    "NCR-070": "ncr-rics-school-of-built-environment-amity-university",
+    "NCR-071": "ncr-asian-business-school",
+    "NCR-072": "ncr-institute-of-management-studies-ims-noida",
+    "NCR-073": "ncr-jaypee-business-school-jiit",
+    "NCR-074": "ncr-jss-academy-of-technical-education-noida-mba",
+    "NCR-075": "ncr-ntpc-school-of-business",
+    "NCR-076": "ncr-maharishi-university-of-information-technology-noida",
+    "NCR-077": "ncr-hierank-business-school",
+    "NCR-078": "ncr-aaft-school-of-business",
+    "NCR-079": "ncr-school-of-management-and-entrepreneurship-shiv-nadar-university",
+    "NCR-080": "ncr-school-of-management-gautam-buddha-university",
+    "NCR-081": "ncr-school-of-management-bennett-university",
+    "NCR-082": "ncr-sharda-school-of-business-studies",
+    "NCR-083": "ncr-school-of-business-galgotias-university",
+    "NCR-084": "ncr-school-of-business-management-noida-international-university",
+    "NCR-085": "ncr-gniot-institute-of-management-studies",
+    "NCR-086": "ncr-gniot-institute-of-management-studies-mba",
+    "NCR-087": "ncr-gl-bajaj-institute-of-management-and-research",
+    "NCR-088": "ncr-gl-bajaj-institute-of-technology-and-management-mba",
+    "NCR-089": "ncr-lloyd-business-school",
+    "NCR-090": "ncr-lloyd-institute-of-management-and-technology",
+    "NCR-091": "ncr-iilm-graduate-school-of-management-greater-noida",
+    "NCR-092": "ncr-army-institute-of-management-technology",
+    "NCR-093": "ncr-accurate-institute-of-management-and-technology",
+    "NCR-094": "ncr-mangalmay-institute-of-management-and-technology",
+    "NCR-095": "ncr-i-t-s-engineering-college-mba",
+    "NCR-097": "ncr-noida-institute-of-engineering-and-technology-school-of-management",
+    "NCR-098": "ncr-iimt-college-of-engineering-mba",
+    "NCR-099": "ncr-kcc-institute-of-technology-and-management",
+    "NCR-100": "ncr-dronacharya-group-of-institutions-mba",
+    "NCR-101": "ncr-vishveshwarya-group-of-institutions",
+    "NCR-102": "ncr-iec-college-of-engineering-and-technology-mba",
+    "NCR-103": "ncr-united-institute-of-management-greater-noida",
+    "NCR-104": "ncr-delhi-technical-campus",
+    "NCR-105": "ncr-harlal-institute-of-management-and-technology",
+    "NCR-106": "ncr-ishan-institute-of-management-and-technology",
+    "NCR-107": "ncr-galgotias-institute-of-management-and-technology",
+    "NCR-108": "ncr-i-business-institute",
+    "NCR-109": "ncr-ims-ghaziabad",
+    "NCR-110": "ncr-institute-of-technology-and-science-i-t-s-mohan-nagar",
+    "NCR-111": "ncr-jaipuria-institute-of-management-ghaziabad",
+    "NCR-112": "ncr-jaipuria-school-of-business",
+    "NCR-113": "ncr-ajay-kumar-garg-institute-of-management",
+    "NCR-114": "ncr-kiet-school-of-management",
+    "NCR-115": "ncr-abes-business-school",
+    "NCR-116": "ncr-raj-kumar-goel-institute-of-technology-mba",
+    "NCR-117": "ncr-institute-of-management-education-ime",
+    "NCR-118": "ncr-inmantec-institutions-mba",
+    "NCR-119": "ncr-hi-tech-institute-of-engineering-and-technology-mba",
+    "NCR-120": "ncr-sunder-deep-group-of-institutions-mba",
+    "NCR-121": "ncr-sanskar-college-of-engineering-and-technology-mba",
+    "NCR-122": "ncr-hrit-university-school-of-management",
+    "NCR-123": "ncr-babu-banarsi-das-institute-of-technology-bbdit-ghaziabad",
+    "NCR-124": "ncr-modinagar-institute-of-technology-mba",
+    "NCR-125": "ncr-centre-for-management-development-modinagar",
+    "NCR-126": "ncr-srm-institute-of-science-and-technology-delhi-ncr-campus",
+    "NCR-127": "ncr-r-d-engineering-college-mba",
+    "NCR-128": "ncr-prakash-deep-institute-of-management-and-technology",
+    "NCR-129": "ncr-reliable-institute-of-management-and-technology",
+    "NCR-131": "ncr-nimt-institute-of-technology-and-management",
+    "NCR-132": "ncr-ramesh-chand-institute-of-management",
+    "NCR-133": "ncr-iamr-group-of-institutions-mba",
+    "NCR-134": "ncr-bls-institute-of-management",
+    "NCR-135": "ncr-iilm-gurugram",
+    "NCR-136": "ncr-bml-munjal",
+    "NCR-137": "ncr-amity-business-school-amity-university-gurugram",
+    "NCR-138": "ncr-school-of-management-gd-goenka-university",
+    "NCR-139": "ncr-school-of-management-and-commerce-k-r-mangalam-university",
+    "NCR-140": "ncr-faculty-of-commerce-and-management-sgt-university",
+    "NCR-141": "ncr-department-of-management-gurugram-university",
+    "NCR-142": "ncr-school-of-management-and-liberal-studies-the-northcap-university",
+    "NCR-143": "ncr-school-of-business-sushant-university",
+    "NCR-144": "ncr-ibmr-business-school-gurgaon",
+    "NCR-145": "ncr-jk-business-school",
+    "NCR-146": "ncr-school-of-management-sciences-apeejay-stya-university",
+    "NCR-147": "ncr-starex-university-school-of-commerce-and-management",
+    "NCR-148": "ncr-st-andrews-institute-of-technology-and-management",
+    "NCR-149": "ncr-world-college-of-technology-and-management",
+    "NCR-151": "ncr-global-institute-of-technology-and-management",
+    "NCR-152": "ncr-bm-group-of-institutions-mba",
+    "NCR-153": "ncr-icfai-business-school-gurgaon",
+    "NCR-154": "ncr-department-of-management-studies-j-c-bose-university-of-science-and-technology-ymca",
+    "NCR-155": "ncr-school-of-leadership-and-management-manav-rachna-international-institute-of-research-and-studies",
+    "NCR-156": "ncr-school-of-management-and-commerce-manav-rachna-university",
+    "NCR-157": "ncr-school-of-commerce-and-management-lingaya-s-vidyapeeth",
+    "NCR-158": "ncr-dav-institute-of-management",
+    "NCR-159": "ncr-aravali-college-of-engineering-and-management-mba",
+    "NCR-160": "ncr-al-falah-school-of-commerce-and-management",
+    "NCR-161": "ncr-rawal-institute-of-management",
+    "NCR-162": "ncr-echelon-institute-of-technology-mba",
+    "NCR-164": "ncr-national-power-training-institute",
+    "NCR-165": "ncr-arun-jaitley-national-institute-of-financial-management",
+    "NCR-166": "ncr-jindal-global-business-school",
+    "NCR-167": "ncr-srm-university-delhi-ncr-sonepat-faculty-of-management",
+    "NCR-168": "ncr-deenbandhu-chhotu-ram-university-of-science-and-technology-department-of-management-studies",
+    "NCR-169": "ncr-national-institute-of-food-technology-entrepreneurship-and-management",
+    "NCR-171": "ncr-footwear-design-and-development-institute-fddi-noida",
+    "NCR-172": "ncr-delhi-institute-of-higher-education-dihe-greater-noida",
+    "NCR-174": "ncr-gn-group-of-institutes-greater-noida",
+    "NCR-176": "ncr-inderprastha-engineering-college-ipec-ghaziabad",
+    "NCR-177": "ncr-ims-ghaziabad-university-courses-campus",
+    "NCR-178": "ncr-prince-institute-of-innovative-technology-piit-greater-noida",
+    "NCR-180": "ncr-centre-for-development-of-advanced-computing-c-dac-noida",
+    "NCR-181": "ncr-don-bosco-institute-of-technology-delhi-okhla",
+    "NCR-182": "ncr-maharaja-surajmal-institute-janakpuri",
+    "NCR-183": "ncr-shri-balwant-institute-of-technology-sonepat"
+  },
+  "programmeRules": {
+    "NCR-001": {
+      "minGraduationPercent": 50,
+      "graduationCategoryRules": {
+        "OBC-NCL": 45,
+        "EWS": 45,
+        "PwD": 45,
+        "CW": 45,
+        "SC": "passing_marks",
+        "ST": "passing_marks"
+      },
+      "eligibilityCycle": "2026-28",
+      "eligibilityVerifiedOn": "2026-10-16",
+      "eligibilitySourceUrl": "https://www.fms.edu/static/programmes/MBA_2026.pdf",
+      "eligibilityVerificationStatus": "official_previous_cycle",
+      "specificFields": [
+        {
+          "key": "statementOfPurpose",
+          "label": "Statement of purpose preparation",
+          "type": "textarea",
+          "required": false,
+          "help": "Keep a working draft for the interview discussion; the current portal requirements must be checked separately.",
+          "sourceUrl": "https://www.fms.edu/static/programmes/MBA_2026.pdf"
+        }
+      ]
+    },
+    "NCR-003": {
+      "minGraduationPercent": 60,
+      "graduationCategoryRules": {
+        "SC": 55,
+        "ST": 55,
+        "PwD": 55
+      },
+      "eligibilityVerifiedOn": "2026-10-16",
+      "eligibilitySourceUrl": "https://dms.iitd.ac.in/admission-mba/",
+      "eligibilityVerificationStatus": "official_source_search_reconfirmed"
+    },
+    "NCR-009": {
+      "minGraduationPercent": 50,
+      "eligibilityCycle": "2027-29",
+      "eligibilityVerifiedOn": "2026-10-16",
+      "eligibilitySourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-international-business-pgdm-ib",
+      "eligibilityVerificationStatus": "official_current_cycle",
+      "specificFields": [
+        {
+          "key": "programmePreferences",
+          "label": "MDI programme preferences",
+          "type": "multiselect",
+          "required": true,
+          "options": [
+            "PGDM",
+            "PGDM (Human Resource Management)",
+            "PGDM (International Business)",
+            "PGDM (Business Analytics)",
+            "PGDM (Banking and Financial Services)"
+          ],
+          "help": "The official MDI application asks applicants to select all programmes they wish to apply for. International Business has additional eligibility rules.",
+          "sourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-international-business-pgdm-ib"
+        }
+      ],
+      "requirementsStatus": "partially_verified",
+      "deadline": {
+        "date": "2026-11-28",
+        "label": "28 November 2026, 5:00 PM IST (2027–29 intake)",
+        "sourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-international-business-pgdm-ib",
+        "verifiedOn": "2026-10-16",
+        "verificationStatus": "verified_current_cycle",
+        "timeZone": "Asia/Kolkata",
+        "closesAt": "2026-11-28T17:00:00+05:30"
+      },
+      "minClass10Percent": 50,
+      "minClass12Percent": 50,
+      "minBachelorDurationYears": 3,
+      "eligibility": "Bachelor’s degree with ≥50% and 50% in Class X/XII; CAT and current brochure conditions",
+      "acceptedExams": [
+        "CAT"
+      ],
+      "acceptedExamsLabel": "CAT 2026 (domestic route)",
+      "applicationUrl": "https://admissions.mdi.ac.in/"
+    },
+    "NCR-010": {
+      "minGraduationPercent": 50,
+      "eligibilityCycle": "2027-29",
+      "eligibilityVerifiedOn": "2026-10-16",
+      "eligibilitySourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-international-business-pgdm-ib",
+      "eligibilityVerificationStatus": "official_current_cycle",
+      "specificFields": [
+        {
+          "key": "programmePreferences",
+          "label": "MDI programme preferences",
+          "type": "multiselect",
+          "required": true,
+          "options": [
+            "PGDM",
+            "PGDM (Human Resource Management)",
+            "PGDM (International Business)",
+            "PGDM (Business Analytics)",
+            "PGDM (Banking and Financial Services)"
+          ],
+          "help": "The official MDI application asks applicants to select all programmes they wish to apply for. International Business has additional eligibility rules.",
+          "sourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-international-business-pgdm-ib"
+        }
+      ],
+      "requirementsStatus": "partially_verified",
+      "deadline": {
+        "date": "2026-11-28",
+        "label": "28 November 2026, 5:00 PM IST (2027–29 intake)",
+        "sourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-international-business-pgdm-ib",
+        "verifiedOn": "2026-10-16",
+        "verificationStatus": "verified_current_cycle",
+        "timeZone": "Asia/Kolkata",
+        "closesAt": "2026-11-28T17:00:00+05:30"
+      },
+      "minClass10Percent": 50,
+      "minClass12Percent": 50,
+      "minBachelorDurationYears": 3,
+      "eligibility": "Bachelor’s degree with ≥50%; CAT and brochure conditions",
+      "acceptedExams": [
+        "CAT"
+      ],
+      "acceptedExamsLabel": "CAT 2026 (domestic route)",
+      "applicationUrl": "https://admissions.mdi.ac.in/"
+    },
+    "NCR-011": {
+      "minGraduationPercent": 50,
+      "eligibilityCycle": "2027-29",
+      "eligibilityVerifiedOn": "2026-10-16",
+      "eligibilitySourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-international-business-pgdm-ib",
+      "eligibilityVerificationStatus": "official_current_cycle",
+      "specificFields": [
+        {
+          "key": "programmePreferences",
+          "label": "MDI programme preferences",
+          "type": "multiselect",
+          "required": true,
+          "options": [
+            "PGDM",
+            "PGDM (Human Resource Management)",
+            "PGDM (International Business)",
+            "PGDM (Business Analytics)",
+            "PGDM (Banking and Financial Services)"
+          ],
+          "help": "The official MDI application asks applicants to select all programmes they wish to apply for. International Business has additional eligibility rules.",
+          "sourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-international-business-pgdm-ib"
+        }
+      ],
+      "requirementsStatus": "partially_verified",
+      "deadline": {
+        "date": "2026-11-28",
+        "label": "28 November 2026, 5:00 PM IST (2027–29 intake)",
+        "sourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-international-business-pgdm-ib",
+        "verifiedOn": "2026-10-16",
+        "verificationStatus": "verified_current_cycle",
+        "timeZone": "Asia/Kolkata",
+        "closesAt": "2026-11-28T17:00:00+05:30"
+      },
+      "minClass10Percent": 50,
+      "minClass12Percent": 50,
+      "minBachelorDurationYears": 3,
+      "eligibility": "Bachelor’s degree with ≥50%; CAT and brochure conditions",
+      "acceptedExams": [
+        "CAT"
+      ],
+      "acceptedExamsLabel": "CAT 2026 (domestic route)",
+      "applicationUrl": "https://admissions.mdi.ac.in/"
+    },
+    "NCR-196": {
+      "minGraduationPercent": 50,
+      "eligibilityCycle": "2027-29",
+      "eligibilityVerifiedOn": "2026-10-16",
+      "eligibilitySourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-international-business-pgdm-ib",
+      "eligibilityVerificationStatus": "official_current_cycle",
+      "minWorkExperienceMonths": 12,
+      "specificFields": [
+        {
+          "key": "programmePreferences",
+          "label": "MDI programme preferences",
+          "type": "multiselect",
+          "required": true,
+          "options": [
+            "PGDM",
+            "PGDM (Human Resource Management)",
+            "PGDM (International Business)",
+            "PGDM (Business Analytics)",
+            "PGDM (Banking and Financial Services)"
+          ],
+          "help": "The official MDI application asks applicants to select all programmes they wish to apply for. International Business has additional eligibility rules.",
+          "sourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-international-business-pgdm-ib"
+        }
+      ],
+      "requirementsStatus": "partially_verified",
+      "deadline": {
+        "date": "2026-11-28",
+        "label": "28 November 2026, 5:00 PM IST (2027–29 intake)",
+        "sourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-international-business-pgdm-ib",
+        "verifiedOn": "2026-10-16",
+        "verificationStatus": "verified_current_cycle",
+        "timeZone": "Asia/Kolkata",
+        "closesAt": "2026-11-28T17:00:00+05:30"
+      },
+      "minClass10Percent": 50,
+      "minClass12Percent": 50,
+      "minBachelorDurationYears": 4,
+      "workExperienceCutoffDate": "2027-01-31",
+      "eligibility": "At least 50% in Class 10, Class 12 and a four-year bachelor’s degree; one year of post-degree work by 31 January 2027. Check the published GMAT date and test-centre conditions.",
+      "acceptedExams": [
+        "CAT",
+        "GMAT"
+      ],
+      "acceptedExamsLabel": "CAT 2026 or eligible test-centre GMAT under the PGDM-IB rules",
+      "applicationUrl": "https://admissions.mdi.ac.in/"
+    },
+    "NCR-020": {
+      "minGraduationPercent": 50,
+      "eligibilityCycle": "2027-29",
+      "eligibilityVerifiedOn": "2026-10-16",
+      "eligibilitySourceUrl": "https://www.bimtech.ac.in/admissions",
+      "eligibilityVerificationStatus": "official_current_cycle",
+      "eligibility": "Bachelor’s degree with ≥50%; final-year candidates eligible",
+      "acceptedExams": [
+        "CAT",
+        "XAT",
+        "GMAT",
+        "CMAT"
+      ],
+      "acceptedExamsLabel": "CAT / XAT / GMAT / CMAT (valid years per 2027–29 prospectus)",
+      "applicationUrl": "https://online.admissions.bimtech.ac.in/"
+    },
+    "NCR-185": {
+      "minGraduationPercent": 50,
+      "eligibilityCycle": "2027-29",
+      "eligibilityVerifiedOn": "2026-10-16",
+      "eligibilitySourceUrl": "https://www.bimtech.ac.in/admissions",
+      "eligibilityVerificationStatus": "official_current_cycle",
+      "eligibility": "Graduation ≥50%",
+      "acceptedExams": [
+        "CAT",
+        "XAT",
+        "GMAT",
+        "CMAT"
+      ],
+      "acceptedExamsLabel": "CAT / XAT / GMAT / CMAT (valid years per 2027–29 prospectus)",
+      "applicationUrl": "https://online.admissions.bimtech.ac.in/"
+    },
+    "NCR-186": {
+      "minGraduationPercent": 50,
+      "eligibilityCycle": "2027-29",
+      "eligibilityVerifiedOn": "2026-10-16",
+      "eligibilitySourceUrl": "https://www.bimtech.ac.in/admissions",
+      "eligibilityVerificationStatus": "official_current_cycle",
+      "eligibility": "Graduation ≥50%",
+      "acceptedExams": [
+        "CAT",
+        "XAT",
+        "GMAT",
+        "CMAT",
+        "MAT"
+      ],
+      "acceptedExamsLabel": "CAT / XAT / GMAT / CMAT / MAT (valid years per 2027–29 prospectus)",
+      "applicationUrl": "https://online.admissions.bimtech.ac.in/"
+    },
+    "NCR-187": {
+      "minGraduationPercent": 50,
+      "eligibilityCycle": "2027-29",
+      "eligibilityVerifiedOn": "2026-10-16",
+      "eligibilitySourceUrl": "https://www.bimtech.ac.in/admissions",
+      "eligibilityVerificationStatus": "official_current_cycle",
+      "eligibility": "Graduation ≥50%",
+      "acceptedExams": [
+        "CAT",
+        "XAT",
+        "GMAT",
+        "CMAT",
+        "MAT"
+      ],
+      "acceptedExamsLabel": "CAT / XAT / GMAT / CMAT / MAT (valid years per 2027–29 prospectus)",
+      "applicationUrl": "https://online.admissions.bimtech.ac.in/"
+    },
+    "NCR-166": {
+      "minGraduationPercent": 50,
+      "eligibilityVerifiedOn": "2026-10-16",
+      "eligibilitySourceUrl": "https://jgu.edu.in/jgbs/admissions/full-time-mba-programme",
+      "eligibilityVerificationStatus": "official_source_reconfirmed",
+      "examCriteria": [
+        {
+          "exam": "CAT",
+          "minScore": 50,
+          "scoreType": "percentile",
+          "sourceUrl": "https://jgu.edu.in/jgbs/admissions/full-time-mba-programme"
+        },
+        {
+          "exam": "MAT",
+          "minScore": 50,
+          "scoreType": "percentile",
+          "sourceUrl": "https://jgu.edu.in/jgbs/admissions/full-time-mba-programme"
+        },
+        {
+          "exam": "XAT",
+          "minScore": 50,
+          "scoreType": "percentile",
+          "sourceUrl": "https://jgu.edu.in/jgbs/admissions/full-time-mba-programme"
+        },
+        {
+          "exam": "CMAT",
+          "minScore": 50,
+          "scoreType": "percentile",
+          "sourceUrl": "https://jgu.edu.in/jgbs/admissions/full-time-mba-programme"
+        },
+        {
+          "exam": "ATMA",
+          "minScore": 50,
+          "scoreType": "percentile",
+          "sourceUrl": "https://jgu.edu.in/jgbs/admissions/full-time-mba-programme"
+        },
+        {
+          "exam": "GRE",
+          "minScore": 295,
+          "scoreType": "score",
+          "sourceUrl": "https://jgu.edu.in/jgbs/admissions/full-time-mba-programme"
+        },
+        {
+          "exam": "NMAT",
+          "minScore": 160,
+          "scoreType": "score",
+          "sourceUrl": "https://jgu.edu.in/jgbs/admissions/full-time-mba-programme"
+        }
+      ],
+      "specificFields": [
+        {
+          "key": "examResultStatus",
+          "label": "Entrance exam result status",
+          "type": "select",
+          "required": false,
+          "options": [
+            "Score available",
+            "Awaiting result",
+            "Exam planned"
+          ],
+          "help": "JGBS allows applicants awaiting their qualifying exam result to record that status in its application.",
+          "sourceUrl": "https://jgu.edu.in/jgbs/admissions/full-time-mba-programme"
+        }
+      ],
+      "requirementsStatus": "partially_verified"
+    },
+    "NCR-002": {
+      "minWorkExperienceMonths": 60,
+      "eligibilitySourceUrl": "https://fms.edu/static/programmes/EXEC_HCA.pdf",
+      "eligibilityCycle": "2026-28",
+      "eligibilityVerifiedOn": "2026-10-18",
+      "eligibilityVerificationStatus": "workbook_primary_evidence_cycle_check_required"
+    },
+    "NCR-195": {
+      "minWorkExperienceMonths": 60,
+      "eligibilitySourceUrl": "https://fms.edu/static/programmes/EXEC_HCA.pdf",
+      "eligibilityCycle": "2026-28",
+      "eligibilityVerifiedOn": "2026-10-18",
+      "eligibilityVerificationStatus": "workbook_primary_evidence_cycle_check_required"
+    },
+    "NCR-004": {
+      "minWorkExperienceMonths": 36,
+      "eligibilitySourceUrl": "https://dms.iitd.ac.in/admission-executive-mba/",
+      "eligibilityCycle": "2026-28",
+      "eligibilityVerifiedOn": "2026-10-18",
+      "eligibilityVerificationStatus": "workbook_primary_evidence_cycle_check_required"
+    },
+    "NCR-197": {
+      "minWorkExperienceMonths": 36,
+      "eligibilitySourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-business-management-pgdm-bm",
+      "eligibilityCycle": "2026",
+      "eligibilityVerifiedOn": "2026-10-18",
+      "eligibilityVerificationStatus": "workbook_primary_evidence_cycle_check_required"
+    },
+    "NCR-198": {
+      "minWorkExperienceMonths": 36,
+      "eligibilitySourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-business-administration",
+      "eligibilityCycle": "2026",
+      "eligibilityVerifiedOn": "2026-10-18",
+      "eligibilityVerificationStatus": "workbook_primary_evidence_cycle_check_required"
+    },
+    "NCR-215": {
+      "minWorkExperienceMonths": 36,
+      "eligibilitySourceUrl": "https://www.imt.edu/pgdmexp/",
+      "eligibilityCycle": "2026-28",
+      "eligibilityVerifiedOn": "2026-10-18",
+      "eligibilityVerificationStatus": "workbook_primary_evidence_cycle_check_required"
+    },
+    "NCR-021": {
+      "minWorkExperienceMonths": 24,
+      "eligibilitySourceUrl": "https://www.greatlakes.edu.in/gurgaon/pgpm/",
+      "eligibilityCycle": "published reference; confirm intake",
+      "eligibilityVerifiedOn": "2026-10-18",
+      "eligibilityVerificationStatus": "workbook_primary_evidence_cycle_check_required"
+    },
+    "NCR-194": {
+      "minWorkExperienceMonths": 24,
+      "eligibilitySourceUrl": "https://gurugramuniversity.ac.in/academics/facultiesDepartments/managementCommerce/managementDetails/management/programs.php",
+      "eligibilityCycle": "2026-27",
+      "eligibilityVerifiedOn": "2026-10-18",
+      "eligibilityVerificationStatus": "workbook_primary_evidence_cycle_check_required"
+    },
+    "NCR-063": {
+      "acceptedProfessionalQualifications": [
+        "CA",
+        "CS"
+      ],
+      "professionalQualificationAlternative": true,
+      "qualificationEligibilitySourceUrl": "https://meri.edu.in/meri/ipu-mba-admission-2/",
+      "qualificationEligibilityVerificationStatus": "official_previous_cycle_requires_confirmation"
+    }
+  },
+  "currentOfficialChecks": {
+    "NCR-009": {
+      "feesInr": 2627810,
+      "grossPublishedFeesInr": 2655310,
+      "refundableSecurityInr": 27500,
+      "feesLabel": "2027–29 published PGDM / HRM / Business Analytics schedule: ₹26,55,310 gross, including ₹27,500 security; ₹26,27,810 excluding that security.",
+      "feeScope": "Published two-year tuition, boarding, lodging, learning materials, activities, library and alumni charges; numeric fee excludes the separately listed ₹27,500 security deposit. Subject to revision; application, travel and personal costs are separate.",
+      "feeVerificationStatus": "official_current_cycle_schedule_subject_to_revision",
+      "feeEvidence": "Official current page gives 2027–29 instalment dates and the shared programme schedule; gross ₹26,55,310 less ₹27,500 security yields the displayed net reference.",
+      "feeSourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-pgdm",
+      "feeVerifiedOn": "2026-10-18",
+      "feeCycle": "2027-29",
+      "currentOfficialChecks": [
+        {
+          "checkedOn": "2026-10-18",
+          "sourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-pgdm",
+          "admissionsCycle": "2027-29",
+          "notes": "Current shared PGDM / HRM / Business Analytics fee schedule. The separate IB / executive programmes are not assigned this fee."
+        }
+      ]
+    },
+    "NCR-010": {
+      "feesInr": 2627810,
+      "grossPublishedFeesInr": 2655310,
+      "refundableSecurityInr": 27500,
+      "feesLabel": "2027–29 published PGDM / HRM / Business Analytics schedule: ₹26,55,310 gross, including ₹27,500 security; ₹26,27,810 excluding that security.",
+      "feeScope": "Published two-year tuition, boarding, lodging, learning materials, activities, library and alumni charges; numeric fee excludes the separately listed ₹27,500 security deposit. Subject to revision; application, travel and personal costs are separate.",
+      "feeVerificationStatus": "official_current_cycle_schedule_subject_to_revision",
+      "feeEvidence": "Official current page gives 2027–29 instalment dates and the shared programme schedule; gross ₹26,55,310 less ₹27,500 security yields the displayed net reference.",
+      "feeSourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-pgdm",
+      "feeVerifiedOn": "2026-10-18",
+      "feeCycle": "2027-29",
+      "currentOfficialChecks": [
+        {
+          "checkedOn": "2026-10-18",
+          "sourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-pgdm",
+          "admissionsCycle": "2027-29",
+          "notes": "Current shared PGDM / HRM / Business Analytics fee schedule. The separate IB / executive programmes are not assigned this fee."
+        }
+      ]
+    },
+    "NCR-011": {
+      "feesInr": 2627810,
+      "grossPublishedFeesInr": 2655310,
+      "refundableSecurityInr": 27500,
+      "feesLabel": "2027–29 published PGDM / HRM / Business Analytics schedule: ₹26,55,310 gross, including ₹27,500 security; ₹26,27,810 excluding that security.",
+      "feeScope": "Published two-year tuition, boarding, lodging, learning materials, activities, library and alumni charges; numeric fee excludes the separately listed ₹27,500 security deposit. Subject to revision; application, travel and personal costs are separate.",
+      "feeVerificationStatus": "official_current_cycle_schedule_subject_to_revision",
+      "feeEvidence": "Official current page gives 2027–29 instalment dates and the shared programme schedule; gross ₹26,55,310 less ₹27,500 security yields the displayed net reference.",
+      "feeSourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-pgdm",
+      "feeVerifiedOn": "2026-10-18",
+      "feeCycle": "2027-29",
+      "currentOfficialChecks": [
+        {
+          "checkedOn": "2026-10-18",
+          "sourceUrl": "https://mdi.ac.in/admissions/post-graduate-diploma-in-management-pgdm",
+          "admissionsCycle": "2027-29",
+          "notes": "Current shared PGDM / HRM / Business Analytics fee schedule. The separate IB / executive programmes are not assigned this fee."
+        }
+      ]
+    }
+  }
+}

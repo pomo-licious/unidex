@@ -2,6 +2,8 @@
 
 These 28 authentic institution photographs were sourced from Wikimedia Commons. The original set was retrieved on 16 October 2026; the MDI Gurgaon photograph was retrieved on 18 October 2026. Every file retains the individual reuse terms below. The website must show the supplied credit, source link, license link and modification notice when displaying a photo.
 
+`CollegeImage` exposes those credits through the compact **Photo credits** disclosure on every photograph, including the homepage. Its keyboard-operable 9 px trigger opens readable 10 px author, original-source, license and modification details. The attribution is a sibling of the college navigation link, so accessing source information never navigates to the college by accident. The credits stay available on narrow screens without obscuring the photograph by default.
+
 Photographs are available as optimized WebP files, with card-sized `-small.webp` variants where the original resolution supports them. MDI Gurgaon retains its native 500 × 158 resolution as a single WebP; no detail is generated or enlarged in the asset. Images were resized and converted to WebP. CSS display cropping may be applied. No campus image was generated or substituted from another institution.
 
 `manifest.json` records the institution IDs and name aliases, local paths, author, license, source file page, original image URL, actual downloaded image URL, dimensions, SHA-256 and transformation notice. Shared university-campus photos are described as such. DTU East Delhi and DTU main campus remain separate; GGSIPU uses its Dwarka campus.
@@ -42,6 +44,8 @@ Photographs are available as optimized WebP files, with card-sized `-small.webp`
 ## Coverage
 
 The homepage now features IIT Delhi DMS, MDI Gurgaon and FMS Delhi using stable Delhi NCR catalogue links. IIM Ahmedabad and IIFT Delhi are not in the homepage showcase. The image set also supports other directory entries, including the retained authentic IIFT photo; it is not substituted with another campus. Three Amity Noida schools share a photo of their verified university campus. Institution-level photos do not imply that the exact programme classroom is shown.
+
+`hasCollegePhoto(college)` in `src/data/collegeImages.js` identifies the audited bundled campus images for discovery ordering. It returns `false` for illustrations, missing mappings and arbitrary external `image_url` fields. The set covers 29 researched NCR institutions: 28 in the core catalogue plus IIM Rohtak in the broader NCR grouping. Core coverage includes IIT Delhi DMS, MDI Gurgaon, FMS Delhi, IIFT Delhi, IMT Ghaziabad, IMI Delhi, FORE, Jamia Millia Islamia, BIMTECH and Great Lakes Gurgaon, so a ten-card discovery introduction can use real photographs without inserting an out-of-region college or substituting another campus. Photo ordering is presentation only and must never change the underlying fit score or eligibility result.
 
 MDI Gurgaon uses Iceman7676’s authentic public-domain panoramic exterior. The 500 × 158 original is deliberately displayed with a wide 12:5 homepage crop. It is a historical campus photograph from 23 November 2009. No different MDI campus is substituted. No suitable reusable campus image was established during this pass for Jindal, LBSIM, JIMS Rohini, NDIM or many smaller providers. Unmapped institutions use the explicit non-photographic architectural placeholder in the UI.
 

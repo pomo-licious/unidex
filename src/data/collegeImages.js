@@ -559,7 +559,7 @@ export function getCollegeImage(college) {
   if (!college) return null
   const name = normalise(college.name)
   const bundled = COLLEGE_IMAGES.find(image => image.ids?.includes(college.id) || image.names?.some(alias => normalise(alias) === name))
-  if (bundled && safeImageUrl(bundled.src)) return { ...bundled, src: safeImageUrl(bundled.src), smallSrc: safeImageUrl(bundled.smallSrc) }
+  if (bundled && safeImageUrl(bundled.src)) return { ...bundled, src: safeImageUrl(bundled.src), smallSrc: safeImageUrl(bundled.smallSrc), isCampusPhoto: true }
   const existing = safeImageUrl(college.image_url)
   if (!existing) return null
   return {
@@ -570,5 +570,12 @@ export function getCollegeImage(college) {
     sourceUrl: college.image_source_url || '',
     licenseUrl: college.image_license_url || '',
     objectPosition: '50% 50%',
+    isCampusPhoto: false,
   }
+}
+
+// Only the audited, locally bundled campus photographs qualify for photo-first
+// discovery. An arbitrary database image URL is not evidence of its subject.
+export function hasCollegePhoto(college) {
+  return getCollegeImage(college)?.isCampusPhoto === true
 }

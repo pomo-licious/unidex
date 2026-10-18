@@ -34,15 +34,21 @@ export default function CollegeImage({ college, className = 'aspect-[16/10]', im
   const unavailable = !image || failedSource === image.src
   const source = safeLink(image?.sourceUrl)
   const license = safeLink(image?.licenseUrl)
-  const destination = /^\/college\/[a-zA-Z0-9_-]+$/.test(collegeHref || '') ? collegeHref : null
+  const destination = /^\/college\/[a-zA-Z0-9_-]+(?:\?programme=[a-zA-Z0-9_-]+)?$/.test(collegeHref || '') ? collegeHref : null
   const photograph = unavailable ? <CampusPlaceholder/> : <img src={image.src} srcSet={image.smallSrc ? `${image.smallSrc} 640w, ${image.src} ${image.width || 1200}w` : undefined} sizes={image.smallSrc ? (eager ? '(min-width: 1024px) calc(100vw - 344px), 100vw' : '(min-width: 1536px) 420px, (min-width: 768px) 46vw, 100vw') : undefined} alt={image.alt || `${college.name} campus`} width={image.width || 1200} height={image.height || 750} loading={eager ? 'eager' : 'lazy'} fetchPriority={eager ? 'high' : 'auto'} decoding="async" onError={() => setFailedSource(image.src)} style={{ objectPosition: image.objectPosition || '50% 50%' }} className={`absolute inset-0 h-full w-full object-cover transition-transform duration-700 motion-reduce:transition-none ${imageClassName}`}/>
   return <figure className={`relative isolate overflow-hidden bg-[#edf2fa] ${className}`}>
     {/* The photo link and attribution are siblings: licence/source anchors must
         never be nested inside the college navigation anchor. */}
     {destination ? <Link to={destination} aria-label={`Explore ${college.name}`} className="absolute inset-0 block focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[#225feb]">{photograph}</Link> : photograph}
-      {!unavailable && showAttribution && (image.credit || image.license) && <figcaption title="Photograph resized to WebP and cropped to fit this layout. The source link identifies the original." className="absolute bottom-2 right-2 z-10 max-w-[88%] rounded-md bg-[#071b36]/65 px-2 py-1 text-right text-[9px] leading-4 text-white/95 backdrop-blur-sm">
-        {source ? <a href={source} target="_blank" rel="noopener noreferrer" className="underline decoration-white/35 underline-offset-2 hover:decoration-white">Photo: {image.credit || 'source'}</a> : <span>Photo: {image.credit}</span>}
-        {image.license && <><span className="mx-1.5 text-white/50">·</span>{license ? <a href={license} target="_blank" rel="noopener noreferrer" className="underline decoration-white/35 underline-offset-2 hover:decoration-white">{image.license}</a> : <span>{image.license}</span>}</>}
-      </figcaption>}
+    {!unavailable && showAttribution && (image.credit || image.license) && <figcaption className="absolute bottom-2 right-2 z-10 max-w-[88%] rounded-md bg-[#071b36]/80 text-white backdrop-blur-sm">
+      <details className="group/credits">
+        <summary aria-label={`Photo credits for ${college.name}`} className="cursor-pointer rounded-md px-2 py-1 text-[9px] leading-3 marker:text-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Photo credits</summary>
+        <div className="w-56 max-w-full space-y-1.5 border-t border-white/20 px-3 py-2.5 text-[10px] leading-4">
+          <p>{source ? <a href={source} target="_blank" rel="noopener noreferrer" className="break-words underline decoration-white/50 underline-offset-2 hover:decoration-white focus-visible:outline-2 focus-visible:outline-white">Photo: {image.credit || 'source'}</a> : <span>Photo: {image.credit}</span>}</p>
+          {image.license && <p>{license ? <a href={license} target="_blank" rel="noopener noreferrer" className="underline decoration-white/50 underline-offset-2 hover:decoration-white focus-visible:outline-2 focus-visible:outline-white">{image.license}</a> : <span>{image.license}</span>}</p>}
+          <p className="text-white/80">Resized to WebP; cropped to fit. Original photograph linked above.</p>
+        </div>
+      </details>
+    </figcaption>}
   </figure>
 }

@@ -1,16 +1,24 @@
 # Unidex admissions revamp — release handoff
 
-## Current hosted AI follow-up — 18 October 2026
+## Current release preparation — 18 October 2026
 
-The default document flow now prepares pages for Cloudflare Workers AI vision, automatically fills agreed empty profile fields, and opens a comprehensive prefilled review. Five full manual form sections are no longer the required path after a successful AI build. Older local OCR/GPT implementation notes below are historical, not the current UI default.
+The website now imports workbook **version 7**: **157 active institutions / 199 programmes**, with **16 held institutions / 17 programmes** retained only for audit. One institution card holds its programme choices. Programme-specific fees, eligibility, placements, sources and deadlines stay separate; conditional estimates and noncomparable outcomes are not promoted into verified numeric facts. Complete student-facing research loads on demand. See [DELHI_NCR_CATALOGUE.md](DELHI_NCR_CATALOGUE.md).
 
-`admissions-ai-extract` is deployed active version 1 with JWT verification. Retrieved deployed source matches the validated local handler; anonymous status invocation returns 401. It requires a valid account session, explicit Cloudflare document-processing approval, owned canonical private paths, bounded complete page inputs, and server-side enable/free-plan gates. It retains existing request leases, source tracking, conflict handling and revision-safe profile saves. No migration was required.
+Profiles, guided edits and the saved overview now support repeatable CA, CS, CMA, CPA, ACCA, CFA, doctorate and other qualifications, plus serving/veteran defence details. Professional certificates and service/discharge records have upload categories. Experienced applicants are prompted for their last drawn **annual CTC in INR** as a completion item; missing salary never blocks a partial AI draft. Salary and employer names do not create admissions-fit points.
 
-**Not operationally enabled yet:** no Cloudflare account/token has been configured by this work, and no real provider inference or private student document test has been performed. The default configuration stays disabled. A synthetic record, a one-call verification script, and exact server setup instructions are in [HOSTED_AI_SETUP.md](HOSTED_AI_SETUP.md). No account upgrade, paid fallback, credit purchase or billing change was made.
+The default document flow renders owned pages for Cloudflare Workers AI vision, automatically fills agreed empty profile fields and opens a prefilled review. The expanded extraction contract is **schema version 3**, separate from canonical profile schema version 1. Only current-model, schema-3, usable suggestions qualify for automatic cache reuse; older or failed results must be extracted again. Multiple qualifications, employment rows, explicit GMAT editions and printed service details retain typed review and source tracking. Conflicts and ambiguous rows remain for human review, and importing suggestions does not mark documents human-reviewed.
 
-Verification: 653 tests across 33 suites pass; production build passes. Real synthetic PNG, searchable PDF and scanned PDF page preparation passed with PDF/canvas cleanup and no OCR/provider call. Repository lint and final deployment checks are recorded by the publication process. The hosted model still needs a successful synthetic connection check after credentials are configured.
+Matching uses a documented heuristic framework: **entrance exam 40 / academics 25 / experience 15 / professional qualifications 5 / budget 10 / location 3 / study mode 2**. Known fee caps and unmet requirements govern grouping; saved programme/format preferences are respected. The current workbook has sparse comparable numeric admissions evidence and no verified average entrant GMAT or average experience benchmarks. Unsupported factors stay unassessed, with coverage shown. The matcher also derives 37 unambiguous bachelor-percentage references from selected-programme eligibility text and its existing source, preserving the imported cycle-check status. Together with 11 structured references, 48 of 199 programmes have graduation references; the other 151 remain unknown. Professional credentials remain available for applications even when no sourced programme-specific bonus is modelled. A fit score is **not an admission probability**. See [MATCHING_METHODOLOGY.md](MATCHING_METHODOLOGY.md).
 
-Prepared 16 October 2026. This is an engineering handoff, not product-facing copy.
+**Current Cloudflare configuration:** account/token, free-plan confirmation and enablement have been connected. The earlier synthetic connectivity test passed. The current default therefore no longer has an account-activation blocker. Existing ownership, explicit processing/autofill consent, bounded page inputs, request leases and revision-safe saves remain required. There is no paid fallback or billing change. See [HOSTED_AI_SETUP.md](HOSTED_AI_SETUP.md).
+
+**Backend and local validation:** the stable `admissions-ai-extract` handler is deployed as version 30 with platform JWT verification enabled and no diagnostic hooks. Supabase retrieval confirms a single `index.ts` exactly matches the validated candidate (SHA-256 `90b3cd7bcc7b62d465fd8954ca8f1968b7000bcb63fd5e840879d0ee9af9c479`); anonymous invocation returns HTTP 401. The final local checks pass: **967 tests / 44 suites**, full ESLint, production build and whitespace checks. The build reports a 1.23 MB minified catalogue chunk (about 199 KB gzip); this is a size warning, not a failed build. Frontend GitHub/Vercel publication is pending the release owner's final record.
+
+**Live extraction limit:** the earlier schema-2 synthetic request confirmed document reading and suggestion saving, but omitted richer facts. The stricter data-instance prompt and numeric-format normalization are covered by reproducible offline tests. A complete live schema-3 calibration of qualifications, multiple roles and defence details has **not** been verified. No further provider retries are part of this release. The enabled service, deployment and passing local tests must not be described as proof of complete model accuracy or a tested browser member journey.
+
+Application guards also require annual CTC when an experienced applicant completes the relevant application review, while preserving partial draft saves. A completed CA/CS/CMA can relax common graduation fields only when **every** selected programme's current canonical evidence explicitly verifies that alternative route. Historical or unverified snapshot claims cannot waive requirements or create an automatic credential bonus.
+
+The sections below retain the earlier 16–18 October engineering handoffs and release history. Their provider defaults, activation blockers, version numbers and test counts describe those earlier milestones, not the current configuration.
 
 ## Source and rollback
 
@@ -40,12 +48,12 @@ Backend setup and test order: [ADMISSIONS_BACKEND_SETUP.md](ADMISSIONS_BACKEND_S
 ## Product and data boundaries
 
 - The application builder saves an **internal Unidex submission receipt** and snapshots. It does not deliver an application to a college, establish acceptance, or pay institution fees. Final institution submission/payment remains on official college portals.
-- The imported source contains **199 active programme records across 163 institutions**. Coverage, source dates, weak records and field-level qualifications are documented in [DELHI_NCR_CATALOGUE.md](DELHI_NCR_CATALOGUE.md). This is a researched inventory; it is not a claim that every programme, fee, cutoff, form or deadline was freshly verified.
-- Last-drawn annual CTC is optional profile information. It is neutral in matching and is not an admissions eligibility gate.
-- Uploaded documents are stored privately. The new document UI/API use OpenAI GPT with a per-document consent box that starts unchecked and must be checked for each request to send that specific file to OpenAI for suggested-field extraction. Approving selected fields for profile autofill is a separate action. The deployed extraction gate remains off; do not claim operational OCR availability or successful extraction.
+- The current imported source contains **199 active programme records across 157 institutions**, with 16 institutions / 17 programmes held outside active discovery. Coverage, source dates, weak records and field-level qualifications are documented in [DELHI_NCR_CATALOGUE.md](DELHI_NCR_CATALOGUE.md). This is a researched inventory; it is not a claim that every programme, fee, cutoff, form or deadline was freshly verified.
+- Experienced applicants are asked for last-drawn annual INR CTC to complete work details; fresh graduates may leave it blank and partial AI drafts remain saveable. CTC is financial context, not an admissions advantage or eligibility gate.
+- Uploaded documents stay in private owner-scoped storage. The current default uses Cloudflare Workers AI after explicit approval of the named selected files and empty-field autofill. Photos are applied directly; government identifiers are excluded. Model output remains a suggestion requiring a cross-check. The earlier OpenAI-only consent/credit notes below are historical and do not describe this default.
 - Do not replace actual backend failures with browser-only success messages. Do not use real account deletion as a smoke test.
 
-## OCR provider decision and pending release checks
+## Historical GPT provider decision and release checks
 
 The earlier Gemini-based draft was blocked by automatic approval review because disclosure of private documents to Google Gemini was not explicitly authorized. That draft was not deployed. The user subsequently declined Gemini, chose GPT/OpenAI and approved provisioning a new OpenAI API key through the secure flow. This supersedes the earlier provider proposal; it does not authorize deploying the Gemini draft.
 
@@ -72,7 +80,7 @@ Before release, verify the deployed origin’s `/reset-password` and onboarding 
 - Google OAuth verification: pending provider setup.
 - Authenticated end-to-end verification: pending an authorized test session.
 
-## Latest review publication
+## Historical OpenAI review publication
 
 The OpenAI/variance-review build was published successfully through Sites. Source commit: `22af11fd3fe8c655c09ecf4a1bfa53f5b7bb749b`. This private publication preceded the GitHub release. The revamp has since been merged to `main` through https://github.com/pomo-licious/unidex/pull/5, and its production Vercel deployment status is success. New provider extraction is not live until API credits and hosted secrets/enablement are configured.
 
@@ -100,13 +108,13 @@ Backend follow-up deployment verified: `admissions-ocr` is active version 3, JWT
 
 Final follow-up validation: all 268 tests across 16 suites pass, full ESLint and the production build pass, and whitespace checks pass. Tests include named-batch consent, conflict preservation, CGPA-scale consistency, original AI baselines, photo ownership/deletion, stable repeated-row provenance, profile revision races, guarded onboarding/application saves and retry consistency. Independent code review found no remaining concrete high/medium issue in this scope. Managed browser QA and an authenticated live GPT round trip remain unperformed; the provider configuration/credit blockers are unchanged.
 
-## NCR showcase, documents-first and free extraction follow-up — 18 October 2026
+## Historical local extraction follow-up — 18 October 2026
 
 The homepage now features IIT Delhi DMS, MDI Gurgaon and FMS Delhi, with a real credited Gurugram panorama for MDI and the existing FMS photograph. Ahmedabad and the previous IIFT entrance photograph are removed from the homepage showcase. This is an editorial selection of prominent NCR options, not a numeric ranking. The hero/auth tagline reads “Your MBA journey. Made seamless.”
 
 Profile, onboarding and the common application offer an optional documents-first choice after a confirmed empty document list. Users can continue filling the form; selecting uploads preserves their draft and offers a safe return route.
 
-The default document screen now uses browser-local PDF.js/Tesseract extraction, removing the dependency on GPT credits, Gemini free quota and provider keys. The existing private storage, conflict reviews, revision checks and source tracking remain. Google sign-in still needs owner-side OAuth credentials/provider enablement; current public settings report Google disabled and Google Cloud’s client console is inaccessible in this browser. See FREE_OCR_DECISION.md and GOOGLE_AUTH_SETUP.md.
+At this earlier milestone the default document screen used browser-local PDF.js/Tesseract extraction, removing the dependency on GPT credits, Gemini free quota and provider keys. Hosted Cloudflare vision has since replaced that default. The existing private storage, conflict reviews, revision checks and source tracking remain. Google sign-in still needs owner-side OAuth credentials/provider enablement; the previously inspected public settings reported Google disabled. See FREE_OCR_DECISION.md and GOOGLE_AUTH_SETUP.md.
 
 Real local-engine verification on synthetic fixtures passed: PDF.js text-layer extraction, Tesseract image OCR, and a rendered scanned PDF produced the expected structured facts. OCR workers were terminated after use. No external AI request or private student file was used. The browser-specific member journey remains unverified under the managed preview restrictions. The free default no longer depends on the earlier exhausted OpenAI API quota; the older OpenAI endpoint remains gated off and unused by this UI.
 

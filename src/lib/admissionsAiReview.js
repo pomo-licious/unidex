@@ -1,7 +1,7 @@
 import { isAiImportPath } from './admissionsProfile'
 
-const NUMBER_FIELDS = new Set(['year', 'year_of_passing', 'percentage', 'cgpa', 'cgpa_scale', 'total_score', 'percentile', 'months', 'total_work_experience_months', 'last_drawn_ctc'])
-const FIELD_LABELS = { full_name: 'Full name', email: 'Email address', phone: 'Mobile number', date_of_birth: 'Date of birth', gender: 'Gender', nationality: 'Nationality', current_city: 'Current city', total_work_experience_months: 'Total work experience (months)', last_drawn_ctc: 'Last drawn annual CTC (₹)', year_of_passing: 'Year of graduation', cgpa: 'CGPA', cgpa_scale: 'CGPA grading scale', total_score: 'Total score', start_date: 'Start date', end_date: 'End date', current: 'Current role', months: 'Experience (months)' }
+const NUMBER_FIELDS = new Set(['year', 'year_of_passing', 'completion_year', 'percentage', 'cgpa', 'cgpa_scale', 'total_score', 'percentile', 'months', 'total_work_experience_months', 'last_drawn_ctc'])
+const FIELD_LABELS = { exam_version: 'GMAT edition', qualification: 'Qualification', title: 'Qualification title', institution: 'Awarding institution', status: 'Status', completion_year: 'Year of completion', field: 'Field of study', rank: 'Rank', leadership_summary: 'Leadership / service responsibilities', full_name: 'Full name', email: 'Email address', phone: 'Mobile number', date_of_birth: 'Date of birth', gender: 'Gender', nationality: 'Nationality', current_city: 'Current city', total_work_experience_months: 'Total work experience (months)', last_drawn_ctc: 'Last drawn annual CTC (₹)', year_of_passing: 'Year of graduation', cgpa: 'CGPA', cgpa_scale: 'CGPA grading scale', total_score: 'Total score', start_date: 'Start date', end_date: 'End date', current: 'Current role', months: 'Experience (months)' }
 const own = (value, key) => value != null && Object.prototype.hasOwnProperty.call(value, key)
 
 export const isReviewableAiPath = isAiImportPath
@@ -25,6 +25,8 @@ export function aiFieldLabel(path) {
   if (path[0] === 'academic_12th') return `Class 12 · ${label}`
   if (path[0] === 'academic_graduation') return `Graduation · ${label}`
   if (path[0] === 'exam_scores') return `Exam ${Number(path[1]) + 1} · ${path.includes('section_scores') ? 'Section score · ' : ''}${label}`
+  if (path[0] === 'professional_qualifications') return `Qualification ${Number(path[1]) + 1} · ${label}`
+  if (path[0] === 'defence_service') return `Defence service · ${label}`
   if (path[0] === 'work_experience') return `Experience ${Number(path[1]) + 1} · ${label}`
   return label
 }
@@ -43,12 +45,12 @@ export function getAiImportedFields(profile = {}) {
   return [...latest.values()]
 }
 
-const ROW_SECTIONS = new Set(['exam_scores', 'work_experience'])
-const rowKey = row => row?._unidex_row_id || row?.id
+const ROW_SECTIONS = new Set(['exam_scores', 'work_experience', 'professional_qualifications'])
+const rowKey = row => row?._row_id || row?._unidex_row_id || row?.id
 
 export function withProfileReviewRowIds(profile) {
   const next = structuredClone(profile)
-  for (const section of ROW_SECTIONS) next[section] = (next[section] || []).map(row => ({ ...row, _unidex_row_id: row._unidex_row_id || crypto.randomUUID() }))
+  for (const section of ROW_SECTIONS) next[section] = (next[section] || []).map(row => section === 'professional_qualifications' ? { ...row, _row_id: row._row_id || crypto.randomUUID() } : { ...row, _unidex_row_id: row._unidex_row_id || crypto.randomUUID() })
   return next
 }
 
@@ -65,11 +67,11 @@ function candidatePathFor(path, saved, candidate) {
   }
   // Legacy drafts have no tracking IDs. An equal row count alone does not establish identity.
   if (!newRows.length) return null
-  const fingerprint = row => profileFingerprint(Object.fromEntries(Object.entries(row || {}).filter(([key]) => key !== '_unidex_row_id')))
+  const fingerprint = row => profileFingerprint(Object.fromEntries(Object.entries(row || {}).filter(([key]) => !['_unidex_row_id', '_row_id'].includes(key))))
   const matches = newRows.flatMap((row, index) => fingerprint(row) === fingerprint(oldRow) ? [index] : [])
   if (matches.length === 1) return [path[0], matches[0], ...path.slice(2)]
   const normalizeKey = value => value === undefined || value === null ? '' : String(value).trim().replace(/\s+/g, ' ').toLowerCase()
-  const identityKeys = path[0] === 'exam_scores' ? ['exam', 'year'] : ['company', 'designation', 'start_date']
+  const identityKeys = path[0] === 'exam_scores' ? ['exam', 'year', 'exam_version'] : path[0] === 'professional_qualifications' ? ['qualification', 'title', 'institution', 'completion_year'] : ['company', 'designation', 'start_date']
   const anchor = row => { const parts = identityKeys.map(key => normalizeKey(row?.[key])); return parts.some(Boolean) ? JSON.stringify(parts) : null }
   const target = anchor(oldRow)
   const anchored = target ? newRows.flatMap((row, index) => anchor(row) === target ? [index] : []) : []
@@ -85,7 +87,7 @@ export function rebaseProfileAiImports(candidate, saved) {
     const fields = (Array.isArray(record.fields) ? record.fields : []).flatMap(field => {
       if (!isReviewableAiPath(field.path)) return []
       const path = candidatePathFor(field.path, saved, candidate)
-      if (path && !isReviewableAiPath(path)) throw new Error('An imported row would exceed the supported profile limits. Keep at most 20 exam results and 30 experience rows before saving.')
+      if (path && !isReviewableAiPath(path)) throw new Error('An imported row would exceed the supported profile limits. Keep at most 20 exam results, 20 qualification rows and 30 experience rows before saving.')
       return path ? [{ ...field, path: [...path] }] : []
     })
     return fields.length ? [{ ...record, fields }] : []

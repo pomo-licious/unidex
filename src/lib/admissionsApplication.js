@@ -1,4 +1,6 @@
 import { DELHI_NCR_COLLEGES } from '../data/delhiNcrColleges.js'
+import { hasCompletedProfessionalEntryRoute } from './admissionsMatching.js'
+import { validateAdmissionsProfile } from './admissionsProfile.js'
 
 const isRecord = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 const institutionId = college => college?.id || college?.college_id || 'unknown-college'
@@ -22,6 +24,20 @@ export function programmeForSnapshot(college, catalogue = DELHI_NCR_COLLEGES) {
       || (!current && college.selected_programme?.id === programmeId ? college.selected_programme : null)
   }
   return null
+}
+
+// An institution's stale snapshot cannot establish an alternative entry route.
+// Require an explicit selection still present in the current programme list,
+// and a current sourced completed-qualification route for every selection.
+export function validateAdmissionsApplicationProfile(profile, colleges, catalogue = DELHI_NCR_COLLEGES) {
+  const selections = Array.isArray(colleges) ? colleges : []
+  const alternativeEntry = selections.length > 0 && selections.every(college => {
+    const current = catalogue.find(item => item.id === institutionId(college))
+    const programmeId = college?.selectedProgrammeId || college?.programme_key || college?.programme_id || college?.selected_programme?.id
+    const programme = programmeId && current?.programmes?.find(item => item.id === programmeId)
+    return Boolean(programme && hasCompletedProfessionalEntryRoute(profile, programme))
+  })
+  return validateAdmissionsProfile(profile, { submission: true, requireGraduation: !alternativeEntry })
 }
 
 export function answerKey(college) {

@@ -293,7 +293,7 @@ describe('Free-plan gated hosted admissions AI extraction', () => {
     const test = harness()
     await test.run({ body: { model: 'paid-fallback', signed_url: 'https://untrusted.invalid' } })
     const request = test.events.provider[0]
-    expect({ url: request.url, model: request.body.model, store: request.body.store, stream: request.body.stream, max: request.body.max_completion_tokens, format: request.body.response_format, systemSchema: request.body.messages[0].content.includes('additionalProperties'), image: request.body.messages[1].content[2], gateway: request.body.gateway, tools: request.body.tools }).toEqual({ url: `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/ai/v1/chat/completions`, model: MODEL, store: false, stream: false, max: 8192, format: { type: 'json_object' }, systemSchema: true, image: { type: 'image_url', image_url: { url: `data:image/png;base64,${page().data_base64}` } }, gateway: undefined, tools: undefined })
+    expect({ url: request.url, model: request.body.model, store: request.body.store, stream: request.body.stream, max: request.body.max_completion_tokens, thinking: request.body.chat_template_kwargs, format: request.body.response_format, dataTemplate: request.body.messages[0].content.includes('Blank DATA instance:'), schemaDefinition: request.body.messages[0].content.includes('"properties":'), image: request.body.messages[1].content[2], gateway: request.body.gateway, tools: request.body.tools }).toEqual({ url: `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/ai/v1/chat/completions`, model: MODEL, store: false, stream: false, max: 8192, thinking: { enable_thinking: false }, format: { type: 'json_object' }, dataTemplate: true, schemaDefinition: false, image: { type: 'image_url', image_url: { url: `data:image/png;base64,${page().data_base64}` } }, gateway: undefined, tools: undefined })
   })
 
   it('sends every supplied page once in page order', async () => {
@@ -316,7 +316,7 @@ describe('Free-plan gated hosted admissions AI extraction', () => {
 
   it('strips unexpected fields and government identifiers from provider output', async () => {
     const { body } = await harness({ rawExtraction: { full_name: 'Synthetic Applicant', phone: '123456789012', pan_number: 'ABCDE1234F', unknown: 'ignored', academic_10th: { percentage: 95, government_id: 'ABCDE1234F' } } }).run()
-    expect(body.extracted).toEqual({ full_name: 'Synthetic Applicant', academic_10th: { percentage: 95 }, exam_scores: [], work_experience: [] })
+    expect(body.extracted).toEqual({ full_name: 'Synthetic Applicant', academic_10th: { percentage: 95 }, exam_scores: [], work_experience: [], professional_qualifications: [], schema_version: 3 })
   })
 
   it('preserves an explicitly international Indian phone number outside identity records', async () => {
@@ -339,7 +339,7 @@ describe('Free-plan gated hosted admissions AI extraction', () => {
       const { body } = await harness({ documentType, rawExtraction: { full_name: 'Synthetic Applicant', date_of_birth: '2000-04-18', nationality: 'Indian', current_city: '123456789012', phone: '9876543210', academic_10th: { percentage: 98 } } }).run()
       return body.extracted
     }))
-    expect(outputs).toEqual(Array.from({ length: 4 }, () => ({ full_name: 'Synthetic Applicant', date_of_birth: '2000-04-18', nationality: 'Indian' })))
+    expect(outputs).toEqual(Array.from({ length: 4 }, () => ({ full_name: 'Synthetic Applicant', date_of_birth: '2000-04-18', nationality: 'Indian', schema_version: 3 })))
   })
 
   it('rejects refusals without saving extracted facts and releases the lease', async () => {
@@ -406,5 +406,176 @@ describe('Free-plan gated hosted admissions AI extraction', () => {
     const test = harness()
     const result = await test.run({ method: 'OPTIONS', authorization: false })
     expect({ status: result.status, auth: test.events.auth, methods: result.headers.get('access-control-allow-methods') }).toEqual({ status: 204, auth: 0, methods: 'GET, POST, OPTIONS' })
+  })
+})
+
+
+describe('complete credential and service extraction', () => {
+  it('preserves CA marks and an explicitly completed doctorate as separate qualification rows', async () => {
+    const test = harness({ rawExtraction: { professional_qualifications: [
+      { qualification: 'CA', title: 'Chartered Accountant', institution: 'ICAI', status: 'completed', completion_year: 2021, percentage: 61.25, field: 'Accountancy' },
+      { qualification: 'PhD', title: 'Doctor of Philosophy', institution: 'Synthetic University', status: 'completed', completion_year: 2025, cgpa: 3.8, cgpa_scale: 4, field: 'Economics' },
+    ] } })
+    const result = await test.run()
+    expect(result.body.extracted.professional_qualifications).toEqual([
+      { qualification: 'CA', title: 'Chartered Accountant', institution: 'ICAI', status: 'completed', completion_year: 2021, percentage: 61.25, field: 'Accountancy' },
+      { qualification: 'PhD', title: 'Doctor of Philosophy', institution: 'Synthetic University', status: 'completed', completion_year: 2025, cgpa: 3.8, cgpa_scale: 4, field: 'Economics' },
+    ])
+  })
+  it('does not invent a completion status when the record has not stated one', async () => {
+    const test = harness({ rawExtraction: { professional_qualifications: [{ qualification: 'CMA', institution: 'ICMAI', percentage: 65 }] } })
+    const result = await test.run()
+    expect(result.body.extracted.professional_qualifications[0].status).toBeUndefined()
+  })
+  it('retains a printed postgraduate qualification under Other without treating it as graduation marks', async () => {
+    const test = harness({ rawExtraction: { professional_qualifications: [{ title: 'Master of Commerce', institution: 'Synthetic University', percentage: 81 }] } })
+    const result = await test.run()
+    expect(result.body.extracted).toMatchObject({ professional_qualifications: [{ qualification: 'Other', title: 'Master of Commerce', percentage: 81 }] })
+  })
+  it('keeps every supported employer from a resume rather than collapsing roles', async () => {
+    const test = harness({ rawExtraction: { work_experience: [{ company: 'Synthetic Audit', designation: 'Analyst', start_date: '2020-05', end_date: '2022-06', current: false }, { company: 'Synthetic Consulting', designation: 'Manager', start_date: '2022-07', current: true, last_drawn_ctc: 1800000 }] } })
+    const result = await test.run()
+    expect(result.body.extracted.work_experience.map(role => role.company)).toEqual(['Synthetic Audit', 'Synthetic Consulting'])
+  })
+  it('retains service facts while excluding service numbers and operational unknown fields', async () => {
+    const test = harness({ documentType: 'defence_service', rawExtraction: { full_name: 'Synthetic Veteran', defence_service: { status: 'veteran', branch: 'Indian Army', rank: 'Major', start_date: '2005-04', end_date: '2025-03', current: false, leadership_summary: 'Managed training and supervised a team.', service_number: 'IC123456', posting: 'Synthetic operational posting' } } })
+    const result = await test.run()
+    expect(result.body.extracted.defence_service).toEqual({ status: 'veteran', branch: 'Indian Army', rank: 'Major', start_date: '2005-04', end_date: '2025-03', current: false, leadership_summary: 'Managed training and supervised a team.' })
+  })
+  it('does not allow a service number hidden in a supported summary or rank field', async () => {
+    const test = harness({ documentType: 'defence_service', rawExtraction: { defence_service: { status: 'serving', rank: 'IC123456', leadership_summary: 'Personnel ID: SYN123456', branch: 'Indian Army' } } })
+    const result = await test.run()
+    expect(result.body.extracted.defence_service).toEqual({ status: 'serving', branch: 'Indian Army' })
+  })
+  it('does not import membership numbers hidden in qualification titles', async () => {
+    const test = harness({ rawExtraction: { professional_qualifications: [{ qualification: 'CA', title: 'Membership number: ABC123456', institution: 'ICAI' }] } })
+    const result = await test.run()
+    expect(result.body.extracted.professional_qualifications[0].title).toBeUndefined()
+  })
+  it('marks extraction schema version so old narrow caches are not silently reused', async () => {
+    const test = harness()
+    const result = await test.run()
+    expect(result.body.extracted.schema_version).toBe(3)
+  })
+  it('does not treat extraction schema metadata alone as document facts', async () => {
+    const test = harness({ rawExtraction: { schema_version: 3, professional_qualifications: [], defence_service: {} } })
+    const result = await test.run()
+    expect({ status: result.status, code: result.body.code }).toEqual({ status: 422, code: 'OCR_NO_FIELDS' })
+  })
+  it('retains an explicitly printed GMAT edition without guessing from a score or year', async () => {
+    const test = harness({ rawExtraction: { exam_scores: [{ exam: 'GMAT', year: 2026, total_score: 675, exam_version: 'focus' }, { exam: 'GMAT', year: 2024, total_score: 700 }] } })
+    const result = await test.run()
+    expect(result.body.extracted.exam_scores.map(exam => exam.exam_version)).toEqual(['focus', null])
+  })
+  it('adds no profile write while saving the expanded extracted suggestions', async () => {
+    const test = harness({ rawExtraction: { professional_qualifications: [{ qualification: 'CA' }], defence_service: { status: 'serving' } } })
+    await test.run()
+    expect(test.events.writes.some(write => write.table === 'student_admissions_profiles')).toBe(false)
+  })
+})
+
+
+describe('document value instructions rather than schema copying', () => {
+  it('shows actual JSON data keys with null placeholders without sending schema definitions as the answer shape', async () => {
+    const test = harness()
+    await test.run()
+    const prompt = test.events.provider[0].body.messages[0].content
+    const template = JSON.parse(prompt.split('Blank DATA instance:\n')[1])
+    expect(template).toMatchObject({ full_name: null, academic_10th: { percentage: null }, professional_qualifications: [{ qualification: null, institution: null }], defence_service: { status: null, rank: null } })
+  })
+  it('rejects a copied schema with an actionable error before saving document suggestions', async () => {
+    const test = harness({ rawExtraction: { type: 'object', properties: { full_name: { type: ['string', 'null'] } }, required: ['full_name'] } })
+    const result = await test.run()
+    expect({ status: result.status, code: result.body.code, suggestionWrites: test.events.writes.filter(write => write.patch.extracted_data).length }).toEqual({ status: 422, code: 'OCR_SCHEMA_INSTEAD_OF_VALUES', suggestionWrites: 0 })
+  })
+  it('also rejects a copied schema hidden in a schema wrapper', async () => {
+    const test = harness({ rawExtraction: { schema: { type: 'object', properties: { full_name: { type: 'string' } } } } })
+    const result = await test.run()
+    expect(result.body.code).toBe('OCR_SCHEMA_INSTEAD_OF_VALUES')
+  })
+})
+
+describe('format-preserving normalization of explicitly read values', () => {
+  it('canonicalizes exact full qualification names without assigning a completion status', async () => {
+    const names = ['Chartered Accountant', 'Company Secretaryship', 'Cost and Management Accountant', 'Certified Public Accountant', 'Chartered Certified Accountant', 'Chartered Financial Analyst', 'Doctor of Philosophy']
+    const test = harness({ rawExtraction: { professional_qualifications: names.map(qualification => ({ qualification })) } })
+    const result = await test.run()
+    expect(result.body.extracted.professional_qualifications.map(row => row.qualification)).toEqual(['CA', 'CS', 'CMA', 'CPA', 'ACCA', 'CFA', 'PhD'])
+  })
+  it('preserves explicitly stated statuses despite letter case and whitespace', async () => {
+    const test = harness({ rawExtraction: { professional_qualifications: [{ qualification: 'CA', status: ' Completed ' }, { qualification: 'CS', status: 'PURSUING' }], defence_service: { status: ' Veteran ', rank: 'Major' } } })
+    const result = await test.run()
+    expect({ qualifications: result.body.extracted.professional_qualifications.map(row => row.status), service: result.body.extracted.defence_service.status }).toEqual({ qualifications: ['completed', 'pursuing'], service: 'veteran' })
+  })
+  it('does not infer completed status from an unrecognized qualified label', async () => {
+    const test = harness({ rawExtraction: { professional_qualifications: [{ qualification: 'CA', status: 'qualified' }] } })
+    const result = await test.run()
+    expect(result.body.extracted.professional_qualifications[0].status).toBeUndefined()
+  })
+  it('canonicalizes explicitly stated GMAT edition labels', async () => {
+    const test = harness({ rawExtraction: { exam_scores: [{ exam: 'GMAT', exam_version: 'Focus Edition', total_score: 675 }, { exam: 'GMAT', exam_version: 'GMAT Classic Edition', total_score: 700 }] } })
+    const result = await test.run()
+    expect(result.body.extracted.exam_scores.map(exam => exam.exam_version)).toEqual(['focus', 'classic'])
+  })
+  it('retains valid Western and Indian numeric grouping without changing the amount', async () => {
+    const outputs = await Promise.all(['1,200,000', '12,00,000'].map(async last_drawn_ctc => {
+      const result = await harness({ rawExtraction: { last_drawn_ctc } }).run()
+      return result.body.extracted.last_drawn_ctc
+    }))
+    expect(outputs).toEqual([1200000, 1200000])
+  })
+  it('retains an INR amount when an annual period is explicitly included', async () => {
+    const outputs = await Promise.all(['INR 12,00,000 per annum', '₹1,200,000/year', '1,200,000 INR annually', '₹12,00,000 (annual)'].map(async last_drawn_ctc => {
+      const result = await harness({ rawExtraction: { last_drawn_ctc } }).run()
+      return result.body.extracted.last_drawn_ctc
+    }))
+    expect(outputs).toEqual([1200000, 1200000, 1200000, 1200000])
+  })
+  it('accepts an explicit month suffix only for month-count fields', async () => {
+    const test = harness({ rawExtraction: { full_name: 'Synthetic Applicant', total_work_experience_months: '120 months', last_drawn_ctc: '120 months', work_experience: [{ company: 'Synthetic Company', months: '24months' }] } })
+    const result = await test.run()
+    expect({ months: result.body.extracted.total_work_experience_months, role: result.body.extracted.work_experience[0].months, ctc: result.body.extracted.last_drawn_ctc }).toEqual({ months: 120, role: 24, ctc: undefined })
+  })
+  it('accepts percent signs only in percentage or percentile fields', async () => {
+    const test = harness({ rawExtraction: { academic_10th: { percentage: '87.5%', cgpa: '8.7%' }, exam_scores: [{ exam: 'CAT', total_score: '80%', percentile: '98.5%' }] } })
+    const result = await test.run()
+    expect({ percentage: result.body.extracted.academic_10th.percentage, cgpa: result.body.extracted.academic_10th.cgpa, score: result.body.extracted.exam_scores[0].total_score, percentile: result.body.extracted.exam_scores[0].percentile }).toEqual({ percentage: 87.5, cgpa: undefined, score: null, percentile: 98.5 })
+  })
+  it('rejects malformed grouping, ranges, components and unsupported monetary units', async () => {
+    const values = ['1,20,0,000', '₹100,000 per month', 'USD 1,200,000 per annum', 'INR 1,200,000', '1,200,000 per annum', 'INR 1,000,000 + 200,000 per annum', 'INR 1,000,000-1,200,000 per annum', '₹12 LPA', 'about INR 1,200,000 per annum']
+    const outputs = await Promise.all(values.map(async last_drawn_ctc => {
+      const result = await harness({ rawExtraction: { full_name: 'Synthetic Applicant', last_drawn_ctc } }).run()
+      return result.body.extracted.last_drawn_ctc
+    }))
+    expect(outputs).toEqual(values.map(() => undefined))
+  })
+  it('does not convert years into months or a slash CGPA into a percentage', async () => {
+    const test = harness({ rawExtraction: { full_name: 'Synthetic Applicant', total_work_experience_months: '10 years', academic_graduation: { cgpa: '3.8/4' } } })
+    const result = await test.run()
+    expect({ months: result.body.extracted.total_work_experience_months, academics: result.body.extracted.academic_graduation }).toEqual({ months: undefined, academics: undefined })
+  })
+  it('retains existing bounds and rejects identity identifiers in numeric fields', async () => {
+    const test = harness({ rawExtraction: { full_name: 'Synthetic Applicant', total_work_experience_months: '721 months', last_drawn_ctc: 'ABCDE1234F', academic_10th: { percentage: '101%' } } })
+    const result = await test.run()
+    expect({ months: result.body.extracted.total_work_experience_months, ctc: result.body.extracted.last_drawn_ctc, marks: result.body.extracted.academic_10th }).toEqual({ months: undefined, ctc: undefined, marks: undefined })
+  })
+  it('does not promote a similar but unsupported credential label to CA', async () => {
+    const test = harness({ rawExtraction: { professional_qualifications: [{ qualification: 'Chartered Accountant aspirant', title: 'Professional preparation course' }] } })
+    const result = await test.run()
+    expect(result.body.extracted.professional_qualifications[0].qualification).toBe('Other')
+  })
+})
+
+
+describe('unit-scoped exam section normalization', () => {
+  it('preserves a percent suffix on an explicitly labelled section percentile but not a raw score', async () => {
+    const test = harness({ rawExtraction: { exam_scores: [{ exam: 'CAT', section_scores: { 'VARC percentile': '97.2%', 'DILR scaled score': '25%', 'QA scaled score': '-1.2' } }] } })
+    const result = await test.run()
+    expect(result.body.extracted.exam_scores[0].section_scores).toEqual({ 'VARC percentile': 97.2, 'QA scaled score': -1.2 })
+  })
+  it('keeps section percentiles bounded at 100', async () => {
+    const test = harness({ rawExtraction: { exam_scores: [{ exam: 'CAT', section_scores: { 'VARC percentile': '120%' } }] } })
+    const result = await test.run()
+    expect(result.body.extracted.exam_scores[0].section_scores).toEqual({})
   })
 })

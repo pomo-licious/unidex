@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, isDocumentType } from '../src/lib/admissionsDocumentTypes'
 import { normalizeAiImports, validateAdmissionsProfile } from '../src/lib/admissionsProfile'
 import { sanitizeLocalAdmissionsExtraction } from '../src/lib/admissionsLocalExtraction'
+import { canReuseAdmissionsAiExtraction } from '../src/lib/admissionsBatchReview'
 
 const source = readFileSync(new URL('../src/lib/admissionsApi.js', import.meta.url), 'utf8').replace(/^import .*\r?\n/gm, '').replace(/^export /gm, '')
 const OWNER = '11111111-1111-4111-8111-111111111111'
@@ -22,10 +23,10 @@ function harness(options = {}) {
     functions: { invoke: async (name, args) => {
       calls.push({ name, ...args })
       if (options.failure) return { error: { context: new Response(JSON.stringify(options.failure), { status: 503 }) } }
-      return { data: args.body.action === 'status' ? options.status || status : { ok: true, document: { ...document, extraction_model: `cloudflare:${status.model}`, extracted_data: { academic_10th: { percentage: 87 } }, ...options.responseDocument } } }
+      return { data: args.body.action === 'status' ? options.status || status : { ok: true, document: { ...document, status: 'needs_review', extraction_model: `cloudflare:${status.model}`, extracted_data: { schema_version: 3, academic_10th: { percentage: 87 } }, ...options.responseDocument } } }
     } },
   }
-  const scope = { supabase, DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, isDocumentType, normalizeAiImports, validateAdmissionsProfile, sanitizeLocalAdmissionsExtraction, Uint8Array, DOMException, TextEncoder, prepareAdmissionsAiPages: async () => { events.prepared++; return { total_pages: 1, pages: [{ page_number: 1, mime_type: 'image/jpeg', data_base64: 'synthetic-page' }] } } }
+  const scope = { supabase, DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, isDocumentType, normalizeAiImports, validateAdmissionsProfile, sanitizeLocalAdmissionsExtraction, canReuseAdmissionsAiExtraction, Uint8Array, DOMException, TextEncoder, prepareAdmissionsAiPages: async () => { events.prepared++; return { total_pages: 1, pages: [{ page_number: 1, mime_type: 'image/jpeg', data_base64: 'synthetic-page' }] } } }
   vm.runInNewContext(`${source};globalThis.api={getAdmissionsAiStatus,extractHostedAdmissionsDocument}`, scope)
   return { api: scope.api, calls, events }
 }
@@ -52,7 +53,7 @@ describe('hosted AI client boundary', () => {
   })
   it('returns server-confirmed suggestions without writing to the profile', async () => {
     const test = harness()
-    expect((await test.api.extractHostedAdmissionsDocument(stored, OWNER, true)).extracted_data).toEqual({ academic_10th: { percentage: 87 } })
+    expect((await test.api.extractHostedAdmissionsDocument(stored, OWNER, true)).extracted_data).toEqual({ schema_version: 3, academic_10th: { percentage: 87 } })
   })
   it('rejects a response belonging to another document', async () => {
     const test = harness({ responseDocument: { id: '33333333-3333-4333-8333-333333333333' } })

@@ -43,11 +43,11 @@ describe('AI processing and automatic profile fill approval', () => {
   it('does not reuse results from a different hosted AI model', () => {
     expect(approval({ documents: [{ ...document, extraction_model: 'cloudflare:older-model', extracted_data: {} }] })).toContain('Read with Cloudflare AI')
   })
-  it('reuses results only from the current exact Cloudflare model', () => {
-    expect(approval({ documents: [{ ...document, extraction_model: `cloudflare:${model}`, extracted_data: {} }] })).toContain('Saved Cloudflare AI')
+  it('reuses nonempty results only from the current exact Cloudflare model and schema', () => {
+    expect(approval({ documents: [{ ...document, status: 'needs_review', extraction_model: `cloudflare:${model}`, extracted_data: { schema_version: 3, full_name: 'Test Applicant' } }] })).toContain('Saved Cloudflare AI')
   })
   it('can reuse current saved results while new provider processing is unavailable', () => {
-    expect(button(approval({ aiAvailable: false, documents: [{ ...document, extraction_model: `cloudflare:${model}`, extracted_data: {} }] }), 'Build my profile with AI')).not.toContain('disabled=')
+    expect(button(approval({ aiAvailable: false, documents: [{ ...document, status: 'needs_review', extraction_model: `cloudflare:${model}`, extracted_data: { schema_version: 3, full_name: 'Test Applicant' } }] }), 'Build my profile with AI')).not.toContain('disabled=')
   })
   it('keeps private photo assignment available without an AI connection', () => {
     expect(button(approval({ aiStatus: null, aiAvailable: false, documents: [{ ...document, document_type: 'photo', mime_type: 'image/png' }] }), 'Use selected photo')).not.toContain('disabled=')
@@ -56,10 +56,28 @@ describe('AI processing and automatic profile fill approval', () => {
 
 describe('filled profile handoff', () => {
   const summary = { results: [{ document, status: 'extracted' }], profileSaved: true, plan: { appliedCount: 3, textFieldCount: 3, matchedCount: 0, photoApplied: false, conflicts: [] } }
+  const partialSummary = { ...summary, readyDocuments: [document], results: [...summary.results, { document: { ...document, id: 'unfinished', file_name: 'Unfinished.pdf' }, status: 'failed', error: 'The free service was unavailable.' }] }
   it('hands a saved automatic fill directly to profile review', () => {
     expect(renderToStaticMarkup(<BatchCompletion summary={summary} busy={false} onClose={vi.fn()} onRetrySave={vi.fn()} onContinue={vi.fn()}/>)).toContain('Review my filled profile')
   })
   it('keeps manual entry explicit if saving the filled profile failed', () => {
     expect(renderToStaticMarkup(<BatchCompletion summary={{ ...summary, profileSaved: false, saveError: 'Your profile changed in another tab.' }} busy={false} onClose={vi.fn()} onRetrySave={vi.fn()} onContinue={vi.fn()}/>)).toMatch(/profile autofill was not confirmed[\s\S]*Continue &amp; enter details manually/)
+  })
+  it('preserves unsaved available results before retrying unfinished documents', () => {
+    const html = renderToStaticMarkup(<BatchCompletion summary={{ ...partialSummary, profileSaved: false, saveError: 'Your profile changed in another tab.' }} busy={false} onClose={vi.fn()} onRetrySave={vi.fn()} onRetryFiles={vi.fn()} onContinue={vi.fn()}/>)
+    expect(button(html, 'Retry unfinished documents')).toContain('disabled=""')
+  })
+  it('allows unfinished documents to be retried once available results are saved', () => {
+    const html = renderToStaticMarkup(<BatchCompletion summary={partialSummary} busy={false} onClose={vi.fn()} onRetrySave={vi.fn()} onRetryFiles={vi.fn()} onContinue={vi.fn()}/>)
+    expect(button(html, 'Retry unfinished documents')).not.toContain('disabled=')
+  })
+  it('allows a completely failed batch to retry when there are no unsaved available results', () => {
+    const failedSummary = { ...partialSummary, profileSaved: false, readyDocuments: [], results: partialSummary.results.filter(result => result.status === 'failed'), plan: null }
+    const html = renderToStaticMarkup(<BatchCompletion summary={failedSummary} busy={false} onClose={vi.fn()} onRetrySave={vi.fn()} onRetryFiles={vi.fn()} onContinue={vi.fn()}/>)
+    expect(button(html, 'Retry unfinished documents')).not.toContain('disabled=')
+  })
+  it('exposes individual document review when extracted values need reconciliation', () => {
+    const html = renderToStaticMarkup(<BatchCompletion summary={{ ...summary, plan: { ...summary.plan, needsReviewDocumentIds: [document.id] } }} busy={false} onClose={vi.fn()} onRetrySave={vi.fn()} onReviewDocument={vi.fn()} onContinue={vi.fn()}/>)
+    expect(button(html, 'Resolve document disagreements')).toBeDefined()
   })
 })

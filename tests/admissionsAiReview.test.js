@@ -166,3 +166,23 @@ describe('legacy draft identity safety', () => {
     expect(prepareProfileSaveReview(candidate, saved, { profile: saved, revision: 4 }, 'owner').snapshot.profile.email).toBe('account@example.com')
   })
 })
+
+describe('professional and service provenance', () => {
+  it('keeps professional marks attached to their row when an earlier qualification is removed', () => {
+    const base = profile({ professional_qualifications: [{ qualification: 'CA', institution: 'ICAI' }, { qualification: 'CFA', institution: 'CFA Institute', percentage: 70 }], ai_imports: [source([{ path: ['professional_qualifications', 1, 'percentage'], value: 70 }])] })
+    const tracked = withProfileReviewRowIds(base), candidate = { ...tracked, professional_qualifications: [tracked.professional_qualifications[1]] }
+    const saved = prepareProfileSaveReview(candidate, base, { profile: base, revision: 3 }, 'owner', tracked).snapshot.profile
+    expect(findAiProfileCorrections({ ...saved, professional_qualifications: [{ ...saved.professional_qualifications[0], percentage: 75 }] }, saved)[0]).toMatchObject({ aiValue: 70, value: 75, label: 'Qualification 1 · Percentage' })
+  })
+  it('warns before saving a correction to a document-sourced service rank', () => {
+    const saved = profile({ defence_service: { status: 'veteran', rank: 'Major' }, ai_imports: [source([{ path: ['defence_service', 'rank'], value: 'Major' }])] })
+    expect(findAiProfileCorrections({ ...saved, defence_service: { ...saved.defence_service, rank: 'Colonel' } }, saved)[0]).toMatchObject({ label: 'Defence service · Rank', aiValue: 'Major', value: 'Colonel' })
+  })
+  it('does not mistake a professional row reorder for a changed extracted result', () => {
+    const saved = profile({ professional_qualifications: [{ _row_id: 'row-A', qualification: 'CA' }, { _row_id: 'row-B', qualification: 'CFA', percentage: 70 }], ai_imports: [source([{ path: ['professional_qualifications', 1, 'percentage'], value: 70 }])] })
+    expect(findAiProfileCorrections({ ...saved, professional_qualifications: [saved.professional_qualifications[1], saved.professional_qualifications[0]] }, saved)).toEqual([])
+  })
+  it('does not expose service identifiers as reviewable profile paths', () => {
+    expect(isReviewableAiPath(['defence_service', 'service_number'])).toBe(false)
+  })
+})
