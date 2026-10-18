@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getProfileProgress, validateAdmissionsProfile } from '../lib/admissionsProfile'
+import { getProfileSectionForPath } from '../lib/admissionsProfileSections'
 import { ArrowRight, Check, CheckCircle2, Plus, Trash2, UserRound, GraduationCap, FileCheck2, BriefcaseBusiness, SlidersHorizontal, LoaderCircle, ArrowLeft, ShieldCheck, ChevronRight } from 'lucide-react'
 
 const SECTIONS = [
@@ -63,11 +64,11 @@ function serialize(draft) {
   return next
 }
 
-export default function AdmissionsProfileForm({ initialProfile, value, onChange, section = 'all', disabled = false, onSave, saving = false, error, submitLabel = 'Save your profile', onboarding = false }) {
+export default function AdmissionsProfileForm({ initialProfile, value, onChange, section = 'all', disabled = false, onSave, saving = false, error, submitLabel = 'Save your profile', onboarding = false, guided = false, onInvalidSection, onBack }) {
   const [localDraft, setLocalDraft] = useState(() => normalize(initialProfile))
   const draft = value ? normalize(value) : localDraft
   const Container = onSave ? 'form' : 'div'
-  const isSection = (index) => onSave ? active === index : section === 'all' || section === SECTIONS[index].id
+  const isSection = (index) => section !== 'all' ? section === SECTIONS[index].id : onSave ? active === index : true
   const [active, setActive] = useState(0)
   const [saveError, setSaveError] = useState('')
   const [saved, setSaved] = useState(false)
@@ -81,34 +82,39 @@ export default function AdmissionsProfileForm({ initialProfile, value, onChange,
   const complete = [sectionComplete('personal'), sectionComplete('school') && sectionComplete('graduation'), sectionComplete('exams'), sectionComplete('experience'), sectionComplete('preferences')]
   const completion = progress.score
   const name = draft.full_name?.trim().split(' ')[0] || 'you'
+  function showInvalidSection(index) {
+    setActive(index)
+    onInvalidSection?.(SECTIONS[index].id)
+  }
   async function submit(event) {
     event.preventDefault()
-    if (!draft.full_name.trim() || !draft.email.trim()) {
+    const intent = guided && event.nativeEvent?.submitter?.value === 'back' ? 'back' : 'continue'
+    if ((!guided || intent !== 'back') && (!draft.full_name.trim() || !draft.email.trim())) {
       setSaveError('Please add your full name and email in The essentials before saving.')
-      setActive(0)
+      showInvalidSection(0)
       return
     }
     for (const role of draft.work_experience) {
-      if (role.start_date && role.end_date && !role.current && (String(role.start_date).length === 7 || String(role.end_date).length === 7 ? role.end_date.slice(0, 7) < role.start_date.slice(0, 7) : role.end_date < role.start_date)) { setSaveError('A role’s end date cannot be before its start date. Please check Your experience.'); setActive(3); return }
+      if (role.start_date && role.end_date && !role.current && (String(role.start_date).length === 7 || String(role.end_date).length === 7 ? role.end_date.slice(0, 7) < role.start_date.slice(0, 7) : role.end_date < role.start_date)) { setSaveError('A role’s end date cannot be before its start date. Please check Your experience.'); showInvalidSection(3); return }
     }
     const validation = validateAdmissionsProfile(draft)
     if (!validation.valid) {
       const [path, message] = Object.entries(validation.errors)[0]
-      setActive(path.startsWith('academic_') ? 1 : path.startsWith('exam_scores') ? 2 : path.startsWith('work_experience') || path === 'last_drawn_ctc' || path === 'total_work_experience_months' ? 3 : path.startsWith('preferences') ? 4 : 0)
+      showInvalidSection(SECTIONS.findIndex(item => item.id === getProfileSectionForPath(path)))
       setSaveError(message)
       return
     }
     setSaveError('')
     try {
-      const result = await onSave(serialize(draft))
+      const result = await onSave(serialize(draft), { intent })
       if (result?.cancelled === true) return
       if (result === false) throw new Error('Your profile could not be saved. Your changes are still here; please try again.')
       setSaved(true)
       setDirty(false)
     } catch (err) { setSaveError(err?.message || 'Your profile could not be saved. Please try again.') }
   }
-  return <Container onSubmit={onSave ? submit : undefined} className={onSave ? "grid items-start gap-6 lg:grid-cols-[246px_minmax(0,1fr)] lg:gap-10" : "min-w-0"}>
-    {onSave && <aside className="lg:sticky lg:top-28">
+  return <Container onSubmit={onSave ? submit : undefined} className={onSave && !guided ? "grid items-start gap-6 lg:grid-cols-[246px_minmax(0,1fr)] lg:gap-10" : "min-w-0"}>
+    {onSave && !guided && <aside className="lg:sticky lg:top-28">
       <div className="mb-6 rounded-2xl bg-[#10264c] p-5 text-white">
         <div className="flex items-center justify-between"><span className="text-xs text-blue-100">A little more you.</span><span className="text-lg font-semibold">{completion}%</span></div>
         <progress value={completion} max="100" aria-label="Profile completeness" className="mt-4 h-1.5 w-full overflow-hidden rounded-full [&::-webkit-progress-bar]:bg-white/15 [&::-webkit-progress-value]:bg-[#84aaff] [&::-moz-progress-bar]:bg-[#84aaff]" />
@@ -127,7 +133,9 @@ export default function AdmissionsProfileForm({ initialProfile, value, onChange,
       {isSection(4) && <section aria-label="MBA preferences"><SectionHeading eyebrow="5 / WHAT COMES NEXT" title="An MBA that fits your plans.">We’re starting with Delhi NCR. Your preferences help you compare options and build a shortlist on your terms.</SectionHeading><div className="grid gap-5 sm:grid-cols-2"><Field label="Programme"><select className={fieldClass} value={draft.preferences.programme || 'MBA/PGDM'} onChange={e => nested('preferences', 'programme', e.target.value)}>{['MBA/PGDM', 'MBA', 'PGDM', 'Executive MBA', 'Other'].map(value => <option key={value}>{value}</option>)}</select></Field><Field label="Study mode"><select className={fieldClass} value={draft.preferences.study_mode || 'Full time'} onChange={e => nested('preferences', 'study_mode', e.target.value)}>{['Full time', 'Part time', 'Executive', 'Online / distance'].map(value => <option key={value}>{value}</option>)}</select></Field><Input label="Preferred cities" value={draft.preferences.preferred_cities?.join(', ') || ''} onChange={e => nested('preferences', 'preferred_cities', e.target.value.split(','))} placeholder="Delhi NCR, Gurugram, Noida" hint="Separate cities with commas. The current directory covers Delhi NCR." /><Input label="Maximum programme fee (₹)" type="number" min="0" step="1" value={draft.preferences.max_fees_inr} onChange={e => nested('preferences', 'max_fees_inr', e.target.value)} placeholder="e.g. 2000000" hint="Optional. Compare tuition with your own budget." /><Input label="Preferred specialization" className="sm:col-span-2" value={draft.preferences.specialization} onChange={e => nested('preferences', 'specialization', e.target.value)} placeholder="e.g. Finance, Marketing, Business Analytics" /></div><div className="mt-6"><p className="mb-3 text-xs font-semibold text-[#10264c]">Institution preferences</p><div className="flex flex-wrap gap-2">{['Government', 'Private', 'University', 'Autonomous PGDM'].map(type => <label key={type} className={`flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2.5 text-xs transition ${(draft.preferences.college_types || []).includes(type) ? 'border-blue-200 bg-blue-50 text-[#225feb]' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}><input type="checkbox" className="accent-[#225feb]" checked={(draft.preferences.college_types || []).includes(type)} onChange={e => nested('preferences', 'college_types', e.target.checked ? [...draft.preferences.college_types || [], type] : (draft.preferences.college_types || []).filter(item => item !== type))} />{type}</label>)}</div></div><div className="mt-8 flex items-start gap-3 rounded-2xl bg-blue-50 p-5"><CheckCircle2 size={20} className="mt-0.5 shrink-0 text-[#225feb]" /><p className="text-xs leading-6 text-slate-600">You choose the colleges. Your profile powers an explainable match score; it is a guide to your shortlist and does not predict admission.</p></div></section>}
       {onSave && (saveError || error) && <div role="alert" className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-xs leading-6 text-red-700">{saveError || error}<p className="mt-1 text-red-600">Your entered information is still here. Check the connection and try saving again.</p></div>}
       {onSave && saved && <div role="status" className="mt-6 flex items-center gap-2 rounded-xl bg-emerald-50 p-4 text-xs text-emerald-700"><CheckCircle2 size={16} /> Your profile has been saved securely.</div>}
-      {onSave && <div className="mt-9 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-6"><div className="flex items-center gap-2">{active > 0 && <button type="button" onClick={() => setActive(active - 1)} className="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-xs font-medium text-slate-500 hover:bg-slate-50"><ArrowLeft size={15} /> Back</button>}<span className="text-[11px] text-slate-400">{dirty ? 'Unsaved changes' : 'Your profile, always editable'}</span></div><div className="flex flex-wrap gap-2"><button type="submit" disabled={saving} className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-xs font-semibold transition disabled:cursor-wait disabled:opacity-60 ${active === 4 || !onboarding ? 'bg-[#225feb] text-white shadow-lg shadow-blue-600/10 hover:bg-blue-700' : 'border border-slate-200 text-[#10264c] hover:bg-slate-50'}`}>{saving ? <LoaderCircle className="animate-spin" size={15} /> : <Check size={15} />}{saving ? 'Saving…' : submitLabel}</button>{active < 4 && <button type="button" onClick={() => setActive(active + 1)} className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-xs font-semibold transition ${onboarding ? 'bg-[#225feb] text-white hover:bg-blue-700' : 'bg-blue-50 text-[#225feb] hover:bg-blue-100'}`}>Continue <ArrowRight size={15} /></button>}{active === 4 && !onboarding && <a href="/colleges" className="inline-flex items-center gap-1 px-3 py-3 text-xs font-medium text-[#225feb]">Explore colleges <ChevronRight size={15} /></a>}</div></div>}
+      {onSave && guided && <p role="status" className="mt-6 text-[11px] leading-5 text-slate-500">{dirty ? 'Unsaved changes · Save & continue to keep them.' : 'Each step is saved when you continue.'}</p>}
+      {onSave && guided && <div className="mt-9 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-6">{onBack ? <button type="submit" value="back" className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-3 text-xs font-medium text-slate-600 hover:bg-slate-50"><ArrowLeft size={15}/>Save & back</button> : <span className="text-[11px] text-slate-400">You can update these details later.</span>}<button type="submit" value="continue" className="inline-flex items-center justify-center gap-2 rounded-full bg-[#225feb] px-6 py-3 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">{saving || disabled ? <LoaderCircle className="animate-spin" size={15}/> : <ArrowRight size={15}/>} {saving || disabled ? 'Saving…' : submitLabel}</button></div>}
+      {onSave && !guided && <div className="mt-9 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-6"><div className="flex items-center gap-2">{active > 0 && <button type="button" onClick={() => setActive(active - 1)} className="inline-flex items-center gap-2 rounded-xl px-3 py-3 text-xs font-medium text-slate-500 hover:bg-slate-50"><ArrowLeft size={15} /> Back</button>}<span className="text-[11px] text-slate-400">{dirty ? 'Unsaved changes' : 'Your profile, always editable'}</span></div><div className="flex flex-wrap gap-2"><button type="submit" disabled={saving} className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-xs font-semibold transition disabled:cursor-wait disabled:opacity-60 ${active === 4 || !onboarding ? 'bg-[#225feb] text-white shadow-lg shadow-blue-600/10 hover:bg-blue-700' : 'border border-slate-200 text-[#10264c] hover:bg-slate-50'}`}>{saving ? <LoaderCircle className="animate-spin" size={15} /> : <Check size={15} />}{saving ? 'Saving…' : submitLabel}</button>{active < 4 && <button type="button" onClick={() => setActive(active + 1)} className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-xs font-semibold transition ${onboarding ? 'bg-[#225feb] text-white hover:bg-blue-700' : 'bg-blue-50 text-[#225feb] hover:bg-blue-100'}`}>Continue <ArrowRight size={15} /></button>}{active === 4 && !onboarding && <a href="/colleges" className="inline-flex items-center gap-1 px-3 py-3 text-xs font-medium text-[#225feb]">Explore colleges <ChevronRight size={15} /></a>}</div></div>}
     </fieldset>
   </Container>
 }
