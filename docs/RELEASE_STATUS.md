@@ -1,6 +1,18 @@
 # Unidex admissions revamp — release handoff
 
-## Current release preparation — 18 October 2026
+## Document-led autofill — 20 October 2026
+
+The selected upload category now determines both the AI request and the allowed profile destinations through a shared pure contract. Class 10 and Class 12 sheets target their own academic sections; graduation, entrance scores, qualifications, work and defence records target their respective fields. Resume/Other remain multi-section. Category contradictions save no new suggestions; off-category fields are withheld rather than renamed. The browser applies the same restrictions to individual reviews, batch merges and older raw results.
+
+Extraction schema **4** records the canonical document type. Cache reuse requires the current model, schema, matching type and usable facts. Name-only academic reads remain visible as partial, including after personal details are reviewed. Explicit pending retries reread those files; normal reuse avoids repeated inference. The upload form explains which profile details each selected type can fill. See [DOCUMENT_AUTOFILL_MAPPING.md](DOCUMENT_AUTOFILL_MAPPING.md).
+
+Focused record prompts omit unrelated resume sections. A same-image mocked Class 10 request measured 5,787 → 4,137 characters; its output ceiling is 1,536 tokens instead of 8,192. Resume/Other request sizes are unchanged. These are request-construction measurements, not live latency or accuracy results.
+
+Validation: **1,006 tests across 45 suites**, full ESLint, production build and whitespace checks pass. Stable Supabase function version **31** retains platform JWT verification, with no test endpoints. Retrieved `index.ts` and `documentTargets.js` match local source exactly. Frontend delivery is recorded in the accompanying GitHub release PR. Live model accuracy and signed-in browser interactions remain unverified; only ordinary authentication-boundary checks are used on the deployed function.
+
+The following sections are historical engineering handoffs from the earlier release; their schema versions, source fingerprints and check counts describe those milestones.
+
+## Earlier release preparation — 18 October 2026
 
 The website now imports workbook **version 7**: **157 active institutions / 199 programmes**, with **16 held institutions / 17 programmes** retained only for audit. One institution card holds its programme choices. Programme-specific fees, eligibility, placements, sources and deadlines stay separate; conditional estimates and noncomparable outcomes are not promoted into verified numeric facts. Complete student-facing research loads on demand. See [DELHI_NCR_CATALOGUE.md](DELHI_NCR_CATALOGUE.md).
 

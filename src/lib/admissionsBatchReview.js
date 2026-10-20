@@ -1,8 +1,9 @@
 import { isAiImportPath, normalizeAiImports } from './admissionsProfile'
 import { applyAdmissionsDocumentReview, buildAdmissionsDocumentReview, comparableDocumentValues, DOCUMENT_REVIEW_NUMBERS, hasDocumentReviewValue } from './admissionsDocumentReview'
+import { ADMISSIONS_EXTRACTION_SCHEMA_VERSION, getAdmissionsDocumentTarget, scopeAdmissionsDocumentSuggestions } from '../../supabase/functions/admissions-ai-extract/documentTargets.js'
 
-export const ADMISSIONS_EXTRACTION_SCHEMA_VERSION = 3
-export const canReuseAdmissionsAiExtraction = document => document?.extraction_model === 'cloudflare:@cf/google/gemma-4-26b-a4b-it' && document?.extracted_data?.schema_version === ADMISSIONS_EXTRACTION_SCHEMA_VERSION && !['extracting', 'processing', 'error', 'failed'].includes(document?.status) && buildAdmissionsDocumentReview(getSafeAdmissionsDocumentSuggestions(document), {}).fields.length > 0
+export { ADMISSIONS_EXTRACTION_SCHEMA_VERSION }
+export const canReuseAdmissionsAiExtraction = document => document?.extraction_model === 'cloudflare:@cf/google/gemma-4-26b-a4b-it' && document?.extracted_data?.schema_version === ADMISSIONS_EXTRACTION_SCHEMA_VERSION && document?.extracted_data?.document_type === getAdmissionsDocumentTarget(document?.document_type).type && !['extracting', 'processing', 'error', 'failed'].includes(document?.status) && buildAdmissionsDocumentReview(getSafeAdmissionsDocumentSuggestions(document), {}).fields.length > 0
 const ROW_SECTIONS = ['exam_scores', 'work_experience', 'professional_qualifications']
 
 const text = value => String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase()
@@ -16,7 +17,7 @@ function set(value, path, next) {
 }
 const identityTypes = new Set(['pan_card', 'aadhaar_card', 'passport', 'government_id'])
 export function getSafeAdmissionsDocumentSuggestions(document) {
-  const source = object(document.extracted_data) ? document.extracted_data : {}
+  const source = scopeAdmissionsDocumentSuggestions(document?.extracted_data, document?.document_type)
   // Identity documents contribute only these printed common facts. Numbers,
   // addresses, machine-readable zones and raw identity text are never imported.
   return identityTypes.has(document.document_type) ? Object.fromEntries(['full_name', 'date_of_birth', 'nationality', 'current_city'].filter(key => hasDocumentReviewValue(source[key]) && typeof source[key] === 'string' && (key === 'date_of_birth' ? /^\d{4}-\d{2}-\d{2}$/.test(source[key]) : !/\d/.test(source[key]))).map(key => [key, source[key]])) : source

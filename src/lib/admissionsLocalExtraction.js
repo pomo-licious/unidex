@@ -1,5 +1,7 @@
 // The persistence boundary accepts supported profile facts only. Neither OCR
 // text, identity numbers, diagnostics nor arbitrary model keys reach the DB.
+import { scopeAdmissionsDocumentSuggestions } from '../../supabase/functions/admissions-ai-extract/documentTargets.js'
+
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 const identityTypes = new Set(['pan_card', 'aadhaar_card', 'passport', 'government_id'])
 const idNumber = /\b(?:[A-Z]{5}\d{4}[A-Z]|[A-Z]\d{7}|\d{4}[ -]?\d{4}[ -]?\d{4})\b/i
@@ -27,7 +29,7 @@ const year = value => number(value, new Date().getUTCFullYear() + 6, 1950, true)
 function put(target, key, value) { if (value !== undefined) target[key] = value }
 export function sanitizeLocalAdmissionsExtraction(value, documentType) {
   if (!record(value)) throw new Error('Extracted suggestions must be an object.')
-  value = Object.fromEntries(Object.entries(value))
+  value = scopeAdmissionsDocumentSuggestions(value, documentType)
   const result = {}, identity = identityTypes.has(documentType)
   for (const key of ['full_name', 'nationality', 'current_city', ...identity ? [] : ['gender']]) {
     const candidate = text(value[key])
