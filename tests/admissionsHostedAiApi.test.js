@@ -23,7 +23,7 @@ function harness(options = {}) {
     functions: { invoke: async (name, args) => {
       calls.push({ name, ...args })
       if (options.failure) return { error: { context: new Response(JSON.stringify(options.failure), { status: 503 }) } }
-      return { data: args.body.action === 'status' ? options.status || status : { ok: true, document: { ...document, status: 'needs_review', extraction_model: `cloudflare:${status.model}`, extracted_data: { schema_version: 3, academic_10th: { percentage: 87 } }, ...options.responseDocument } } }
+      return { data: args.body.action === 'status' ? options.status || status : { ok: true, document: { ...document, status: 'needs_review', extraction_model: `cloudflare:${status.model}`, extracted_data: { schema_version: 4, document_type: 'academic_10th', academic_10th: { percentage: 87 } }, ...options.responseDocument } } }
     } },
   }
   const scope = { supabase, DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, isDocumentType, normalizeAiImports, validateAdmissionsProfile, sanitizeLocalAdmissionsExtraction, canReuseAdmissionsAiExtraction, Uint8Array, DOMException, TextEncoder, prepareAdmissionsAiPages: async () => { events.prepared++; return { total_pages: 1, pages: [{ page_number: 1, mime_type: 'image/jpeg', data_base64: 'synthetic-page' }] } } }
@@ -53,7 +53,7 @@ describe('hosted AI client boundary', () => {
   })
   it('returns server-confirmed suggestions without writing to the profile', async () => {
     const test = harness()
-    expect((await test.api.extractHostedAdmissionsDocument(stored, OWNER, true)).extracted_data).toEqual({ schema_version: 3, academic_10th: { percentage: 87 } })
+    expect((await test.api.extractHostedAdmissionsDocument(stored, OWNER, true)).extracted_data).toEqual({ schema_version: 4, document_type: 'academic_10th', academic_10th: { percentage: 87 } })
   })
   it('rejects a response belonging to another document', async () => {
     const test = harness({ responseDocument: { id: '33333333-3333-4333-8333-333333333333' } })

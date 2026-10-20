@@ -1,12 +1,14 @@
 # Hosted AI profile builder — free account setup
 
+Document-led autofill uses the saved upload category to target the matching profile fields. See [DOCUMENT_AUTOFILL_MAPPING.md](DOCUMENT_AUTOFILL_MAPPING.md) for category destinations, partial-read handling and cache rules. Deploy both `index.ts` and its imported `documentTargets.js`; the canonical profile schema and database tables are unchanged.
+
 The website now prepares document pages for a hosted vision model, fills agreed empty profile fields and opens a prefilled review. It does not run Tesseract by default. Cloudflare Workers AI is the selected provider; the fixed model is `@cf/google/gemma-4-26b-a4b-it`.
 
-**Current configuration:** Cloudflare credentials, free-plan confirmation and enablement are connected. The stable schema-3 handler is deployed as version 30 with platform JWT verification enabled and no diagnostic hooks. These instructions remain useful for a new environment or an intentional credential rotation; no account activation step remains outstanding on the current project. The earlier schema-2 synthetic request confirmed reading/saving but missed richer facts. Complete live schema-3 rich-field calibration remains unverified, despite passing offline prompt/normalizer regressions. Final source parity and frontend publication are recorded in [RELEASE_STATUS.md](RELEASE_STATUS.md). Deployment or an enabled flag alone does not establish model accuracy.
+**Current configuration:** Cloudflare credentials, free-plan confirmation and enablement are connected. The stable schema-4 handler is deployed as version 31 with platform JWT verification enabled and no diagnostic hooks. These instructions remain useful for a new environment or an intentional credential rotation; no account activation step remains outstanding on the current project. The earlier schema-2 synthetic request confirmed reading/saving but missed richer facts. Complete live schema-4 rich-field calibration remains unverified, despite passing offline prompt/normalizer regressions. Final source parity and frontend publication are recorded in [RELEASE_STATUS.md](RELEASE_STATUS.md). Deployment or an enabled flag alone does not establish model accuracy.
 
 ## Current extraction contract
 
-The expanded output is extraction **schema version 3**. It captures supported personal details, school/graduation results, multiple exam/employment records, explicit GMAT edition, professional qualifications/doctorates and defence service. `professional_qualification` and `defence_service` upload categories complement the existing mark-sheet, résumé, work/CTC and optional ID categories. The canonical saved profile remains schema version 1; these JSON fields need no database migration.
+The expanded output is extraction **schema version 4**. It captures supported personal details, school/graduation results, multiple exam/employment records, explicit GMAT edition, professional qualifications/doctorates and defence service. `professional_qualification` and `defence_service` upload categories complement the existing mark-sheet, résumé, work/CTC and optional ID categories. The canonical saved profile remains schema version 1; these JSON fields need no database migration.
 
 Only usable results from `cloudflare:@cf/google/gemma-4-26b-a4b-it` with `extracted_data.schema_version === 3` and no failed/processing state qualify for automatic cache reuse. Old schemas can omit the new facts, so they must not be silently accepted as a fresh complete extraction. New output stays `needs_review`; a successful batch save is not a claim that every source document was human-reviewed or that every printed field was readable.
 
@@ -65,7 +67,7 @@ Sign in, open **Upload documents**, and confirm that AI availability changes fro
 
 The student sees document-sourced facts, corrections and missing information. Existing values are preserved; conflicts require review. Photos are applied directly and are never sent for text extraction. ID proofs remain optional; government identifiers are excluded from profile extraction.
 
-For schema-3 calibration, use a separate clearly synthetic record containing multiple employment rows, a professional qualification, explicit marks/scales and service details. Verify extracted values, cache version, source paths, review state and a revision-safe saved profile. A single synthetic pass does not establish accuracy on real certificates, every layout or browser member interactions. Record actual results in the release handoff rather than treating these setup instructions as a completed test report.
+For schema-4 calibration, use a separate clearly synthetic record containing multiple employment rows, a professional qualification, explicit marks/scales and service details. Verify extracted values, cache version, source paths, review state and a revision-safe saved profile. A single synthetic pass does not establish accuracy on real certificates, every layout or browser member interactions. Record actual results in the release handoff rather than treating these setup instructions as a completed test report.
 
 ## Limits and privacy
 

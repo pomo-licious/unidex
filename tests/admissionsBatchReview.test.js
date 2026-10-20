@@ -219,7 +219,7 @@ describe('complete profile document batch', () => {
 
 
 describe('expanded extraction cache safety', () => {
-  const current = { extraction_model: 'cloudflare:@cf/google/gemma-4-26b-a4b-it', extracted_data: { schema_version: 3, full_name: 'Synthetic Applicant' }, status: 'needs_review' }
+  const current = { document_type: 'other', extraction_model: 'cloudflare:@cf/google/gemma-4-26b-a4b-it', extracted_data: { schema_version: 4, document_type: 'other', full_name: 'Synthetic Applicant' }, status: 'needs_review' }
   it('reuses a current expanded result without another provider call', () => {
     expect(canReuseAdmissionsAiExtraction(current)).toBe(true)
   })
@@ -230,7 +230,7 @@ describe('expanded extraction cache safety', () => {
     expect(canReuseAdmissionsAiExtraction({ ...current, status: 'error' })).toBe(false)
   })
   it('does not count schema metadata and unknown keys as extracted admissions facts', () => {
-    expect(canReuseAdmissionsAiExtraction({ ...current, extracted_data: { schema_version: 3, arbitrary_text: 'Unknown data' } })).toBe(false)
+    expect(canReuseAdmissionsAiExtraction({ ...current, extracted_data: { schema_version: 4, document_type: 'other', arbitrary_text: 'Unknown data' } })).toBe(false)
   })
 })
 

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { AiServiceNotice, BatchApproval, BatchCompletion } from '../src/pages/DocumentUpload'
+import { AiServiceNotice, BatchApproval, BatchCompletion, DocumentTargetHelp } from '../src/pages/DocumentUpload'
+import DocumentCoveragePanel from '../src/components/DocumentCoveragePanel'
 
 const model = '@cf/google/gemma-4-26b-a4b-it'
 const status = { configured: true, enabled: true, free_plan_confirmed: true, provider: 'cloudflare', model }
@@ -8,6 +9,20 @@ const document = { id: 'synthetic-document', file_name: 'Synthetic Class 10.pdf'
 const approvalProps = { aiStatus: status, aiAvailable: true, documents: [document], reextract: false, onReextract: vi.fn(), autofillApproved: true, onAutofillApproval: vi.fn(), photoChoice: '', onPhotoChoice: vi.fn(), progress: null, busy: false, error: '', onStart: vi.fn(), onClose: vi.fn(), onCancel: vi.fn() }
 const approval = overrides => renderToStaticMarkup(<BatchApproval {...approvalProps} {...overrides}/>)
 const button = (html, text) => (html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) || []).find(markup => markup.includes(text))
+
+describe('selected category guidance', () => {
+  it('explains which school and result fields a Class 10 upload fills', () => {
+    expect(renderToStaticMarkup(<DocumentTargetHelp type="academic_10th"/>)).toMatch(/school, board, passing year and printed marks/)
+  })
+  it('changes guidance for an entrance scorecard', () => {
+    expect(renderToStaticMarkup(<DocumentTargetHelp type="exam_score"/>)).toContain('exam, year, edition, total score, percentile and printed section results')
+  })
+  it('does not describe a name-only mark-sheet extraction as a completed target read', () => {
+    const documents = [{ ...document, status: 'needs_review', extraction_model: `cloudflare:${model}`, extracted_data: { schema_version: 4, document_type: 'academic_10th', full_name: 'Test Applicant' } }]
+    const html = renderToStaticMarkup(<DocumentCoveragePanel documents={documents} onReview={vi.fn()} onBuildAll={vi.fn()} onExtractPending={vi.fn()}/>)
+    expect(html).toMatch(/0 of 1 documents read[\s\S]*no valid details for their selected document type[\s\S]*Target details missing[\s\S]*Check this document[\s\S]*Read 1 pending document with AI/)
+  })
+})
 
 describe('hosted AI availability', () => {
   it('shows connection checks before the service status is known', () => {
@@ -44,10 +59,10 @@ describe('AI processing and automatic profile fill approval', () => {
     expect(approval({ documents: [{ ...document, extraction_model: 'cloudflare:older-model', extracted_data: {} }] })).toContain('Read with Cloudflare AI')
   })
   it('reuses nonempty results only from the current exact Cloudflare model and schema', () => {
-    expect(approval({ documents: [{ ...document, status: 'needs_review', extraction_model: `cloudflare:${model}`, extracted_data: { schema_version: 3, full_name: 'Test Applicant' } }] })).toContain('Saved Cloudflare AI')
+    expect(approval({ documents: [{ ...document, status: 'needs_review', extraction_model: `cloudflare:${model}`, extracted_data: { schema_version: 4, document_type: 'academic_10th', full_name: 'Test Applicant' } }] })).toContain('Saved Cloudflare AI')
   })
   it('can reuse current saved results while new provider processing is unavailable', () => {
-    expect(button(approval({ aiAvailable: false, documents: [{ ...document, status: 'needs_review', extraction_model: `cloudflare:${model}`, extracted_data: { schema_version: 3, full_name: 'Test Applicant' } }] }), 'Build my profile with AI')).not.toContain('disabled=')
+    expect(button(approval({ aiAvailable: false, documents: [{ ...document, status: 'needs_review', extraction_model: `cloudflare:${model}`, extracted_data: { schema_version: 4, document_type: 'academic_10th', full_name: 'Test Applicant' } }] }), 'Build my profile with AI')).not.toContain('disabled=')
   })
   it('keeps private photo assignment available without an AI connection', () => {
     expect(button(approval({ aiStatus: null, aiAvailable: false, documents: [{ ...document, document_type: 'photo', mime_type: 'image/png' }] }), 'Use selected photo')).not.toContain('disabled=')

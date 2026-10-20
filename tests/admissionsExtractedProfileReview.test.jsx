@@ -87,6 +87,11 @@ describe('complete extracted-profile review', () => {
 })
 
 describe('expanded document review', () => {
+  it('keeps missing category details visible after a student checks the personal details found', () => {
+    const document = { id: sourceId, file_name: 'Class 10.pdf', document_type: 'academic_10th', status: 'reviewed', extraction_model: 'cloudflare:@cf/google/gemma-4-26b-a4b-it', extracted_data: { schema_version: 4, document_type: 'academic_10th', full_name: 'Student' } }
+    const html = renderToStaticMarkup(<MemoryRouter><ExtractedProfileReview profile={{ ...profile, ai_imports: [] }} user={user} documents={[document]} onEdit={() => {}}/></MemoryRouter>)
+    expect(html).toContain('Selected document details missing · check original')
+  })
   it('shows professional qualification title, institution, marks and field together', () => {
     expect(render({ ...profile, professional_qualifications: [{ _row_id: sourceId, qualification: 'CA', title: 'Chartered Accountant', institution: 'ICAI', status: 'completed', completion_year: 2021, percentage: 61.25, field: 'Accountancy' }] })).toContain('Chartered Accountant')
   })

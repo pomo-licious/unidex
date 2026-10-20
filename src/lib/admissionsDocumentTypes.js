@@ -10,3 +10,4 @@ export const IDENTITY_DOCUMENT_TYPES = ['pan_card', 'aadhaar_card', 'passport', 
 export const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 export const DOCUMENT_MIME_TYPES = ['application/pdf', ...IMAGE_MIME_TYPES]
 export const isDocumentType = value => Object.hasOwn(DOCUMENT_TYPE_LABELS, value)
+export { getAdmissionsDocumentTarget } from '../../supabase/functions/admissions-ai-extract/documentTargets.js'
